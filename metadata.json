@@ -1,0 +1,6 @@
+{
+  "name": "FreightFlow Tracker",
+  "description": "A high-precision freight payment and delay management system for tracking logistics timelines and payment statuses.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

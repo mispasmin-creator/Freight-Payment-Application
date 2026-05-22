@@ -1,0 +1,889 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { api, orderSupabase, purchaseSupabase } from "../api";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Calendar,
+  ExternalLink,
+  FileText,
+  Filter,
+  Hash,
+  IndianRupee,
+  Loader2,
+  Package,
+  PackageCheck,
+  Search,
+  Truck,
+  User,
+  X,
+  Check,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { FreightPayment } from "@/types";
+
+interface DispatchRow {
+  "D-Sr Number"?: string | number | null;
+  "Date Of Dispatch"?: string | null;
+  po_id?: string | number | null;
+  "Party Name"?: string | null;
+  "Product Name"?: string | null;
+  "Transporter Name"?: string | null;
+  "Truck No."?: string | null;
+  "Bilty No."?: string | number | null;
+  "Type Of Rate"?: string | null;
+  "Fixed Amount"?: number | string | null;
+  "Transport Rate @Per Matric Ton"?: number | string | null;
+  "Actual Truck Qty"?: number | string | null;
+  "Bill Number"?: string | number | null;
+  Planned1?: string | null;
+  Actual1?: string | null;
+  [key: string]: unknown;
+}
+
+interface OrderReceiptRow {
+  id?: string | number | null;
+  "Firm Name"?: string | null;
+  "Party Names"?: string | null;
+  "Product Name"?: string | null;
+  [key: string]: unknown;
+}
+
+interface DeliveryRow {
+  "D-Sr Number"?: string | number | null;
+  "Bilty No."?: string | number | null;
+  "Bilty Copy"?: string | null;
+  [key: string]: unknown;
+}
+
+interface FullKittinRow {
+  "Lift No"?: string | null;
+  "Bilty Number"?: string | null;
+  "Transporter Name"?: string | null;
+  "Vehicle Number"?: string | null;
+  "Bilty Image"?: string | null;
+  Amount?: number | string | null;
+  [key: string]: unknown;
+}
+
+interface LiftAccountRow {
+  "Lift No"?: string | null;
+  Timestamp?: string | null;
+  "Firm Name"?: string | null;
+  "Vendor Name"?: string | null;
+  "Raw Material Name"?: string | null;
+  "Transporter Name"?: string | null;
+  "Truck No."?: string | null;
+  "Bilty No."?: string | null;
+  "Bilty No. 2"?: string | null;
+  "Bilty Image"?: string | null;
+  "Transporter Rate"?: number | string | null;
+  "Lifting Qty"?: number | string | null;
+  "Total Bill Quantity"?: number | string | null;
+  "Bill No."?: string | null;
+  [key: string]: unknown;
+}
+
+interface MismatchRow {
+  "Lift No"?: string | null;
+  "Bilty No."?: string | null;
+  "Truck No."?: string | null;
+  "Transporter Name"?: string | null;
+  "Bilty Image"?: string | null;
+  [key: string]: unknown;
+}
+
+interface KittingHistoryItem {
+  liftId: string;
+  date: string;
+  firmName: string;
+  partyName: string;
+  productName: string;
+  transporterName: string;
+  vehicleNumber: string;
+  biltyNumber: string;
+  biltyImage: string;
+  freightAmount: number | null;
+  billingQty: number | null;
+  billNo: string;
+}
+
+const str = (v: unknown): string => (v != null ? String(v).trim() : "");
+
+const num = (v: unknown): number | null => {
+  if (v === undefined || v === null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+
+const isFilled = (v: unknown): boolean => str(v) !== "";
+
+const validBilty = (v: unknown): boolean => {
+  const value = str(v).toLowerCase();
+  return value !== "" && value !== "000000" && value !== "0" && value !== "-";
+};
+
+const formatDate = (dateStr?: string | null) => {
+  if (!dateStr) return "-";
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return dateStr;
+  }
+};
+
+const formatCurrency = (amount?: number | null) => {
+  if (amount === undefined || amount === null) return "-";
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(amount);
+};
+
+const getRowUniqueId = (row: KittingHistoryItem): string => {
+  return `KIT-${row.liftId}-${row.biltyNumber || ""}-${row.vehicleNumber || ""}`.replace(
+    /\s+/g,
+    "",
+  );
+};
+
+const toSystemPayment = (row: KittingHistoryItem): Partial<FreightPayment> => {
+  const uniqueId = getRowUniqueId(row);
+  return {
+    "Payment Number": uniqueId,
+    "Unique Number": uniqueId,
+    "Lift ID": row.liftId,
+    "Firm Name": row.firmName,
+    "Fms Name": "Check Kitting",
+    Status: "Pending",
+    "Transporter Name": row.transporterName,
+    "Vehicle Number": row.vehicleNumber,
+    "Material Load Details": row.productName,
+    "Bilty Number": row.biltyNumber,
+    "Rate Type": "External",
+    Amount: row.freightAmount ?? 0,
+    "Bilty Image": row.biltyImage,
+    Timestamp: row.date || new Date().toISOString(),
+    "Party Name": row.partyName || undefined,
+    "Billing Qty": row.billingQty ?? undefined,
+    "Bill Number": row.billNo || undefined,
+  };
+};
+
+function buildPurchaseRows(
+  fullkittin: FullKittinRow[],
+  liftAccounts: LiftAccountRow[],
+  mismatch: MismatchRow[],
+): KittingHistoryItem[] {
+  const doneLiftNos = new Set<string>();
+  const fkByLiftNo = new Map<string, FullKittinRow>();
+  const fkByBilty = new Map<string, FullKittinRow>();
+
+  for (const fk of fullkittin) {
+    const fkLiftNo = str(fk["Lift No"]).toLowerCase();
+    const fkBilty = str(fk["Bilty Number"]).toLowerCase();
+
+    if (fkLiftNo) {
+      doneLiftNos.add(fkLiftNo);
+      fkByLiftNo.set(fkLiftNo, fk);
+    }
+
+    if (validBilty(fkBilty)) {
+      doneLiftNos.add(`bilty:${fkBilty}`);
+      fkByBilty.set(fkBilty, fk);
+    }
+  }
+
+  const mmByLift = new Map<string, MismatchRow>();
+  for (const mm of mismatch) {
+    const key = str(mm["Lift No"]).toLowerCase();
+    if (key) mmByLift.set(key, mm);
+  }
+
+  const merged: KittingHistoryItem[] = [];
+
+  for (const la of liftAccounts) {
+    const liftNum = str(la["Lift No"]).toLowerCase();
+    const biltyNo1 = str(la["Bilty No."]).toLowerCase();
+    const biltyNo2 = str(la["Bilty No. 2"]).toLowerCase();
+    const mm = liftNum ? mmByLift.get(liftNum) : undefined;
+    const mmBilty = str(mm?.["Bilty No."]).toLowerCase();
+
+    const isDone =
+      (liftNum !== "" && doneLiftNos.has(liftNum)) ||
+      (validBilty(biltyNo1) && doneLiftNos.has(`bilty:${biltyNo1}`)) ||
+      (validBilty(biltyNo2) && doneLiftNos.has(`bilty:${biltyNo2}`)) ||
+      (validBilty(mmBilty) && doneLiftNos.has(`bilty:${mmBilty}`));
+
+    if (!isDone) continue;
+
+    let fk: FullKittinRow | undefined;
+    if (liftNum && fkByLiftNo.has(liftNum)) {
+      fk = fkByLiftNo.get(liftNum);
+    } else if (biltyNo1 && fkByBilty.has(biltyNo1)) {
+      fk = fkByBilty.get(biltyNo1);
+    } else if (biltyNo2 && fkByBilty.has(biltyNo2)) {
+      fk = fkByBilty.get(biltyNo2);
+    } else if (mmBilty && fkByBilty.has(mmBilty)) {
+      fk = fkByBilty.get(mmBilty);
+    }
+
+    merged.push({
+      liftId: str(la["Lift No"]) || "-",
+      date: str(la.Timestamp),
+      firmName: str(la["Firm Name"]),
+      partyName: str(la["Vendor Name"]),
+      productName: str(la["Raw Material Name"]),
+      transporterName:
+        str(fk?.["Transporter Name"]) ||
+        str(mm?.["Transporter Name"]) ||
+        str(la["Transporter Name"]) ||
+        "-",
+      vehicleNumber:
+        str(fk?.["Vehicle Number"]) ||
+        str(mm?.["Truck No."]) ||
+        str(la["Truck No."]) ||
+        "-",
+      biltyNumber:
+        str(fk?.["Bilty Number"]) ||
+        str(mm?.["Bilty No."]) ||
+        str(la["Bilty No."]) ||
+        "-",
+      biltyImage:
+        str(fk?.["Bilty Image"]) ||
+        str(mm?.["Bilty Image"]) ||
+        str(la["Bilty Image"]),
+      freightAmount:
+        fk?.Amount != null ? num(fk.Amount) : num(la["Transporter Rate"]),
+      billingQty: num(la["Lifting Qty"]) ?? num(la["Total Bill Quantity"]),
+      billNo: str(la["Bill No."]) || "-",
+    });
+  }
+
+  return merged;
+}
+
+function buildOrderRows(
+  dispatchRows: DispatchRow[],
+  orderRows: OrderReceiptRow[],
+  deliveryRows: DeliveryRow[],
+): KittingHistoryItem[] {
+  const ordersById = new Map<string, OrderReceiptRow>();
+  for (const order of orderRows) {
+    const key = str(order.id);
+    if (key) ordersById.set(key, order);
+  }
+
+  const deliveryByDsr = new Map<string, DeliveryRow>();
+  for (const delivery of deliveryRows) {
+    const key = str(delivery["D-Sr Number"]);
+    if (key && !deliveryByDsr.has(key)) deliveryByDsr.set(key, delivery);
+  }
+
+  return dispatchRows
+    .filter(
+      (dispatch) => isFilled(dispatch.Planned1) && isFilled(dispatch.Actual1),
+    )
+    .map((dispatch) => {
+      const order = ordersById.get(str(dispatch.po_id));
+      const delivery = deliveryByDsr.get(str(dispatch["D-Sr Number"]));
+      const fixedAmount = num(dispatch["Fixed Amount"]);
+      const ratePerMt = num(dispatch["Transport Rate @Per Matric Ton"]) ?? 0;
+      const actualQty = num(dispatch["Actual Truck Qty"]);
+      const freightAmount =
+        str(dispatch["Type Of Rate"]).toLowerCase() === "fixed amount"
+          ? fixedAmount
+          : ratePerMt * (actualQty ?? 0);
+
+      return {
+        liftId: str(dispatch["D-Sr Number"]) || "-",
+        date: str(dispatch["Date Of Dispatch"]),
+        firmName: str(order?.["Firm Name"]),
+        partyName: str(dispatch["Party Name"]) || str(order?.["Party Names"]),
+        productName:
+          str(dispatch["Product Name"]) || str(order?.["Product Name"]),
+        transporterName: str(dispatch["Transporter Name"]) || "-",
+        vehicleNumber: str(dispatch["Truck No."]) || "-",
+        biltyNumber:
+          str(dispatch["Bilty No."]) || str(delivery?.["Bilty No."]) || "-",
+        biltyImage: str(delivery?.["Bilty Copy"]),
+        freightAmount,
+        billingQty: actualQty,
+        billNo: str(dispatch["Bill Number"]) || "-",
+      };
+    });
+}
+
+export function FullKittingHistory() {
+  const queryClient = useQueryClient();
+  const [rows, setRows] = useState<KittingHistoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchParty, setSearchParty] = useState("");
+  const [searchProduct, setSearchProduct] = useState("");
+  const [searchFirm, setSearchFirm] = useState("");
+  const [processingId, setProcessingId] = useState<string | null>(null);
+  const [processedIds, setProcessedIds] = useState<Set<string>>(new Set());
+  const [processMessage, setProcessMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const [
+          fkRes,
+          laRes,
+          mmRes,
+          dispatchRes,
+          orderRes,
+          deliveryRes,
+          processedRes,
+        ] = await Promise.all([
+          purchaseSupabase.from("fullkittin").select("*"),
+          purchaseSupabase.from("LIFT-ACCOUNTS").select("*"),
+          purchaseSupabase.from("Mismatch").select("*"),
+          orderSupabase
+            .from("DISPATCH")
+            .select("*")
+            .not("Planned1", "is", null)
+            .not("Actual1", "is", null),
+          orderSupabase.from("ORDER RECEIPT").select("*"),
+          orderSupabase.from("DELIVERY").select("*"),
+          api.getCheckKittingPayments(),
+        ]);
+
+        if (fkRes.error) throw fkRes.error;
+        if (laRes.error) throw laRes.error;
+        if (mmRes.error) throw mmRes.error;
+        if (dispatchRes.error) throw dispatchRes.error;
+        if (orderRes.error) throw orderRes.error;
+        if (deliveryRes.error) throw deliveryRes.error;
+
+        const fullkittin: FullKittinRow[] = fkRes.data || [];
+        const liftAccounts: LiftAccountRow[] = laRes.data || [];
+        const mismatch: MismatchRow[] = mmRes.data || [];
+        const dispatchRows: DispatchRow[] = dispatchRes.data || [];
+        const orderRows: OrderReceiptRow[] = orderRes.data || [];
+        const deliveryRows: DeliveryRow[] = deliveryRes.data || [];
+
+        const merged = [
+          ...buildPurchaseRows(fullkittin, liftAccounts, mismatch),
+          ...buildOrderRows(dispatchRows, orderRows, deliveryRows),
+        ];
+
+        const pIds = new Set<string>();
+        for (const p of processedRes || []) {
+          const uNum =
+            p["Unique Number"] || (p["Lift ID"] ? `KIT-${p["Lift ID"]}` : "");
+          if (uNum) {
+            pIds.add(uNum);
+          }
+        }
+
+        if (!cancelled) {
+          setRows(merged);
+          setProcessedIds(pIds);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Failed to load kitting records",
+          );
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const filtered = useMemo(() => {
+    return rows.filter((r) => {
+      const term = searchTerm.trim().toLowerCase();
+      const searchOk =
+        !term ||
+        [
+          r.liftId,
+          r.date,
+          r.firmName,
+          r.partyName,
+          r.productName,
+          r.transporterName,
+          r.vehicleNumber,
+          r.biltyNumber,
+          r.billNo,
+        ]
+          .filter(Boolean)
+          .some((value) => value.toLowerCase().includes(term));
+      const partyOk = !searchParty || r.partyName === searchParty;
+      const productOk = !searchProduct || r.productName === searchProduct;
+      const firmOk = !searchFirm || r.firmName === searchFirm;
+      return searchOk && partyOk && productOk && firmOk;
+    });
+  }, [rows, searchTerm, searchParty, searchProduct, searchFirm]);
+
+  const partyOptions = useMemo(
+    () =>
+      Array.from(new Set(rows.map((r) => r.partyName).filter(Boolean))).sort(),
+    [rows],
+  );
+  const productOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(rows.map((r) => r.productName).filter(Boolean)),
+      ).sort(),
+    [rows],
+  );
+  const firmOptions = useMemo(
+    () =>
+      Array.from(new Set(rows.map((r) => r.firmName).filter(Boolean))).sort(),
+    [rows],
+  );
+
+  const hasFilters = searchTerm || searchParty || searchProduct || searchFirm;
+
+  const processRow = async (row: KittingHistoryItem) => {
+    const uniqueId = getRowUniqueId(row);
+    setProcessingId(uniqueId);
+    setProcessMessage(null);
+
+    try {
+      await api.processKittingPayment(toSystemPayment(row));
+      setProcessedIds((prev) => new Set(prev).add(uniqueId));
+      setProcessMessage(`Processed ${row.liftId} successfully`);
+      queryClient.invalidateQueries({ queryKey: ["check-kitting-payments"] });
+      queryClient.invalidateQueries({ queryKey: ["freight-payments"] });
+    } catch (err) {
+      setProcessMessage(
+        err instanceof Error ? err.message : "Failed to process record",
+      );
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="w-full rounded-xl border border-slate-200 bg-white overflow-hidden">
+        <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+          <div className="h-5 w-48 bg-slate-200 rounded animate-pulse" />
+        </div>
+        <div className="flex items-center justify-center gap-2 py-8 text-sm text-slate-400">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Loading kitting history...
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="w-full rounded-xl border border-rose-200 bg-rose-50 p-6 text-center">
+        <p className="text-sm font-semibold text-rose-700">{error}</p>
+        <p className="text-xs text-rose-400 mt-1">
+          Check Purchase/ORDER Supabase connection, table names, and RLS
+          permissions.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+      <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/40 flex flex-wrap gap-3 items-center">
+        <div className="relative flex-1 min-w-[220px] max-w-sm">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search records..."
+            className="w-full pl-8 pr-7 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 bg-white"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2"
+            >
+              <X className="w-3 h-3 text-slate-400 hover:text-slate-600" />
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+          <Filter className="w-3.5 h-3.5" />
+          Filters
+        </div>
+
+        <select
+          value={searchParty}
+          onChange={(e) => setSearchParty(e.target.value)}
+          className="h-8 min-w-[150px] bg-white border border-slate-200 rounded-lg px-2 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+        >
+          <option value="">All parties</option>
+          {partyOptions.map((party) => (
+            <option key={party} value={party}>
+              {party}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={searchProduct}
+          onChange={(e) => setSearchProduct(e.target.value)}
+          className="h-8 min-w-[150px] bg-white border border-slate-200 rounded-lg px-2 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+        >
+          <option value="">All products</option>
+          {productOptions.map((product) => (
+            <option key={product} value={product}>
+              {product}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={searchFirm}
+          onChange={(e) => setSearchFirm(e.target.value)}
+          className="h-8 min-w-[130px] bg-white border border-slate-200 rounded-lg px-2 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+        >
+          <option value="">All firms</option>
+          {firmOptions.map((firm) => (
+            <option key={firm} value={firm}>
+              {firm}
+            </option>
+          ))}
+        </select>
+
+        {hasFilters && (
+          <button
+            onClick={() => {
+              setSearchTerm("");
+              setSearchParty("");
+              setSearchProduct("");
+              setSearchFirm("");
+            }}
+            className="text-[11px] font-semibold text-slate-400 hover:text-rose-500 transition-colors flex items-center gap-1"
+          >
+            <X className="w-3 h-3" />
+            Clear
+          </button>
+        )}
+
+        <div className="ml-auto text-xs font-medium text-slate-500">
+          Showing{" "}
+          <span className="font-bold text-slate-700">{filtered.length}</span> of{" "}
+          <span className="font-bold text-slate-700">{rows.length}</span> kitted
+          records
+        </div>
+      </div>
+
+      {processMessage && (
+        <div className="px-4 py-2 border-b border-slate-100 bg-slate-50 text-xs font-semibold text-slate-600">
+          {processMessage}
+        </div>
+      )}
+
+      {filtered.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+          <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mb-4">
+            <PackageCheck className="w-7 h-7 text-emerald-400" />
+          </div>
+          <h3 className="text-base font-semibold text-slate-700 mb-1">
+            No kitting history found
+          </h3>
+          <p className="text-sm text-slate-400 max-w-sm">
+            {hasFilters
+              ? "No records match your current filters."
+              : "Completed kitting and dispatch records will appear here once data is synced."}
+          </p>
+        </div>
+      )}
+
+      {filtered.length > 0 && (
+        <>
+          <div className="md:hidden divide-y divide-slate-100">
+            {filtered.map((r, i) => (
+              <div key={`${r.liftId}-${i}`} className="p-4 bg-white">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex-1 min-w-0 mr-3">
+                    <span className="font-mono font-bold text-sm text-slate-800">
+                      {r.liftId}
+                    </span>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                      {r.firmName && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-700 font-semibold text-xs">
+                          {r.firmName}
+                        </span>
+                      )}
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold text-[10px] uppercase tracking-wide">
+                        Kitted
+                      </span>
+                    </div>
+                  </div>
+                  <span className="font-bold text-base text-slate-900 shrink-0">
+                    {formatCurrency(r.freightAmount)}
+                  </span>
+                </div>
+                <Button
+                  size="sm"
+                  disabled={
+                    processingId === getRowUniqueId(r) ||
+                    processedIds.has(getRowUniqueId(r)) ||
+                    processedIds.has(`KIT-${r.liftId}`)
+                  }
+                  onClick={() => processRow(r)}
+                  className="w-full mb-3 h-9 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <Check className="w-3.5 h-3.5 mr-1.5" />
+                  {processedIds.has(getRowUniqueId(r)) ||
+                  processedIds.has(`KIT-${r.liftId}`)
+                    ? "Processed"
+                    : processingId === getRowUniqueId(r)
+                      ? "Processing..."
+                      : "Process"}
+                </Button>
+
+                <div className="text-xs text-slate-500 space-y-1 mb-3">
+                  <div className="flex items-center gap-1.5">
+                    <User className="w-3 h-3 text-slate-400 shrink-0" />
+                    <span>{r.partyName || "-"}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Package className="w-3 h-3 text-slate-400 shrink-0" />
+                    <span>{r.productName || "-"}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Truck className="w-3 h-3 text-slate-400 shrink-0" />
+                    <span>{r.transporterName}</span>
+                    {r.vehicleNumber !== "-" && (
+                      <span className="font-mono text-slate-400">
+                        - {r.vehicleNumber}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Hash className="w-3 h-3 text-slate-400 shrink-0" />
+                    <span>Bilty: {r.biltyNumber}</span>
+                    {r.biltyImage && (
+                      <a
+                        href={r.biltyImage}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 ml-1 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 bg-blue-50 rounded hover:bg-blue-100 transition-colors"
+                      >
+                        <ExternalLink className="w-2.5 h-2.5" />
+                        View
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 text-[11px] text-slate-400">
+                  <span>
+                    <Calendar className="w-3 h-3 inline mr-1" />
+                    {formatDate(r.date)}
+                  </span>
+                  <span>Qty: {r.billingQty ?? "-"}</span>
+                  <span>Bill: {r.billNo}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="hidden md:block overflow-x-auto scrollbar-thin scrollbar-track-slate-100 scrollbar-thumb-slate-300">
+            <Table className="min-w-max">
+              <TableHeader>
+                <TableRow className="border-b border-slate-200 bg-slate-50/80 hover:bg-slate-50/80">
+                  {[
+                    "Action",
+                    "Lift ID",
+                    "Date",
+                    "Firm",
+                    "Party / Vendor",
+                    "Product",
+                    "Transporter",
+                    "Truck No.",
+                    "Bilty No.",
+                    "Freight Amt",
+                    "Billing Qty",
+                    "Bill No.",
+                    "Bilty Image",
+                  ].map((h, i) => (
+                    <TableHead
+                      key={h}
+                      className={cn(
+                        "h-10 text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap",
+                        i === 0 &&
+                          "sticky left-0 bg-slate-50/80 z-10 shadow-[4px_0_6px_-4px_rgba(0,0,0,0.05)]",
+                        h === "Freight Amt" && "text-right",
+                      )}
+                    >
+                      {h}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((r, idx) => (
+                  <TableRow
+                    key={`${r.liftId}-${idx}`}
+                    className={cn(
+                      "border-b border-slate-100 hover:bg-slate-50/50 transition-colors duration-150",
+                      idx % 2 === 0 ? "bg-white" : "bg-slate-50/30",
+                    )}
+                  >
+                    <TableCell className="py-3 sticky left-0 bg-inherit z-20 shadow-[4px_0_6px_-4px_rgba(0,0,0,0.05)]">
+                      <Button
+                        size="sm"
+                        disabled={
+                          processingId === getRowUniqueId(r) ||
+                          processedIds.has(getRowUniqueId(r)) ||
+                          processedIds.has(`KIT-${r.liftId}`)
+                        }
+                        onClick={() => processRow(r)}
+                        className="h-7 px-3 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white"
+                      >
+                        <Check className="w-3.5 h-3.5 mr-1" />
+                        {processedIds.has(getRowUniqueId(r)) ||
+                        processedIds.has(`KIT-${r.liftId}`)
+                          ? "Processed"
+                          : processingId === getRowUniqueId(r)
+                            ? "Processing"
+                            : "Process"}
+                      </Button>
+                    </TableCell>
+                    <TableCell className="py-3">
+                      <span className="font-mono font-bold text-sm text-slate-800">
+                        {r.liftId}
+                      </span>
+                    </TableCell>
+                    <TableCell className="py-3 text-sm text-slate-600 whitespace-nowrap">
+                      {formatDate(r.date)}
+                    </TableCell>
+                    <TableCell className="py-3">
+                      {r.firmName ? (
+                        <div className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-700 font-semibold text-xs whitespace-nowrap">
+                          {r.firmName}
+                        </div>
+                      ) : (
+                        <span className="text-slate-300">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="py-3">
+                      <div
+                        className="text-sm font-medium text-slate-700 truncate max-w-[160px]"
+                        title={r.partyName}
+                      >
+                        {r.partyName || "-"}
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-3">
+                      <div
+                        className="text-sm text-slate-600 truncate max-w-[180px]"
+                        title={r.productName}
+                      >
+                        {r.productName || "-"}
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-3">
+                      <div
+                        className="text-sm text-slate-600 truncate max-w-[150px]"
+                        title={r.transporterName}
+                      >
+                        {r.transporterName}
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-3">
+                      <span className="font-mono text-sm text-slate-600">
+                        {r.vehicleNumber}
+                      </span>
+                    </TableCell>
+                    <TableCell className="py-3">
+                      <span className="font-mono text-sm text-slate-600">
+                        {r.biltyNumber}
+                      </span>
+                    </TableCell>
+                    <TableCell className="py-3 text-right">
+                      <span className="font-bold text-sm text-slate-900">
+                        {formatCurrency(r.freightAmount)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="py-3 text-center">
+                      <span className="text-sm text-slate-600">
+                        {r.billingQty ?? "-"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="py-3">
+                      <span className="font-mono text-sm text-slate-600">
+                        {r.billNo}
+                      </span>
+                    </TableCell>
+                    <TableCell className="py-3">
+                      {r.biltyImage ? (
+                        <a
+                          href={r.biltyImage}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-semibold text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap"
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          View
+                        </a>
+                      ) : (
+                        <span className="text-slate-300 text-xs">-</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          <div className="px-4 py-2.5 border-t border-slate-100 bg-slate-50/30 text-xs text-slate-500 flex justify-between items-center">
+            <div className="flex items-center gap-1">
+              <IndianRupee className="w-3 h-3" />
+              Total Freight:{" "}
+              <span className="font-semibold text-slate-700 ml-1">
+                {formatCurrency(
+                  filtered.reduce((s, r) => s + (r.freightAmount ?? 0), 0),
+                )}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+              </span>
+              <span>Synced from Purchase FMS + Order FMS</span>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
