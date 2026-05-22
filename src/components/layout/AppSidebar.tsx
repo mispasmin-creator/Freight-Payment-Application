@@ -177,7 +177,7 @@ export function AppSidebar({
             label="Freight Payments"
             active={activeTab === "freight"}
             onClick={() => onNavigate("freight")}
-            badge={totalCount > 0 ? totalCount.toString() : undefined}
+            // badge={totalCount > 0 ? totalCount.toString() : undefined}
             collapsed={collapsed}
           />
         )}
