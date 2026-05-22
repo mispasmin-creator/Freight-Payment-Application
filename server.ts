@@ -9,11 +9,11 @@ dotenv.config();
 const app = express();
 const PORT = 3000;
 
-const supabaseUrl = process.env.SUPABASE_URL || "https://tpdsnomwjuzgzvyxehpc.supabase.co";
-const supabaseKey = process.env.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwZHNub213anV6Z3p2eXhlaHBjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxNjk0NjcsImV4cCI6MjA5NDc0NTQ2N30.1KQAYw6D0HU-HihpXtbsIDcsyM347pa3XMFyXCfzclQ";
+const supabaseUrl = process.env.SUPABASE_URL || "https://placeholder.supabase.co";
+const supabaseKey = process.env.SUPABASE_ANON_KEY || "";
 
-if (!supabaseKey) {
-  console.warn("WARNING: SUPABASE_ANON_KEY is missing. API calls will fail.");
+if (!process.env.SUPABASE_URL || !supabaseKey) {
+  console.warn("WARNING: Supabase credentials are missing. API calls will fail.");
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey);

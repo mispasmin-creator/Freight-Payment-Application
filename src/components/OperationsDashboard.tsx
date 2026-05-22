@@ -6,11 +6,8 @@ import {
   AlertCircle,
   CheckCircle2,
   ArrowRight,
-  Activity,
   FileText,
   Banknote,
-  Zap,
-  BarChart3,
   Truck,
   Calendar,
   DollarSign,
@@ -31,38 +28,42 @@ interface OperationsDashboardProps {
 
 export function OperationsDashboard({ payments, onNavigate, onRefresh }: OperationsDashboardProps) {
   const [lastUpdated] = useState(new Date());
+  const isDone = (status?: string | null) => {
+    const normalized = String(status || "").trim().toLowerCase();
+    return normalized === "done" || normalized === "completed";
+  };
+  const amountOf = (payment: FreightPayment) => Number(payment.Amount || 0);
 
   // Derived metrics
   const totalShipments = payments.length;
-  const completedShipments = payments.filter(p => p.Status === "Completed").length;
+  const completedShipments = payments.filter(p => isDone(p.Status)).length;
 
   // Step-specific pending counts (more accurate)
-  const pendingKitting = payments.filter(p =>
-    p.Status3 !== "Done" && p.Status3 !== "Completed"
-  ).length;
+  const pendingKitting = 0;
   const pendingPosting = payments.filter(p =>
-    (p.Status3 === "Done" || p.Status3 === "Completed") &&
-    p.Status_1 !== "Done" && p.Status_1 !== "Completed"
+    isDone(p.Status3) && !isDone(p.Status_1)
   ).length;
-  const pendingPayment = payments.filter(p =>
-    (p.Status_1 === "Done" || p.Status_1 === "Completed") &&
-    p.Status2 !== "Completed"
+  const pendingMakePayment = payments.filter(p =>
+    isDone(p.Status_1) && !isDone(p.Status2)
+  ).length;
+  const pendingFreightPayment = payments.filter(p =>
+    isDone(p.Status2) && !isDone(p.Status)
   ).length;
 
   // Delay metrics
   const delayedShipments = payments.filter(p =>
-    (p.Delay || 0) > 0 || (p.Delay2 || 0) > 0 || (p.Delay3 || 0) > 0
+    (p.Delay || 0) > 0 || (p.Delay2 || 0) > 0 || (p.Delay4 || 0) > 0
   ).length;
   const totalDelayDays = payments.reduce((sum, p) =>
-    sum + Math.max(p.Delay || 0, p.Delay2 || 0, p.Delay3 || 0), 0
+    sum + Math.max(p.Delay || 0, p.Delay2 || 0, p.Delay4 || 0), 0
   );
   const avgDelay = totalShipments > 0 ? Number((totalDelayDays / totalShipments).toFixed(1)) : 0;
 
   // Financial summary
-  const totalAmount = payments.reduce((sum, p) => sum + (p.Amount || 0), 0);
-  const completedAmount = payments
-    .filter(p => p.Status === "Completed")
-    .reduce((sum, p) => sum + (p.Amount || 0), 0);
+  const totalAmount = payments.reduce((sum, p) => sum + amountOf(p), 0);
+  const paidAmount = payments
+    .filter(p => isDone(p.Status))
+    .reduce((sum, p) => sum + amountOf(p), 0);
 
   // Success rate
   const successRate = totalShipments > 0 ? (completedShipments / totalShipments) * 100 : 0;
@@ -70,29 +71,22 @@ export function OperationsDashboard({ payments, onNavigate, onRefresh }: Operati
   // Get delayed shipments with detailed info
   const delayedShipmentsList = useMemo(() =>
     payments
-      .filter(p => (p.Delay || 0) > 0 || (p.Delay2 || 0) > 0 || (p.Delay3 || 0) > 0)
+      .filter(p => (p.Delay || 0) > 0 || (p.Delay2 || 0) > 0 || (p.Delay4 || 0) > 0)
       .map(p => {
-        const delayKitting = p.Delay3 || 0;
         const delayPosting = p.Delay || 0;
-        const delayPayment = p.Delay2 || 0;
-        const maxDelay = Math.max(delayKitting, delayPosting, delayPayment);
+        const delayMakePayment = p.Delay2 || 0;
+        const delayFreightPayment = p.Delay4 || 0;
+        const maxDelay = Math.max(delayPosting, delayMakePayment, delayFreightPayment);
         let step = "";
-        if (maxDelay === delayKitting) step = "Kitting";
-        else if (maxDelay === delayPosting) step = "Posting";
-        else step = "Payment";
+        if (maxDelay === delayPosting) step = "Posting";
+        else if (maxDelay === delayMakePayment) step = "Make Payment";
+        else step = "Freight Payment";
         return { ...p, maxDelay, step };
       })
       .sort((a, b) => b.maxDelay - a.maxDelay)
       .slice(0, 5),
     [payments]
   );
-
-  // Helper for progress percentage (ensure min 4% for visibility)
-  const getProgressWidth = (value: number, total: number) => {
-    if (total === 0) return "0%";
-    const percent = (value / total) * 100;
-    return `${Math.max(percent, 4)}%`;
-  };
 
   const formatCurrency = (amount?: number) => {
     if (!amount) return "₹0";
@@ -189,7 +183,7 @@ export function OperationsDashboard({ payments, onNavigate, onRefresh }: Operati
       </div>
 
       {/* KPI Row with Progress Bars */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
         <KpiCard
           title="Kitting"
           pending={pendingKitting}
@@ -197,9 +191,7 @@ export function OperationsDashboard({ payments, onNavigate, onRefresh }: Operati
           color="emerald"
           icon={<Package className="w-5 h-5" />}
           onClick={() => onNavigate("checkkitting")}
-          metric={formatCurrency(payments.reduce((sum, p) =>
-            p.Status3 === "Done" || p.Status3 === "Completed" ? sum + (p.Amount || 0) : sum, 0
-          ))}
+          metric={formatCurrency(totalAmount)}
         />
         <KpiCard
           title="Posting"
@@ -208,20 +200,25 @@ export function OperationsDashboard({ payments, onNavigate, onRefresh }: Operati
           color="blue"
           icon={<FileText className="w-5 h-5" />}
           onClick={() => onNavigate("posting")}
-          metric={formatCurrency(payments.reduce((sum, p) =>
-            (p.Status_1 === "Done" || p.Status_1 === "Completed") ? sum + (p.Amount || 0) : sum, 0
-          ))}
+          metric={formatCurrency(payments.reduce((sum, p) => isDone(p.Status_1) ? sum + amountOf(p) : sum, 0))}
         />
         <KpiCard
-          title="Payment"
-          pending={pendingPayment}
+          title="Make Payment"
+          pending={pendingMakePayment}
           total={totalShipments}
           color="amber"
           icon={<Banknote className="w-5 h-5" />}
           onClick={() => onNavigate("makepayment")}
-          metric={formatCurrency(payments.reduce((sum, p) =>
-            p.Status2 === "Completed" ? sum + (p.Amount || 0) : sum, 0
-          ))}
+          metric={formatCurrency(payments.reduce((sum, p) => isDone(p.Status2) ? sum + amountOf(p) : sum, 0))}
+        />
+        <KpiCard
+          title="Freight Payment"
+          pending={pendingFreightPayment}
+          total={totalShipments}
+          color="sky"
+          icon={<Truck className="w-5 h-5" />}
+          onClick={() => onNavigate("freight")}
+          metric={formatCurrency(paidAmount)}
         />
       </div>
 
@@ -241,14 +238,14 @@ export function OperationsDashboard({ payments, onNavigate, onRefresh }: Operati
         />
         <MetricCard
           title="Paid Amount"
-          value={formatCurrency(completedAmount)}
-          trend={completedAmount === totalAmount ? "positive" : "neutral"}
+          value={formatCurrency(paidAmount)}
+          trend={paidAmount === totalAmount ? "positive" : "neutral"}
           icon={<ShieldCheck className="w-4 h-4" />}
         />
         <MetricCard
           title="Pending Value"
-          value={formatCurrency(totalAmount - completedAmount)}
-          trend={totalAmount - completedAmount > 0 ? "warning" : "positive"}
+          value={formatCurrency(totalAmount - paidAmount)}
+          trend={totalAmount - paidAmount > 0 ? "warning" : "positive"}
           icon={<AlertCircle className="w-4 h-4" />}
         />
       </div>
@@ -290,20 +287,20 @@ export function OperationsDashboard({ payments, onNavigate, onRefresh }: Operati
                   key={payment.id}
                   className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 hover:bg-slate-50/80 transition-all cursor-pointer group"
                   onClick={() => onNavigate(
-                    payment.step === "Kitting" ? "checkkitting" :
-                      payment.step === "Posting" ? "posting" : "makepayment"
+                    payment.step === "Posting" ? "posting" :
+                      payment.step === "Make Payment" ? "makepayment" : "freight"
                   )}
                 >
                   <div className="flex items-start sm:items-center gap-3 min-w-0">
                     <div className={cn(
                       "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105",
-                      payment.step === "Kitting" ? "bg-emerald-50 text-emerald-600" :
-                        payment.step === "Posting" ? "bg-blue-50 text-blue-600" :
-                          "bg-amber-50 text-amber-600"
+                      payment.step === "Posting" ? "bg-blue-50 text-blue-600" :
+                        payment.step === "Make Payment" ? "bg-amber-50 text-amber-600" :
+                          "bg-sky-50 text-sky-600"
                     )}>
-                      {payment.step === "Kitting" ? <Package className="w-4 h-4" /> :
-                        payment.step === "Posting" ? <FileText className="w-4 h-4" /> :
-                          <Banknote className="w-4 h-4" />}
+                      {payment.step === "Posting" ? <FileText className="w-4 h-4" /> :
+                        payment.step === "Make Payment" ? <Banknote className="w-4 h-4" /> :
+                          <Truck className="w-4 h-4" />}
                     </div>
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -325,11 +322,7 @@ export function OperationsDashboard({ payments, onNavigate, onRefresh }: Operati
                         {payment.maxDelay} day{payment.maxDelay !== 1 ? "s" : ""} late
                       </div>
                       <div className="text-[10px] text-slate-400">
-                        Planned: {formatDate(
-                          payment.step === "Kitting" ? payment.Planned3 :
-                            payment.step === "Posting" ? payment.Planned :
-                              payment.Planned2
-                        )}
+                        {payment["Unique Number"] || "-"}
                       </div>
                     </div>
                     <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
@@ -376,7 +369,7 @@ interface KpiCardProps {
   title: string;
   pending: number;
   total: number;
-  color: "emerald" | "blue" | "amber";
+  color: "emerald" | "blue" | "amber" | "sky";
   icon: React.ReactNode;
   onClick: () => void;
   metric?: string;
@@ -405,10 +398,17 @@ function KpiCard({ title, pending, total, color, icon, onClick, metric }: KpiCar
       text: "text-amber-600",
       badge: "bg-amber-100 text-amber-700",
     },
+    sky: {
+      bg: "bg-sky-50",
+      hover: "hover:border-sky-300/60 hover:shadow-sky-500/10",
+      progress: "from-sky-400 to-sky-600",
+      text: "text-sky-600",
+      badge: "bg-sky-100 text-sky-700",
+    },
   };
   const c = colorClasses[color];
   const percent = total === 0 ? 0 : ((pending / total) * 100);
-  const progressWidth = total === 0 ? "0%" : `${Math.max(percent, 4)}%`;
+  const progressWidth = total === 0 || pending === 0 ? "0%" : `${Math.max(percent, 4)}%`;
 
   return (
     <motion.div
