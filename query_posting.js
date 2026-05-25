@@ -16,12 +16,12 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function check() {
   try {
-    console.log("Checking if 'Posting' table exists...");
-    const { data, error } = await supabase.from("Posting").select("*").limit(1);
+    console.log("Checking if 'AccountAudit' table exists...");
+    const { data, error } = await supabase.from("AccountAudit").select("*").limit(1);
     if (error) {
-      console.log("Posting table check failed:", error.message);
+      console.log("AccountAudit table check failed:", error.message);
     } else {
-      console.log("Posting table check successful! Rows:", data);
+      console.log("AccountAudit table check successful! Rows:", data);
     }
   } catch (err) {
     console.error("Error:", err);

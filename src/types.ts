@@ -14,6 +14,7 @@ export interface FreightPayment {
   "Bilty Number"?: string;
   "Rate Type"?: string;
   Amount?: number;
+  PostingAmount?: number;
   "Bilty Image"?: string;
   Planned?: string;
   Actual?: string;
@@ -34,4 +35,8 @@ export interface FreightPayment {
   "Party Name"?: string;
   "Billing Qty"?: number;
   "Bill Number"?: string;
+  Remark?: string;
+  Remark_1?: string;
+  Remark2?: string;
+  Remark3?: string;
 }

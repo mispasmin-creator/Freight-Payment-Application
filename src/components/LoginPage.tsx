@@ -1,21 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { api, LoginUser } from "../api";
-import { PasminLogo } from "./PasminLogo";
-import {
-  Lock,
-  User,
-  Eye,
-  EyeOff,
-  ArrowRight,
-  AlertCircle,
-  Building2,
-  Shield,
-  CheckCircle2,
-  TrendingUp,
-  Truck,
-  Clock,
-  Package2,
-} from "lucide-react";
+import { Lock, User, Eye, EyeOff, AlertCircle, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface LoginPageProps {
@@ -30,7 +15,6 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   const [error, setError] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
 
-  // Load saved username if "Remember Me" was checked
   useEffect(() => {
     const savedUsername = localStorage.getItem("remembered_username");
     if (savedUsername) {
@@ -44,7 +28,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     setError("");
 
     if (!username.trim() || !password.trim()) {
-      setError("Please enter both username and password");
+      setError("Please enter both username and password.");
       return;
     }
 
@@ -59,7 +43,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         }
         onLogin(user);
       } else {
-        setError("Invalid username or password");
+        setError("Invalid username or password.");
       }
     } catch (err) {
       setError("Connection error. Please check your network and try again.");
@@ -70,255 +54,182 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   };
 
   return (
-    <div className="h-screen w-screen flex overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-100">
-      {/* Left Side - Branding & Features (Enhanced) */}
-      <div className="hidden lg:flex lg:w-[55%] relative items-center justify-center overflow-hidden">
-        {/* Animated gradient background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-indigo-50 to-violet-50" />
+    <div className="h-screen w-screen flex items-center justify-center relative overflow-hidden bg-[#f4f7ee]">
+      {/* Animated mesh background */}
+      <div className="absolute inset-0 pointer-events-none">
+        {/* Large soft circles */}
+        <div className="absolute -top-32 -left-32 w-[480px] h-[480px] rounded-full bg-brand-200/40 blur-3xl" />
+        <div className="absolute -bottom-40 -right-40 w-[520px] h-[520px] rounded-full bg-brand-300/30 blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-brand-100/50 blur-3xl" />
+        {/* Subtle grid pattern */}
+        <div
+          className="absolute inset-0 opacity-[0.025]"
+          style={{
+            backgroundImage: `linear-gradient(#769930 1px, transparent 1px), linear-gradient(90deg, #769930 1px, transparent 1px)`,
+            backgroundSize: "48px 48px",
+          }}
+        />
+      </div>
 
-        {/* Decorative animated circles */}
-        <div className="absolute top-20 right-20 w-72 h-72 bg-blue-200/30 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-20 left-20 w-80 h-80 bg-indigo-200/30 rounded-full blur-3xl animate-pulse delay-1000" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-violet-200/20 rounded-full blur-3xl" />
+      {/* Center card */}
+      <div
+        className="relative w-full max-w-[420px] mx-4 login-card-enter"
+        style={{ animation: "loginCardIn 0.5s cubic-bezier(0.22,1,0.36,1) both" }}
+      >
+        {/* Glass card */}
+        <div className="bg-white/80 backdrop-blur-2xl border border-white/60 rounded-3xl shadow-2xl shadow-brand-900/10 px-8 py-10">
 
-        {/* Floating elements */}
-        <div className="absolute top-32 left-16 w-20 h-20 bg-blue-400/10 rounded-full blur-2xl animate-float" />
-        <div className="absolute bottom-32 right-16 w-24 h-24 bg-indigo-400/10 rounded-full blur-2xl animate-float-delayed" />
-
-        <div className="relative z-10 max-w-xl px-12">
-          {/* Logo Section */}
-          <div className="flex items-center gap-3 mb-12 animate-fade-in-up">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-xl shadow-blue-600/25">
-              <Package2 className="w-7 h-7 text-white" />
+          {/* Logo + Brand */}
+          <div className="flex flex-col items-center mb-8">
+            {/* Logo */}
+            <div className="w-20 h-20 rounded-2xl overflow-hidden shadow-xl shadow-brand-600/20 ring-4 ring-white mb-4">
+              <img
+                src="/passary.jpeg"
+                alt="PASMIN Logo"
+                className="w-full h-full object-cover"
+              />
             </div>
-            <div>
-              <span className="text-2xl font-bold tracking-tight bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
-                FreightFlow
-              </span>
-              <span className="ml-2 text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 uppercase tracking-wider">
-                Enterprise
-              </span>
-            </div>
-          </div>
 
-          {/* Hero Text */}
-          <div className="mb-8 animate-fade-in-up animation-delay-200">
-            <h1 className="text-4xl font-bold leading-tight mb-4">
-              Freight Payment
-              <span className="block bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                Management System
-              </span>
+            {/* System name */}
+            <h1
+              className="text-2xl font-bold tracking-tight text-slate-900 mb-0.5"
+              style={{ fontFamily: "'Plus Jakarta Sans', Inter, sans-serif" }}
+            >
+              PASMIN
             </h1>
-            <p className="text-base text-slate-500 leading-relaxed">
-              Streamline freight operations with real-time tracking, automated workflow,
-              and seamless payment processing across your logistics network.
+            <p className="text-[11px] font-semibold text-brand-600 uppercase tracking-[0.18em]">
+              Freight Payment System
             </p>
           </div>
 
-          {/* Stats Banner */}
-          <div className="grid grid-cols-3 gap-4 mb-10 animate-fade-in-up animation-delay-300">
-            <div className="bg-white/60 backdrop-blur-sm rounded-xl p-3 text-center border border-white/50 shadow-sm">
-              <div className="flex justify-center mb-1">
-                <Truck className="w-4 h-4 text-blue-500" />
-              </div>
-              <div className="text-lg font-bold text-slate-800">5K+</div>
-              <div className="text-[9px] text-slate-400 uppercase">Shipments</div>
-            </div>
-            <div className="bg-white/60 backdrop-blur-sm rounded-xl p-3 text-center border border-white/50 shadow-sm">
-              <div className="flex justify-center mb-1">
-                <Clock className="w-4 h-4 text-emerald-500" />
-              </div>
-              <div className="text-lg font-bold text-slate-800">98%</div>
-              <div className="text-[9px] text-slate-400 uppercase">On-Time</div>
-            </div>
-            <div className="bg-white/60 backdrop-blur-sm rounded-xl p-3 text-center border border-white/50 shadow-sm">
-              <div className="flex justify-center mb-1">
-                <TrendingUp className="w-4 h-4 text-violet-500" />
-              </div>
-              <div className="text-lg font-bold text-slate-800">₹45Cr+</div>
-              <div className="text-[9px] text-slate-400 uppercase">Processed</div>
-            </div>
+          {/* Divider */}
+          <div className="flex items-center gap-3 mb-6">
+            <div className="flex-1 h-px bg-slate-200" />
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sign In</span>
+            <div className="flex-1 h-px bg-slate-200" />
           </div>
 
-          {/* Features List */}
-          <div className="space-y-3 animate-fade-in-up animation-delay-400">
-            {[
-              { icon: <CheckCircle2 className="w-4 h-4 text-emerald-500" />, text: "Real-time shipment tracking & status updates" },
-              { icon: <CheckCircle2 className="w-4 h-4 text-emerald-500" />, text: "Automated kitting, posting & payment workflow" },
-              { icon: <CheckCircle2 className="w-4 h-4 text-emerald-500" />, text: "Firm-wise data isolation & access control" },
-              { icon: <CheckCircle2 className="w-4 h-4 text-emerald-500" />, text: "Role-based permissions & audit logging" },
-            ].map((feature, idx) => (
-              <div key={idx} className="flex items-center gap-3 group">
-                <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  {feature.icon}
-                </div>
-                <span className="text-sm text-slate-600 group-hover:text-slate-800 transition-colors">
-                  {feature.text}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {/* Trust Badge */}
-          <div className="mt-10 pt-6 border-t border-white/40 flex items-center gap-4 animate-fade-in-up animation-delay-500">
-            <div className="flex items-center gap-2">
-              <Shield className="w-4 h-4 text-slate-400" />
-              <span className="text-[11px] text-slate-400">SOC 2 Type II</span>
-            </div>
-            <div className="w-px h-3 bg-slate-200" />
-            <div className="flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-slate-400" />
-              <span className="text-[11px] text-slate-400">ISO 27001 Certified</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Right Side - Login Form (Enhanced) */}
-      <div className="flex-1 flex items-center justify-center px-6 bg-white shadow-2xl lg:shadow-none relative overflow-hidden">
-        {/* Decorative elements for mobile */}
-        <div className="lg:hidden absolute top-0 left-0 w-full h-32 bg-gradient-to-br from-blue-50 to-indigo-50" />
-
-        <div className="w-full max-w-md relative z-10">
-          {/* Mobile Logo */}
-          <div className="lg:hidden flex items-center justify-center gap-2.5 mb-8">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg">
-              <Package2 className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <span className="text-xl font-bold text-slate-800">FreightFlow</span>
-              <span className="ml-2 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">
-                Pro
-              </span>
-            </div>
-          </div>
-
-          {/* Welcome Message */}
-          <div className="mb-8 text-center lg:text-left">
-            <h2 className="text-2xl font-bold text-slate-800 mb-2">Welcome Back</h2>
-          </div>
-
-          {/* Error Alert */}
+          {/* Error */}
           {error && (
-            <div className="mb-6 flex items-start gap-2.5 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 animate-slide-in-up">
+            <div
+              className="mb-5 flex items-start gap-2.5 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200"
+              style={{ animation: "loginCardIn 0.3s ease-out both" }}
+            >
               <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-xs font-semibold text-rose-700">Authentication Failed</p>
-                <p className="text-[11px] text-rose-600 mt-0.5">{error}</p>
-              </div>
+              <p className="text-[12px] font-medium text-rose-700 leading-snug">{error}</p>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Username Field */}
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Username */}
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                <User className="w-3 h-3" /> Username
+              <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest">
+                Username
               </label>
               <div className="relative group">
-                <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
+                <User className="w-[15px] h-[15px] absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-brand-500 transition-colors" />
                 <input
+                  id="login-username"
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Enter your username"
                   autoFocus
-                  className="w-full h-11 pl-9 pr-3 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 outline-none transition-all border border-slate-200 bg-slate-50 focus:bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+                  autoComplete="username"
+                  className="w-full h-11 pl-10 pr-4 rounded-xl text-[13px] font-medium text-slate-800 placeholder:text-slate-300 outline-none transition-all border border-slate-200 bg-slate-50/80 focus:bg-white focus:border-brand-400 focus:ring-2 focus:ring-brand-500/15"
                 />
               </div>
             </div>
 
-            {/* Password Field */}
+            {/* Password */}
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                <Lock className="w-3 h-3" /> Password
+              <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest">
+                Password
               </label>
               <div className="relative group">
-                <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
+                <Lock className="w-[15px] h-[15px] absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-brand-500 transition-colors" />
                 <input
+                  id="login-password"
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"
-                  className="w-full h-11 pl-9 pr-10 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 outline-none transition-all border border-slate-200 bg-slate-50 focus:bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+                  autoComplete="current-password"
+                  className="w-full h-11 pl-10 pr-11 rounded-xl text-[13px] font-medium text-slate-800 placeholder:text-slate-300 outline-none transition-all border border-slate-200 bg-slate-50/80 focus:bg-white focus:border-brand-400 focus:ring-2 focus:ring-brand-500/15"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500 transition-colors"
+                  tabIndex={-1}
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? <EyeOff className="w-[15px] h-[15px]" /> : <Eye className="w-[15px] h-[15px]" />}
                 </button>
               </div>
             </div>
 
-            {/* Submit Button */}
+            {/* Remember me */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                id="remember-me-toggle"
+                onClick={() => setRememberMe(!rememberMe)}
+                className={cn(
+                  "w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-all",
+                  rememberMe
+                    ? "bg-brand-600 border-brand-600"
+                    : "border-slate-300 bg-white hover:border-brand-400"
+                )}
+              >
+                {rememberMe && (
+                  <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 10 8">
+                    <path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+              </button>
+              <span className="text-[11px] font-medium text-slate-500 select-none cursor-pointer" onClick={() => setRememberMe(!rememberMe)}>
+                Remember me
+              </span>
+            </div>
+
+            {/* Submit */}
             <button
+              id="login-submit"
               type="submit"
               disabled={isLoading}
               className={cn(
-                "w-full h-11 rounded-xl text-white text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed mt-2",
+                "w-full h-11 mt-1 rounded-xl text-white text-[13px] font-bold flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed select-none",
                 isLoading
-                  ? "bg-gradient-to-r from-blue-400 to-indigo-400"
-                  : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-600/25"
+                  ? "bg-brand-400"
+                  : "bg-brand-600 hover:bg-brand-700 shadow-lg shadow-brand-600/30"
               )}
             >
               {isLoading ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Authenticating...
+                  Authenticating…
                 </>
               ) : (
                 <>
-                  Sign in to Dashboard
+                  Sign In
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </button>
           </form>
         </div>
+
+        {/* Footer */}
+        <p className="text-center text-[10px] text-slate-400 mt-5 font-medium">
+          © {new Date().getFullYear()} PASMIN · Freight Payment System
+        </p>
       </div>
 
-      {/* Custom CSS for animations */}
       <style>{`
-        @keyframes float {
-          0%, 100% { transform: translateY(0px) rotate(0deg); }
-          50% { transform: translateY(-20px) rotate(5deg); }
-        }
-        @keyframes fade-in-up {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        .animate-float {
-          animation: float 6s ease-in-out infinite;
-        }
-        .animate-float-delayed {
-          animation: float 8s ease-in-out infinite reverse;
-        }
-        .animate-fade-in-up {
-          animation: fade-in-up 0.6s ease-out forwards;
-          opacity: 0;
-        }
-        .animation-delay-200 {
-          animation-delay: 0.2s;
-        }
-        .animation-delay-300 {
-          animation-delay: 0.3s;
-        }
-        .animation-delay-400 {
-          animation-delay: 0.4s;
-        }
-        .animation-delay-500 {
-          animation-delay: 0.5s;
-        }
-        .animate-slide-in-up {
-          animation: fade-in-up 0.4s ease-out;
+        @keyframes loginCardIn {
+          from { opacity: 0; transform: translateY(28px) scale(0.97); }
+          to   { opacity: 1; transform: translateY(0)   scale(1);    }
         }
       `}</style>
     </div>

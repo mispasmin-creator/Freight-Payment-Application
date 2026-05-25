@@ -113,6 +113,7 @@ interface KittingHistoryItem {
   freightAmount: number | null;
   billingQty: number | null;
   billNo: string;
+  systemName: string;
 }
 
 const str = (v: unknown): string => (v != null ? String(v).trim() : "");
@@ -168,7 +169,7 @@ const toSystemPayment = (row: KittingHistoryItem): Partial<FreightPayment> => {
     "Unique Number": uniqueId,
     "Lift ID": row.liftId,
     "Firm Name": row.firmName,
-    "Fms Name": "Check Kitting",
+    "Fms Name": row.systemName || "Account Checking",
     Status: "Pending",
     "Transporter Name": row.transporterName,
     "Vehicle Number": row.vehicleNumber,
@@ -271,6 +272,7 @@ function buildPurchaseRows(
         fk?.Amount != null ? num(fk.Amount) : num(la["Transporter Rate"]),
       billingQty: num(la["Lifting Qty"]) ?? num(la["Total Bill Quantity"]),
       billNo: str(la["Bill No."]) || "-",
+      systemName: "Purchase FMS",
     });
   }
 
@@ -324,6 +326,7 @@ function buildOrderRows(
         freightAmount,
         billingQty: actualQty,
         billNo: str(dispatch["Bill Number"]) || "-",
+        systemName: "Order Management System",
       };
     });
 }
@@ -334,12 +337,14 @@ export function FullKittingHistory() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [searchParty, setSearchParty] = useState("");
+  const [searchTransporter, setSearchTransporter] = useState("");
   const [searchProduct, setSearchProduct] = useState("");
   const [searchFirm, setSearchFirm] = useState("");
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [isBatchProcessing, setIsBatchProcessing] = useState(false);
   const [processedIds, setProcessedIds] = useState<Set<string>>(new Set());
   const [processMessage, setProcessMessage] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let cancelled = false;
@@ -408,7 +413,7 @@ export function FullKittingHistory() {
           setError(
             err instanceof Error
               ? err.message
-              : "Failed to load kitting records",
+              : "Failed to load account checking records",
           );
         }
       } finally {
@@ -424,6 +429,12 @@ export function FullKittingHistory() {
 
   const filtered = useMemo(() => {
     return rows.filter((r) => {
+      // Exclude processed records
+      const uniqueId = getRowUniqueId(r);
+      if (processedIds.has(uniqueId) || processedIds.has(`KIT-${r.liftId}`)) {
+        return false;
+      }
+
       const term = searchTerm.trim().toLowerCase();
       const searchOk =
         !term ||
@@ -437,19 +448,30 @@ export function FullKittingHistory() {
           r.vehicleNumber,
           r.biltyNumber,
           r.billNo,
+          r.systemName,
         ]
           .filter(Boolean)
           .some((value) => value.toLowerCase().includes(term));
-      const partyOk = !searchParty || r.partyName === searchParty;
+      const transporterOk =
+        !searchTransporter || r.transporterName === searchTransporter;
       const productOk = !searchProduct || r.productName === searchProduct;
       const firmOk = !searchFirm || r.firmName === searchFirm;
-      return searchOk && partyOk && productOk && firmOk;
+      return searchOk && transporterOk && productOk && firmOk;
     });
-  }, [rows, searchTerm, searchParty, searchProduct, searchFirm]);
+  }, [
+    rows,
+    searchTerm,
+    searchTransporter,
+    searchProduct,
+    searchFirm,
+    processedIds,
+  ]);
 
-  const partyOptions = useMemo(
+  const transporterOptions = useMemo(
     () =>
-      Array.from(new Set(rows.map((r) => r.partyName).filter(Boolean))).sort(),
+      Array.from(
+        new Set(rows.map((r) => r.transporterName).filter(Boolean)),
+      ).sort(),
     [rows],
   );
   const productOptions = useMemo(
@@ -465,7 +487,53 @@ export function FullKittingHistory() {
     [rows],
   );
 
-  const hasFilters = searchTerm || searchParty || searchProduct || searchFirm;
+  const hasFilters =
+    searchTerm || searchTransporter || searchProduct || searchFirm;
+
+  const selectableFilteredIds = useMemo(
+    () =>
+      filtered
+        .map((r) => getRowUniqueId(r))
+        .filter((id) => !processedIds.has(id)),
+    [filtered, processedIds],
+  );
+
+  const selectedRows = useMemo(
+    () => filtered.filter((r) => selectedIds.has(getRowUniqueId(r))),
+    [filtered, selectedIds],
+  );
+
+  const allFilteredSelected =
+    selectableFilteredIds.length > 0 &&
+    selectableFilteredIds.every((id) => selectedIds.has(id));
+
+  const toggleRowSelection = (row: KittingHistoryItem) => {
+    const uniqueId = getRowUniqueId(row);
+    if (processedIds.has(uniqueId) || processedIds.has(`KIT-${row.liftId}`)) {
+      return;
+    }
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(uniqueId)) {
+        next.delete(uniqueId);
+      } else {
+        next.add(uniqueId);
+      }
+      return next;
+    });
+  };
+
+  const toggleAllFiltered = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allFilteredSelected) {
+        selectableFilteredIds.forEach((id) => next.delete(id));
+      } else {
+        selectableFilteredIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  };
 
   const processRow = async (row: KittingHistoryItem) => {
     const uniqueId = getRowUniqueId(row);
@@ -487,6 +555,34 @@ export function FullKittingHistory() {
     }
   };
 
+  const processSelectedRows = async () => {
+    if (selectedRows.length === 0) return;
+    setIsBatchProcessing(true);
+    setProcessMessage(null);
+
+    let successCount = 0;
+    try {
+      for (const row of selectedRows) {
+        const uniqueId = getRowUniqueId(row);
+        setProcessingId(uniqueId);
+        await api.processKittingPayment(toSystemPayment(row));
+        setProcessedIds((prev) => new Set(prev).add(uniqueId));
+        successCount += 1;
+      }
+      setSelectedIds(new Set());
+      setProcessMessage(`Processed ${successCount} records successfully`);
+      queryClient.invalidateQueries({ queryKey: ["check-kitting-payments"] });
+      queryClient.invalidateQueries({ queryKey: ["freight-payments"] });
+    } catch (err) {
+      setProcessMessage(
+        err instanceof Error ? err.message : "Failed to process selected records",
+      );
+    } finally {
+      setProcessingId(null);
+      setIsBatchProcessing(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="w-full rounded-xl border border-slate-200 bg-white overflow-hidden">
@@ -495,7 +591,7 @@ export function FullKittingHistory() {
         </div>
         <div className="flex items-center justify-center gap-2 py-8 text-sm text-slate-400">
           <Loader2 className="w-4 h-4 animate-spin" />
-          Loading kitting history...
+          Loading account checking history...
         </div>
       </div>
     );
@@ -541,14 +637,14 @@ export function FullKittingHistory() {
         </div>
 
         <select
-          value={searchParty}
-          onChange={(e) => setSearchParty(e.target.value)}
+          value={searchTransporter}
+          onChange={(e) => setSearchTransporter(e.target.value)}
           className="h-8 min-w-[150px] bg-white border border-slate-200 rounded-lg px-2 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
         >
-          <option value="">All parties</option>
-          {partyOptions.map((party) => (
-            <option key={party} value={party}>
-              {party}
+          <option value="">All transporters</option>
+          {transporterOptions.map((transporter) => (
+            <option key={transporter} value={transporter}>
+              {transporter}
             </option>
           ))}
         </select>
@@ -583,7 +679,7 @@ export function FullKittingHistory() {
           <button
             onClick={() => {
               setSearchTerm("");
-              setSearchParty("");
+              setSearchTransporter("");
               setSearchProduct("");
               setSearchFirm("");
             }}
@@ -600,6 +696,16 @@ export function FullKittingHistory() {
           <span className="font-bold text-slate-700">{rows.length}</span> kitted
           records
         </div>
+
+        <Button
+          size="sm"
+          onClick={processSelectedRows}
+          disabled={selectedRows.length === 0 || isBatchProcessing}
+          className="h-8 px-3 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+        >
+          {isBatchProcessing && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
+          Submit{selectedRows.length > 0 ? ` (${selectedRows.length})` : ""}
+        </Button>
       </div>
 
       {processMessage && (
@@ -614,12 +720,12 @@ export function FullKittingHistory() {
             <PackageCheck className="w-7 h-7 text-emerald-400" />
           </div>
           <h3 className="text-base font-semibold text-slate-700 mb-1">
-            No kitting history found
+            No account checking history found
           </h3>
           <p className="text-sm text-slate-400 max-w-sm">
             {hasFilters
               ? "No records match your current filters."
-              : "Completed kitting and dispatch records will appear here once data is synced."}
+              : "Completed account checking and dispatch records will appear here once data is synced."}
           </p>
         </div>
       )}
@@ -640,6 +746,11 @@ export function FullKittingHistory() {
                           {r.firmName}
                         </span>
                       )}
+                      {r.systemName && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-700 font-semibold text-xs whitespace-nowrap">
+                          {r.systemName}
+                        </span>
+                      )}
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold text-[10px] uppercase tracking-wide">
                         Kitted
                       </span>
@@ -649,24 +760,16 @@ export function FullKittingHistory() {
                     {formatCurrency(r.freightAmount)}
                   </span>
                 </div>
-                <Button
-                  size="sm"
-                  disabled={
-                    processingId === getRowUniqueId(r) ||
-                    processedIds.has(getRowUniqueId(r)) ||
-                    processedIds.has(`KIT-${r.liftId}`)
-                  }
-                  onClick={() => processRow(r)}
-                  className="w-full mb-3 h-9 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  <Check className="w-3.5 h-3.5 mr-1.5" />
-                  {processedIds.has(getRowUniqueId(r)) ||
-                  processedIds.has(`KIT-${r.liftId}`)
-                    ? "Processed"
-                    : processingId === getRowUniqueId(r)
-                      ? "Processing..."
-                      : "Process"}
-                </Button>
+                <label className="w-full mb-3 h-9 px-3 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-between text-xs font-bold text-slate-600">
+                  <span>Select for submit</span>
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(getRowUniqueId(r))}
+                    disabled={processingId === getRowUniqueId(r) || isBatchProcessing}
+                    onChange={() => toggleRowSelection(r)}
+                    className="h-4 w-4 accent-blue-600"
+                  />
+                </label>
 
                 <div className="text-xs text-slate-500 space-y-1 mb-3">
                   <div className="flex items-center gap-1.5">
@@ -720,10 +823,11 @@ export function FullKittingHistory() {
               <TableHeader>
                 <TableRow className="border-b border-slate-200 bg-slate-50/80 hover:bg-slate-50/80">
                   {[
-                    "Action",
+                    "Select",
                     "Lift ID",
                     "Date",
                     "Firm",
+                    "System",
                     "Party / Vendor",
                     "Product",
                     "Transporter",
@@ -743,7 +847,18 @@ export function FullKittingHistory() {
                         h === "Freight Amt" && "text-right",
                       )}
                     >
-                      {h}
+                      {h === "Select" ? (
+                        <input
+                          type="checkbox"
+                          checked={allFilteredSelected}
+                          disabled={selectableFilteredIds.length === 0 || isBatchProcessing}
+                          onChange={toggleAllFiltered}
+                          className="h-4 w-4 accent-blue-600"
+                          title="Select all visible records"
+                        />
+                      ) : (
+                        h
+                      )}
                     </TableHead>
                   ))}
                 </TableRow>
@@ -757,25 +872,14 @@ export function FullKittingHistory() {
                       idx % 2 === 0 ? "bg-white" : "bg-slate-50/30",
                     )}
                   >
-                    <TableCell className="py-3 sticky left-0 bg-inherit z-20 shadow-[4px_0_6px_-4px_rgba(0,0,0,0.05)]">
-                      <Button
-                        size="sm"
-                        disabled={
-                          processingId === getRowUniqueId(r) ||
-                          processedIds.has(getRowUniqueId(r)) ||
-                          processedIds.has(`KIT-${r.liftId}`)
-                        }
-                        onClick={() => processRow(r)}
-                        className="h-7 px-3 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white"
-                      >
-                        <Check className="w-3.5 h-3.5 mr-1" />
-                        {processedIds.has(getRowUniqueId(r)) ||
-                        processedIds.has(`KIT-${r.liftId}`)
-                          ? "Processed"
-                          : processingId === getRowUniqueId(r)
-                            ? "Processing"
-                            : "Process"}
-                      </Button>
+                    <TableCell className="py-3 sticky left-0 bg-inherit z-20 shadow-[4px_0_6px_-4px_rgba(0,0,0,0.05)] text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(getRowUniqueId(r))}
+                        disabled={processingId === getRowUniqueId(r) || isBatchProcessing}
+                        onChange={() => toggleRowSelection(r)}
+                        className="h-4 w-4 accent-blue-600"
+                      />
                     </TableCell>
                     <TableCell className="py-3">
                       <span className="font-mono font-bold text-sm text-slate-800">
@@ -789,6 +893,15 @@ export function FullKittingHistory() {
                       {r.firmName ? (
                         <div className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-700 font-semibold text-xs whitespace-nowrap">
                           {r.firmName}
+                        </div>
+                      ) : (
+                        <span className="text-slate-300">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="py-3">
+                      {r.systemName ? (
+                        <div className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-700 font-semibold text-xs whitespace-nowrap">
+                          {r.systemName}
                         </div>
                       ) : (
                         <span className="text-slate-300">-</span>

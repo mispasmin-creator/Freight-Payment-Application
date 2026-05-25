@@ -1,6 +1,7 @@
 import { FreightPayment } from "../types";
 import { Truck, Clock, AlertTriangle, CheckCircle2, TrendingUp, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { motion } from "framer-motion";
+import { formatDelayDuration } from "@/lib/delay";
 
 interface SummaryCardsProps {
   payments: FreightPayment[];
@@ -45,7 +46,7 @@ export function SummaryCards({ payments }: SummaryCardsProps) {
     },
     {
       label: "Avg Delay",
-      value: `${avgDelay} days`,
+      value: formatDelayDuration(Number(avgDelay)),
       icon: Clock,
       gradient: "from-violet-500 to-purple-600",
       iconBg: "bg-violet-50",

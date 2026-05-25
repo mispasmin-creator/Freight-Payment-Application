@@ -17,10 +17,10 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function test() {
   try {
-    console.log("Fetching one row from CheckKitting using clean URL:", supabaseUrl);
-    const { data, error } = await supabase.from("CheckKitting").select("*").limit(1);
+    console.log("Fetching one row from AccountChecking using clean URL:", supabaseUrl);
+    const { data, error } = await supabase.from("AccountChecking").select("*").limit(1);
     if (error) throw error;
-    console.log("SCHEMA KEYS:", data.length > 0 ? Object.keys(data[0]) : "No rows found in CheckKitting");
+    console.log("SCHEMA KEYS:", data.length > 0 ? Object.keys(data[0]) : "No rows found in AccountChecking");
     if (data.length > 0) {
       console.log("FIRST ROW DATA:", JSON.stringify(data[0], null, 2));
     }

@@ -2,9 +2,9 @@ import { LoginUser } from "@/api";
 
 export const PAGE_KEY_MAP: Record<string, string> = {
   dashboard: "Dashboard",
-  checkkitting: "Checkkitting",
-  posting: "Posting",
-  makepayment: "Makepayment",
+  checkkitting: "Account Checking",
+  posting: "Account Audit",
+  makepayment: "Posting",
   freight: "Freight",
   users: "Users",
 };

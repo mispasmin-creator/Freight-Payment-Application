@@ -46,9 +46,9 @@ const ROLE_OPTIONS = ["Admin", "User", "Viewer"];
 
 const ALL_PAGES = [
   { key: "Dashboard", label: "Dashboard", icon: "📊" },
-  { key: "Checkkitting", label: "Check Kitting", icon: "📦" },
-  { key: "Posting", label: "Posting", icon: "📄" },
-  { key: "Makepayment", label: "Make Payment", icon: "💰" },
+  { key: "Account Checking", label: "Account Checking", icon: "📦" },
+  { key: "Account Audit", label: "Account Audit", icon: "📄" },
+  { key: "Posting", label: "Posting", icon: "💰" },
   { key: "Freight", label: "Freight Payments", icon: "🚚" },
   { key: "Users", label: "User Management", icon: "👥" },
 ];
@@ -411,7 +411,7 @@ export function UserManagement() {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteConfirm !== null} onOpenChange={() => setDeleteConfirm(null)}>
-        <DialogContent className="max-w-sm rounded-2xl p-0 overflow-hidden">
+        <DialogContent className="max-w-sm rounded-2xl p-0 overflow-hidden border border-white shadow-2xl shadow-slate-950/20">
           <DialogHeader className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
             <DialogTitle className="text-base font-bold text-slate-900">Delete User</DialogTitle>
             <DialogDescription className="text-xs text-slate-500 mt-0.5">
@@ -561,7 +561,7 @@ function UserFormDialog({ open, onOpenChange, user, onSuccess }: UserFormDialogP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg sm:max-w-lg w-[92vw] bg-white text-slate-900 border border-slate-200/60 shadow-2xl p-0 overflow-hidden rounded-2xl">
+      <DialogContent className="max-w-lg sm:max-w-lg w-[92vw] bg-white text-slate-900 border border-white shadow-2xl shadow-slate-950/20 p-0 overflow-hidden rounded-2xl">
         <DialogHeader className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
           <DialogTitle className="text-base font-bold text-slate-900 tracking-tight">
             {user ? "Edit User" : "Add New User"}

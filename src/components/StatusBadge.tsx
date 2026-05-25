@@ -40,7 +40,7 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-1.5 font-bold text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-lg border",
+        "inline-flex items-center gap-1.5 font-bold text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-md border shadow-sm shadow-slate-900/[0.02]",
         currentVariant, 
         className
       )}

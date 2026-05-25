@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select";
 import { StatusBadge } from "./StatusBadge";
 import { Button } from "@/components/ui/button";
+import { formatDelayDuration } from "@/lib/delay";
 import {
   Edit2,
   MapPin,
@@ -57,7 +58,7 @@ interface FreightTableProps {
   payments: FreightPayment[];
   isLoading: boolean;
   onEdit: (payment: FreightPayment, targetStep?: string) => void;
-  onQuickUpdate?: (payment: FreightPayment, step: string, value: "yes" | "no", actualDate?: string, selectedStatus?: string) => void;
+  onQuickUpdate?: (payment: FreightPayment, step: string, value: "yes" | "no", actualDate?: string, selectedStatus?: string, remark?: string, amount?: number) => void;
   activeTab?: string;
   subTab?: "pending" | "history";
 }
@@ -80,10 +81,17 @@ export function FreightTable({
     open: boolean;
     payment: FreightPayment | null;
   }>({ open: false, payment: null });
+  const [groupDialog, setGroupDialog] = useState<{
+    open: boolean;
+    group: { key: string; parent: FreightPayment; children: FreightPayment[]; isGrouped: boolean } | null;
+  }>({ open: false, group: null });
+  const [groupStatus, setGroupStatus] = useState("");
+  const [groupRemark, setGroupRemark] = useState("");
+  const [groupAmount, setGroupAmount] = useState("");
+  const [groupPaidAmount, setGroupPaidAmount] = useState("");
 
   // Default column visibility
   const defaultColumns: Record<string, boolean> = {
-    paymentNumber: true,
     uniqueNumber: true,
     firmName: true,
     fmsName: true,
@@ -97,6 +105,7 @@ export function FreightTable({
     biltyNumber: true,
     rateType: false,
     amount: true,
+    paidAmount: true,
     biltyImage: false,
     plannedDate: true,
     actualDate: true,
@@ -128,7 +137,7 @@ export function FreightTable({
   };
 
   const toggleColumn = (key: string) => {
-    const updated = { ...visibleColumns, [key]: !visibleColumns[key] };
+    const updated = { ...visibleColumns, [key]: !isColumnVisible(key) };
     saveColumnPreferences(updated);
   };
 
@@ -138,12 +147,12 @@ export function FreightTable({
   };
 
   // Step-specific field accessors (improved with fallbacks)
-  const getStepField = (payment: FreightPayment, field: "Planned" | "Actual" | "Delay" | "Status") => {
-    const stepMap: Record<string, { planned: string; actual: string; delay: string; status: string }> = {
-      posting: { planned: "Planned", actual: "Actual", delay: "Delay", status: "Status_1" },
-      makepayment: { planned: "Planned2", actual: "Actual2", delay: "Delay2", status: "Status2" },
-      checkkitting: { planned: "Planned3", actual: "Actual3", delay: "Delay3", status: "Status3" },
-      freight: { planned: "Actual4", actual: "Actual4", delay: "Delay4", status: "Status" },
+  const getStepField = (payment: FreightPayment, field: "Planned" | "Actual" | "Delay" | "Status" | "Remark") => {
+    const stepMap: Record<string, { planned: string; actual: string; delay: string; status: string; remark: string }> = {
+      posting: { planned: "Planned", actual: "Actual", delay: "Delay", status: "Status_1", remark: "Remark_1" },
+      makepayment: { planned: "Planned2", actual: "Actual2", delay: "Delay2", status: "Status2", remark: "Remark2" },
+      checkkitting: { planned: "Planned3", actual: "Actual3", delay: "Delay3", status: "Status3", remark: "Remark3" },
+      freight: { planned: "Actual4", actual: "Actual4", delay: "Delay4", status: "Status", remark: "Remark" },
     };
     const step = stepMap[activeTab] || stepMap.posting;
     switch (field) {
@@ -155,6 +164,8 @@ export function FreightTable({
         return payment[step.delay as keyof FreightPayment];
       case "Status":
         return payment[step.status as keyof FreightPayment];
+      case "Remark":
+        return payment[step.remark as keyof FreightPayment];
       default:
         return null;
     }
@@ -162,9 +173,9 @@ export function FreightTable({
 
   const getStepName = () => {
     const names: Record<string, string> = {
-      posting: "Posting",
-      makepayment: "Payment",
-      checkkitting: "Kitting",
+      posting: "Account Audit",
+      makepayment: "Posting",
+      checkkitting: "Account Checking",
       freight: "Freight",
     };
     return names[activeTab] || "Step";
@@ -196,25 +207,15 @@ export function FreightTable({
   };
 
   const formatDelay = (days?: number) => {
-    const delay = days || 0;
+    const delay = Number(days) || 0;
     return {
-      text: `${delay} day${delay !== 1 ? "s" : ""}`,
+      text: formatDelayDuration(delay),
       className: delay > 0 ? "text-rose-600 bg-rose-50" : "text-emerald-600 bg-emerald-50",
     };
   };
 
   // Column definitions
   const columnDefs: ColumnDef[] = [
-    {
-      key: "paymentNumber",
-      label: "Payment #",
-      width: "140px",
-      render: (p) => (
-        <span className="font-mono font-bold text-sm text-slate-800">
-          {p["Payment Number"] || `#${p.id}`}
-        </span>
-      ),
-    },
     {
       key: "uniqueNumber",
       label: "Unique ID",
@@ -340,6 +341,17 @@ export function FreightTable({
       ),
     },
     {
+      key: "paidAmount",
+      label: "Paid Amount",
+      width: "130px",
+      align: "right",
+      render: (p) => (
+        <span className="font-bold text-sm text-emerald-700">
+          {p.PostingAmount !== undefined && p.PostingAmount !== null ? formatCurrency(p.PostingAmount) : "-"}
+        </span>
+      ),
+    },
+    {
       key: "biltyImage",
       label: "Bilty",
       width: "100px",
@@ -407,7 +419,14 @@ export function FreightTable({
     },
   ];
 
-  const visibleColumnDefs = columnDefs.filter((col) => visibleColumns[col.key]);
+  const removedTableColumnKeys = new Set(["route", "plannedDate", "actualDate"]);
+  const showPaidAmount = activeTab === "posting" || activeTab === "makepayment" || activeTab === "freight";
+  const isColumnVisible = (key: string) => visibleColumns[key] ?? defaultColumns[key] ?? false;
+  const visibleColumnDefs = columnDefs.filter((col) =>
+    isColumnVisible(col.key) &&
+    !removedTableColumnKeys.has(col.key) &&
+    (col.key !== "paidAmount" || showPaidAmount)
+  );
 
   const firmOptions = useMemo(
     () =>
@@ -436,7 +455,6 @@ export function FreightTable({
       const searchOk =
         !term ||
         [
-          payment["Payment Number"],
           payment["Unique Number"],
           payment["Firm Name"],
           payment["Fms Name"],
@@ -455,6 +473,182 @@ export function FreightTable({
       return firmOk && statusOk && searchOk;
     });
   }, [payments, searchTerm, firmFilter, statusFilter, activeTab]);
+
+  const shouldGroupRows = activeTab === "posting" || activeTab === "makepayment" || activeTab === "freight";
+
+  const normalizeGroupValue = (value?: string) => String(value || "").trim().toLowerCase();
+
+  const groupedPayments = useMemo(() => {
+    if (!shouldGroupRows) {
+      return filteredPayments.map((payment) => ({
+        key: `single:${payment.id}`,
+        parent: payment,
+        children: [payment],
+        isGrouped: false,
+      }));
+    }
+
+    const groups = new Map<string, FreightPayment[]>();
+    filteredPayments.forEach((payment) => {
+      const transporter = normalizeGroupValue(payment["Transporter Name"]);
+      const key = transporter
+        ? `transporter:${transporter}`
+        : `single:${payment.id}`;
+      const existing = groups.get(key) || [];
+      existing.push(payment);
+      groups.set(key, existing);
+    });
+
+    return Array.from(groups.entries()).map(([key, children]) => {
+      const biltyNumbers = Array.from(
+        new Set(
+          children
+            .map((payment) => String(payment["Bilty Number"] || "").trim())
+            .filter(Boolean),
+        ),
+      );
+      const parent = children.length > 1
+        ? {
+            ...children[0],
+            id: children[0].id,
+            Amount: children.reduce((sum, payment) => sum + (payment.Amount || 0), 0),
+            "Billing Qty": children.reduce((sum, payment) => sum + (payment["Billing Qty"] || 0), 0),
+            "Bilty Number": biltyNumbers.join(", "),
+            PostingAmount: children.some((payment) => payment.PostingAmount !== undefined && payment.PostingAmount !== null)
+              ? children.reduce((sum, payment) => sum + (payment.PostingAmount || 0), 0)
+              : undefined,
+          }
+        : children[0];
+
+      return {
+        key,
+        parent,
+        children,
+        isGrouped: children.length > 1,
+      };
+    });
+  }, [filteredPayments, shouldGroupRows]);
+
+  const openPaymentUpdatePopup = (payment: FreightPayment) => {
+    setGroupDialog({
+      open: true,
+      group: {
+        key: `single:${payment.id}`,
+        parent: payment,
+        children: [payment],
+        isGrouped: false,
+      },
+    });
+  };
+
+  const renderRowAction = (payment: FreightPayment, compact = false) =>
+    subTab === "history" ? (
+      <Button
+        size="sm"
+        onClick={() => openPaymentUpdatePopup(payment)}
+        className={cn(
+          "text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-sm rounded-lg",
+          compact ? "h-6 px-2" : "h-7 px-3"
+        )}
+      >
+        <FileText className={cn("w-3.5 h-3.5", !compact && "mr-1")} />
+        View
+      </Button>
+    ) :
+    (activeTab === "posting" ||
+      activeTab === "makepayment" ||
+      activeTab === "checkkitting" ||
+      activeTab === "freight") &&
+    subTab !== "history" &&
+    onQuickUpdate ? (
+      <Button
+        size="sm"
+        onClick={() => openPaymentUpdatePopup(payment)}
+        className={cn(
+          "text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-sm rounded-lg",
+          compact ? "h-6 px-2" : "h-7 px-3"
+        )}
+      >
+        Update
+      </Button>
+    ) : (
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => onEdit(payment)}
+        className="h-7 w-7 p-0 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+      >
+        <Edit2 className="w-3.5 h-3.5" />
+      </Button>
+    );
+
+  const groupStatusOptions = STEP_CONFIG[activeTab]?.statusOptions || statusOptions;
+
+  useEffect(() => {
+    if (!groupDialog.open || !groupDialog.group) return;
+    setGroupStatus(String((getStepField(groupDialog.group.parent, "Status") as string) || groupStatusOptions[0] || ""));
+    setGroupRemark(String((getStepField(groupDialog.group.parent, "Remark") as string) || ""));
+    const amountValue = groupDialog.group.parent.Amount;
+    const paidAmount = groupDialog.group.parent.PostingAmount;
+    setGroupAmount(
+      amountValue !== undefined && amountValue !== null
+        ? String(amountValue)
+        : ""
+    );
+    setGroupPaidAmount(
+      paidAmount !== undefined && paidAmount !== null
+        ? String(paidAmount)
+        : ""
+    );
+  }, [groupDialog.open, groupDialog.group, activeTab]);
+
+  const handleGroupSubmit = () => {
+    if (!groupDialog.group || !onQuickUpdate) return;
+    const parsedAmount = groupAmount.trim() === "" ? undefined : Number(groupAmount);
+    const shouldDistributeAmount = activeTab === "posting" && Number.isFinite(parsedAmount);
+    const totalAmountInPaise = shouldDistributeAmount ? Math.round((parsedAmount || 0) * 100) : undefined;
+    const currentTotal = groupDialog.group.children.reduce((sum, child) => sum + (child.Amount || 0), 0);
+    let allocatedAmountInPaise = 0;
+
+    groupDialog.group.children.forEach((child) => {
+      let childAmount: number | undefined;
+      if (shouldDistributeAmount && totalAmountInPaise !== undefined) {
+        if (groupDialog.group!.children.length === 1) {
+          childAmount = parsedAmount;
+        } else if (currentTotal > 0) {
+          const isLastChild = child === groupDialog.group!.children[groupDialog.group!.children.length - 1];
+          const childAmountInPaise = isLastChild
+            ? totalAmountInPaise - allocatedAmountInPaise
+            : Math.round(totalAmountInPaise * ((child.Amount || 0) / currentTotal));
+          allocatedAmountInPaise += childAmountInPaise;
+          childAmount = childAmountInPaise / 100;
+        } else {
+          const isLastChild = child === groupDialog.group!.children[groupDialog.group!.children.length - 1];
+          const childAmountInPaise = isLastChild
+            ? totalAmountInPaise - allocatedAmountInPaise
+            : Math.round(totalAmountInPaise / groupDialog.group!.children.length);
+          allocatedAmountInPaise += childAmountInPaise;
+          childAmount = childAmountInPaise / 100;
+        }
+      }
+      onQuickUpdate(child, activeTab, "yes", undefined, groupStatus, groupRemark, childAmount);
+    });
+    setGroupDialog({ open: false, group: null });
+  };
+
+  const getPopupColumnWidth = (key: string) => {
+    if (key === "stepStatus" || key === "overallStatus") return "140px";
+    if (key === "route" || key === "materialDetails") return "180px";
+    if (key === "transporterName" || key === "partyName") return "170px";
+    if (key === "amount" || key === "paidAmount") return "120px";
+    return "130px";
+  };
+
+  const popupColumnDefs = columnDefs.filter((col) =>
+    !removedTableColumnKeys.has(col.key) &&
+    (col.key !== "paidAmount" || showPaidAmount)
+  );
+  const popupTableGridTemplate = popupColumnDefs.map((col) => getPopupColumnWidth(col.key)).join(" ");
 
   // Loading skeleton
   if (isLoading) {
@@ -562,7 +756,7 @@ export function FreightTable({
         )}
 
         <div className="ml-auto text-xs font-medium text-slate-500">
-          Showing <span className="font-bold text-slate-700">{filteredPayments.length}</span> of{" "}
+          Showing <span className="font-bold text-slate-700">{shouldGroupRows ? groupedPayments.length : filteredPayments.length}</span> of{" "}
           <span className="font-bold text-slate-700">{payments.length}</span> shipments
         </div>
 
@@ -629,12 +823,12 @@ export function FreightTable({
                         <div
                           className={cn(
                             "w-4 h-4 rounded border flex items-center justify-center transition-all",
-                            visibleColumns[col.key]
+                            isColumnVisible(col.key)
                               ? "bg-blue-600 border-blue-600"
                               : "border-slate-300 bg-white"
                           )}
                         >
-                          {visibleColumns[col.key] && <Check className="w-3 h-3 text-white" />}
+                          {isColumnVisible(col.key) && <Check className="w-3 h-3 text-white" />}
                         </div>
                         <span className="text-sm text-slate-700 group-hover:text-slate-900">
                           {col.label}
@@ -650,21 +844,27 @@ export function FreightTable({
 
       {/* Mobile Card View */}
       <div className="md:hidden divide-y divide-slate-100">
-        {filteredPayments.map((payment) => {
+        {groupedPayments.map((group) => {
+          const payment = group.parent;
           const stepStatus = getStepField(payment, "Status") as string;
           const stepDelay = Number(getStepField(payment, "Delay")) || 0;
           return (
-            <div key={payment.id} className="p-4 bg-white">
+            <div key={group.key} className="p-4 bg-white">
               <div className="flex items-start justify-between mb-2">
                 <div className="flex-1 min-w-0 mr-3">
                   <span className="font-mono font-bold text-sm text-slate-800">
-            {payment["Payment Number"] || `#${payment.id}`}
+                    {payment["Unique Number"] || `#${payment.id}`}
                   </span>
                   <div className="flex flex-wrap items-center gap-1.5 mt-1">
                     <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-700 font-semibold text-xs">
                       {payment["Firm Name"] || "—"}
                     </span>
                     <StatusBadge status={payment.Status} />
+                    {group.isGrouped && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 border border-blue-100 text-blue-700 font-semibold text-xs">
+                        {group.children.length} rows
+                      </span>
+                    )}
                   </div>
                 </div>
                 <span className="font-bold text-base text-slate-900 shrink-0">{formatCurrency(payment.Amount)}</span>
@@ -685,21 +885,30 @@ export function FreightTable({
                 <StatusBadge status={stepStatus} />
                 {stepDelay > 0 && (
                   <span className="text-xs font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full ml-auto">
-                    {stepDelay}d late
+                    {formatDelay(stepDelay).text} late
                   </span>
                 )}
               </div>
 
-              {(activeTab === "posting" || activeTab === "makepayment" || activeTab === "checkkitting" || activeTab === "freight") &&
+              {!group.isGrouped && (subTab === "history" ? (
+                <Button
+                  size="sm"
+                  onClick={() => openPaymentUpdatePopup(payment)}
+                  className="w-full h-10 text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  View
+                </Button>
+              ) : (activeTab === "posting" || activeTab === "makepayment" || activeTab === "checkkitting" || activeTab === "freight") &&
                 subTab !== "history" &&
                 onQuickUpdate ? (
                 <Button
                   size="sm"
-                  onClick={() => setStepDialog({ open: true, payment })}
+                  onClick={() => openPaymentUpdatePopup(payment)}
                   className="w-full h-10 text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   <Check className="w-4 h-4 mr-2" />
-                  Update Step
+                  Update
                 </Button>
               ) : (
                 <Button
@@ -710,6 +919,17 @@ export function FreightTable({
                 >
                   <Edit2 className="w-4 h-4 mr-1.5" />
                   Edit Record
+                </Button>
+              ))}
+
+              {group.isGrouped && (
+                <Button
+                  size="sm"
+                  onClick={() => setGroupDialog({ open: true, group })}
+                  className="w-full h-10 text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {subTab === "history" ? <FileText className="w-4 h-4 mr-2" /> : <Check className="w-4 h-4 mr-2" />}
+                  {subTab === "history" ? "View" : "Update"}
                 </Button>
               )}
             </div>
@@ -743,38 +963,27 @@ export function FreightTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredPayments.map((payment, idx) => (
+            {groupedPayments.map((group, idx) => (
+              <React.Fragment key={group.key}>
               <TableRow
-                key={payment.id}
                 className={cn(
                   "border-b border-slate-100 hover:bg-slate-50/50 transition-colors duration-150 group",
                   idx % 2 === 0 ? "bg-white" : "bg-slate-50/30"
                 )}
               >
                 <TableCell className="sticky left-0 bg-inherit z-20 py-3 text-left shadow-[4px_0_6px_-4px_rgba(0,0,0,0.05)]">
-                  {(activeTab === "posting" ||
-                    activeTab === "makepayment" ||
-                    activeTab === "checkkitting" ||
-                    activeTab === "freight") &&
-                    subTab !== "history" &&
-                    onQuickUpdate ? (
-                      <Button
-                        size="sm"
-                        onClick={() => setStepDialog({ open: true, payment })}
-                        className="h-7 px-3 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-sm rounded-lg"
-                      >
-                        Update
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onEdit(payment)}
-                        className="h-7 w-7 p-0 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </Button>
-                    )}
+                  {group.isGrouped ? (
+                    <Button
+                      size="sm"
+                      onClick={() => setGroupDialog({ open: true, group })}
+                      className="h-7 px-3 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-sm rounded-lg"
+                    >
+                      {subTab === "history" ? <FileText className="w-3.5 h-3.5 mr-1" /> : <Check className="w-3.5 h-3.5 mr-1" />}
+                      {subTab === "history" ? "View" : "Update"}
+                    </Button>
+                  ) : (
+                    renderRowAction(group.parent)
+                  )}
                 </TableCell>
                 {visibleColumnDefs.map((col) => (
                   <TableCell
@@ -784,10 +993,11 @@ export function FreightTable({
                       col.align === "right" && "text-right"
                     )}
                   >
-                    {col.render ? col.render(payment) : "—"}
+                    {col.render ? col.render(group.parent) : "-"}
                   </TableCell>
                 ))}
               </TableRow>
+              </React.Fragment>
             ))}
           </TableBody>
         </Table>
@@ -806,13 +1016,218 @@ export function FreightTable({
         </div>
       </div>
 
+      <Dialog
+        open={groupDialog.open}
+        onOpenChange={(open: boolean) => setGroupDialog((prev) => ({ ...prev, open }))}
+      >
+        <DialogContent className="w-[96vw] max-w-[96vw] sm:max-w-[96vw] md:max-w-[96vw] lg:max-w-[96vw] xl:max-w-[96vw] max-h-[90vh] bg-white rounded-2xl p-0 overflow-hidden border border-white shadow-2xl shadow-slate-950/20 gap-0 flex flex-col">
+          <DialogHeader className="px-5 py-4 border-b border-slate-100 bg-slate-50/95 shrink-0">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-lg bg-brand-50 border border-brand-200 flex items-center justify-center shadow-sm shrink-0">
+                <Check className="w-4 h-4 text-blue-600" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <DialogTitle className="text-slate-900 font-bold text-base leading-tight">
+                  {STEP_CONFIG[activeTab]?.title || "Update"}
+                </DialogTitle>
+                {groupDialog.group && (
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <p className="text-xs font-medium text-slate-500 truncate">
+                      {groupDialog.group.parent["Transporter Name"] || "-"} | Bilty {groupDialog.group.parent["Bilty Number"] || "-"} | {groupDialog.group.children.length} rows
+                    </p>
+                    {showPaidAmount && (
+                      <span className="inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-800">
+                        Paid Amount: {groupDialog.group.parent.PostingAmount !== undefined && groupDialog.group.parent.PostingAmount !== null
+                          ? formatCurrency(groupDialog.group.parent.PostingAmount)
+                          : "-"}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </DialogHeader>
+
+          {subTab !== "history" && (
+          <div className="px-5 py-4 border-b border-slate-100 bg-white shrink-0">
+            <div className={cn("grid grid-cols-1 gap-4", activeTab === "posting" ? "md:grid-cols-[180px_180px_1fr]" : "md:grid-cols-[220px_1fr]")}>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                  <Clock className="w-3 h-3" /> Status
+                </Label>
+                <Select value={groupStatus} onValueChange={(value) => setGroupStatus(value ?? "")}>
+                  <SelectTrigger className="h-9 bg-white border-slate-200 rounded-lg text-sm">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {groupStatusOptions.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {activeTab === "posting" && (
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Amount</Label>
+                  <Input
+                    type="number"
+                    value={groupAmount}
+                    onChange={(e) => setGroupAmount(e.target.value)}
+                    placeholder="Enter amount..."
+                    className="h-9 bg-white border-slate-200 rounded-lg text-sm"
+                  />
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Remark</Label>
+                <Input
+                  type="text"
+                  value={groupRemark}
+                  onChange={(e) => setGroupRemark(e.target.value)}
+                  placeholder="Enter remark..."
+                  className="h-9 bg-white border-slate-200 rounded-lg text-sm"
+                />
+              </div>
+            </div>
+          </div>
+          )}
+
+          <div className="hidden md:block overflow-auto flex-1 min-h-0">
+            <div className="min-w-max text-[11px]">
+              <div
+                className="sticky top-0 z-20 grid border-b border-slate-200 bg-slate-50/95"
+                style={{ gridTemplateColumns: popupTableGridTemplate }}
+              >
+                  {popupColumnDefs.map((col) => (
+                    <div
+                      key={col.key}
+                      className={cn(
+                        "min-h-9 px-1.5 py-2 text-left text-[9px] font-bold text-slate-500 uppercase tracking-wider whitespace-normal break-words",
+                        col.align === "right" && "text-right"
+                      )}
+                    >
+                      {col.label}
+                    </div>
+                  ))}
+              </div>
+              <div>
+                {groupDialog.group?.children.map((child, idx) => (
+                  <div
+                    key={child.id}
+                    style={{ gridTemplateColumns: popupTableGridTemplate }}
+                    className={cn(
+                      "grid border-b border-slate-100 hover:bg-slate-50/50 transition-colors duration-150",
+                      idx % 2 === 0 ? "bg-white" : "bg-slate-50/30"
+                    )}
+                  >
+                    {popupColumnDefs.map((col) => (
+                      <div
+                        key={col.key}
+                        className={cn(
+                          "min-w-0 px-1.5 py-2 text-[11px] leading-snug whitespace-normal break-words",
+                          (col.key === "stepStatus" || col.key === "overallStatus") && "[&>*]:whitespace-normal [&>*]:break-words",
+                          col.align === "right" && "text-right"
+                        )}
+                      >
+                        {col.render ? col.render(child) : "-"}
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="md:hidden overflow-y-auto flex-1 min-h-0 divide-y divide-slate-100">
+            {groupDialog.group?.children.map((child) => (
+              <div key={child.id} className="p-4 bg-white">
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="min-w-0">
+                    <p className="font-mono text-xs font-bold text-slate-800 truncate">
+                      {child["Unique Number"] || `#${child.id}`}
+                    </p>
+                    <p className="text-xs text-slate-500 truncate">
+                      {child["Firm Name"] || "-"}
+                    </p>
+                  </div>
+                  <span className="font-bold text-sm text-slate-900 shrink-0">{formatCurrency(child.Amount)}</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  {showPaidAmount && (
+                    <div>
+                      <span className="block text-[10px] font-bold text-slate-400 uppercase mb-0.5">Paid Amount</span>
+                      <span className="font-bold text-emerald-700">
+                        {child.PostingAmount !== undefined && child.PostingAmount !== null ? formatCurrency(child.PostingAmount) : "-"}
+                      </span>
+                    </div>
+                  )}
+                  <div>
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase mb-0.5">Party</span>
+                    <span className="font-semibold text-slate-700 break-words">{child["Party Name"] || "-"}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase mb-0.5">Transporter</span>
+                    <span className="font-semibold text-slate-700 break-words">{child["Transporter Name"] || "-"}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase mb-0.5">Bilty</span>
+                    <span className="font-mono text-slate-700 break-words">{child["Bilty Number"] || "-"}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase mb-0.5">Vehicle</span>
+                    <span className="font-mono text-slate-700 break-words">{child["Vehicle Number"] || "-"}</span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase mb-0.5">Material</span>
+                    <span className="text-slate-700 break-words">{child["Material Load Details"] || "-"}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase mb-0.5">{getStepName()} Status</span>
+                    <StatusBadge status={getStepField(child, "Status") as string} />
+                  </div>
+                  <div>
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase mb-0.5">Overall</span>
+                    <StatusBadge status={child.Status} />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {subTab !== "history" && (
+          <DialogFooter className="mx-0 mb-0 px-5 py-4 border-t border-slate-100 bg-slate-50/95 flex flex-col-reverse sm:flex-row gap-2 sm:justify-end shrink-0">
+            <Button
+              variant="outline"
+              onClick={() => setGroupDialog({ open: false, group: null })}
+              className="h-10 w-full sm:w-auto px-5 text-xs font-semibold border-slate-200 text-slate-600 bg-white hover:bg-slate-50"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleGroupSubmit}
+              disabled={!onQuickUpdate || subTab === "history"}
+              className="h-10 w-full sm:w-auto px-5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm disabled:opacity-50"
+            >
+              <Check className="w-4 h-4 mr-2" />
+              Submit
+            </Button>
+          </DialogFooter>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <StepActionDialog
         open={stepDialog.open}
         onOpenChange={(open: boolean) => setStepDialog((prev) => ({ ...prev, open }))}
         payment={stepDialog.payment}
         step={activeTab}
-        onConfirm={(payment: FreightPayment, step: string, value: "yes" | "no", actualDate?: string, selectedStatus?: string) => {
-          onQuickUpdate?.(payment, step, value, actualDate, selectedStatus);
+        onConfirm={(payment: FreightPayment, step: string, value: "yes" | "no", actualDate?: string, selectedStatus?: string, remark?: string) => {
+          onQuickUpdate?.(payment, step, value, actualDate, selectedStatus, remark);
           setStepDialog({ open: false, payment: null });
         }}
       />
@@ -826,7 +1241,7 @@ interface StepActionDialogProps {
   onOpenChange: (open: boolean) => void;
   payment: FreightPayment | null;
   step: string;
-  onConfirm: (payment: FreightPayment, step: string, value: "yes" | "no", actualDate?: string, selectedStatus?: string) => void;
+  onConfirm: (payment: FreightPayment, step: string, value: "yes" | "no", actualDate?: string, selectedStatus?: string, remark?: string) => void;
 }
 
 const STEP_CONFIG: Record<string, {
@@ -839,7 +1254,7 @@ const STEP_CONFIG: Record<string, {
   icon: React.ElementType;
 }> = {
   checkkitting: {
-    title: "Check Kitting",
+    title: "Account Checking",
     plannedKey: "Planned3",
     actualKey: "Actual3",
     statusKey: "Status3",
@@ -848,7 +1263,7 @@ const STEP_CONFIG: Record<string, {
     icon: Package,
   },
   posting: {
-    title: "Posting",
+    title: "Account Audit",
     plannedKey: "Planned",
     actualKey: "Actual",
     statusKey: "Status_1",
@@ -857,7 +1272,7 @@ const STEP_CONFIG: Record<string, {
     icon: FileText,
   },
   makepayment: {
-    title: "Make Payment",
+    title: "Posting",
     plannedKey: "Planned2",
     actualKey: "Actual2",
     statusKey: "Status2",
@@ -880,6 +1295,7 @@ function StepActionDialog({ open, onOpenChange, payment, step, onConfirm }: Step
   const today = new Date().toISOString().split("T")[0];
   const [actualDate, setActualDate] = useState(today);
   const [selectedStatus, setSelectedStatus] = useState("");
+  const [remark, setRemark] = useState("");
 
   const config = STEP_CONFIG[step];
 
@@ -889,6 +1305,17 @@ function StepActionDialog({ open, onOpenChange, payment, step, onConfirm }: Step
       setActualDate(existingActual ? existingActual.split("T")[0].split(" ")[0] : today);
       const existingStatus = payment[config.statusKey] as string | undefined;
       setSelectedStatus(existingStatus || config.statusOptions[0]);
+
+      // Handle Remark retrieval based on step mapping
+      const stepRemarkMap: Record<string, keyof FreightPayment> = {
+        checkkitting: "Remark3",
+        posting: "Remark_1",
+        makepayment: "Remark2",
+        freight: "Remark",
+      };
+      const remarkKey = stepRemarkMap[step] || "Remark";
+      const existingRemark = payment[remarkKey] as string | undefined;
+      setRemark(existingRemark || "");
     }
   }, [open, payment, step]);
 
@@ -909,8 +1336,8 @@ function StepActionDialog({ open, onOpenChange, payment, step, onConfirm }: Step
   const calcDelay = () => {
     if (!plannedDate || !actualDate) return 0;
     try {
-      const diff = Math.ceil((new Date(actualDate).getTime() - new Date(plannedDate).getTime()) / 86400000);
-      return diff > 0 ? diff : 0;
+      const diffHours = Math.ceil((new Date(actualDate).getTime() - new Date(plannedDate).getTime()) / 3600000);
+      return diffHours > 0 ? Number((diffHours / 24).toFixed(2)) : 0;
     } catch {
       return 0;
     }
@@ -918,17 +1345,17 @@ function StepActionDialog({ open, onOpenChange, payment, step, onConfirm }: Step
 
   const delay = calcDelay();
 
-  const handleMarkDone = () => onConfirm(payment, step, "yes", actualDate, selectedStatus);
-  const handleKeepPending = () => onConfirm(payment, step, "no", undefined, selectedStatus);
+  const handleMarkDone = () => onConfirm(payment, step, "yes", actualDate, selectedStatus, remark);
+  const handleKeepPending = () => onConfirm(payment, step, "no", undefined, selectedStatus, remark);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md w-[94vw] bg-white rounded-xl p-0 overflow-hidden border border-slate-200 shadow-xl gap-0">
+      <DialogContent className="max-w-md w-[94vw] bg-white rounded-2xl p-0 overflow-hidden border border-white shadow-2xl shadow-slate-950/20 gap-0">
         {/* Colored header */}
         <DialogHeader className="p-0">
-          <div className="px-5 pt-5 pb-4 border-b border-slate-100 bg-slate-50/80">
+          <div className="px-5 pt-5 pb-4 border-b border-slate-100 bg-slate-50/95">
             <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-lg bg-white border border-slate-200 flex items-center justify-center shadow-sm shrink-0">
+              <div className="w-9 h-9 rounded-lg bg-brand-50 border border-brand-200 flex items-center justify-center shadow-sm shrink-0">
                 <Icon className="w-4 h-4 text-blue-600" />
               </div>
               <div className="min-w-0 flex-1">
@@ -942,7 +1369,7 @@ function StepActionDialog({ open, onOpenChange, payment, step, onConfirm }: Step
             <div className="mt-4 rounded-lg border border-slate-200 bg-white px-3 py-2.5 flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-slate-900 font-bold text-xs font-mono truncate">
-                  {payment["Payment Number"] || `#${payment.id}`}
+                  {payment["Unique Number"] || `#${payment.id}`}
                 </p>
                 <p className="text-slate-500 text-[11px] truncate">
                   {payment["Firm Name"]} • {payment.From} → {payment.To}
@@ -1000,6 +1427,18 @@ function StepActionDialog({ open, onOpenChange, payment, step, onConfirm }: Step
             </Select>
           </div>
 
+          {/* Remark Input */}
+          <div className="space-y-1.5">
+            <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Remark</Label>
+            <Input
+              type="text"
+              value={remark}
+              onChange={(e) => setRemark(e.target.value)}
+              placeholder="Enter remark..."
+              className="h-9 bg-white border-slate-200 rounded-lg text-sm"
+            />
+          </div>
+
           {/* Delay indicator — only for checkkitting */}
           {false && (
             <div className={cn(
@@ -1010,14 +1449,14 @@ function StepActionDialog({ open, onOpenChange, payment, step, onConfirm }: Step
             )}>
               <AlertCircle className="w-3.5 h-3.5 shrink-0" />
               {delay > 0
-                ? `${delay} day${delay !== 1 ? "s" : ""} delayed from planned date`
+                ? `${formatDelay(delay).text} delayed from planned date`
                 : "On time — no delay"}
             </div>
           )}
         </div>
 
         {/* Footer buttons */}
-        <DialogFooter className="mx-0 mb-0 px-5 py-4 border-t border-slate-100 bg-slate-50/80 flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+        <DialogFooter className="mx-0 mb-0 px-5 py-4 border-t border-slate-100 bg-slate-50/95 flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
@@ -1036,7 +1475,7 @@ function StepActionDialog({ open, onOpenChange, payment, step, onConfirm }: Step
           )}
           {(step === "posting" || step === "makepayment" || step === "freight") ? (
             <Button
-              onClick={() => onConfirm(payment, step, "yes", undefined, selectedStatus)}
+              onClick={() => onConfirm(payment, step, "yes", undefined, selectedStatus, remark)}
               className="h-10 w-full sm:w-auto px-5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm"
             >
               <Check className="w-4 h-4 mr-2" />

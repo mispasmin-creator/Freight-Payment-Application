@@ -38,7 +38,9 @@ if (orderSupabaseUrl.endsWith("/rest/v1/")) {
 export const orderSupabase = createClient(orderSupabaseUrl, orderSupabaseKey);
 
 const TABLE_NAME = "freightpayemnt";
-const CHECK_KITTING_TABLE_NAME = "CheckKitting";
+const ACCOUNT_CHECKING_TABLE_NAME = "AccountChecking";
+const ACCOUNT_AUDIT_TABLE_NAME = "AccountAudit";
+const POSTING_TABLE_NAME = "Posting";
 const LOGIN_TABLE = "login_users";
 
 export interface LoginUser {
@@ -86,7 +88,7 @@ export const api = {
       console.warn("Supabase credentials missing, returning empty array.");
       return [];
     }
-    const { data, error } = await supabase.from(CHECK_KITTING_TABLE_NAME).select("*").order("id", { ascending: false });
+    const { data, error } = await supabase.from(ACCOUNT_CHECKING_TABLE_NAME).select("*").order("id", { ascending: false });
     if (error) throw error;
     return data || [];
   },
@@ -112,18 +114,23 @@ export const api = {
 
   processKittingPayment: async (payment: Partial<FreightPayment>): Promise<FreightPayment> => {
     const uniqueNumber = payment["Unique Number"];
+    const finalData = { ...payment };
+    if (finalData.Remark3 !== undefined) {
+      finalData.Remark = finalData.Remark3;
+      delete finalData.Remark3;
+    }
     if (uniqueNumber) {
       const { data: existing, error: existingError } = await supabase
-        .from(CHECK_KITTING_TABLE_NAME)
+        .from(ACCOUNT_CHECKING_TABLE_NAME)
         .select("id")
         .eq("Unique Number", uniqueNumber)
         .maybeSingle();
 
       if (existingError) throw existingError;
       if (existing?.id) {
-        const { id, created_at, ...updateData } = payment;
+        const { id, created_at, ...updateData } = finalData;
         const { data, error } = await supabase
-          .from(CHECK_KITTING_TABLE_NAME)
+          .from(ACCOUNT_CHECKING_TABLE_NAME)
           .update(updateData)
           .eq("id", existing.id)
           .select()
@@ -133,12 +140,12 @@ export const api = {
       }
     }
 
-    const { id, created_at, ...insertData } = payment;
+    const { id, created_at, ...insertData } = finalData;
     if (!insertData.Timestamp) {
       insertData.Timestamp = new Date().toISOString();
     }
     const { data, error } = await supabase
-      .from(CHECK_KITTING_TABLE_NAME)
+      .from(ACCOUNT_CHECKING_TABLE_NAME)
       .insert([insertData])
       .select()
       .single();
@@ -231,10 +238,10 @@ export const api = {
       return [];
     }
     try {
-      const { data, error } = await supabase.from("Posting").select("*").order("id", { ascending: false });
+      const { data, error } = await supabase.from(ACCOUNT_AUDIT_TABLE_NAME).select("*").order("id", { ascending: false });
       if (error) {
         if (error.code === "42P01") {
-          console.warn("Posting table does not exist. Returning empty array.");
+          console.warn(`${ACCOUNT_AUDIT_TABLE_NAME} table does not exist. Returning empty array.`);
           return [];
         }
         throw error;
@@ -242,7 +249,7 @@ export const api = {
       return data || [];
     } catch (err: any) {
       if (err?.code === "42P01" || err?.status === 404) {
-        console.warn("Posting table does not exist. Returning empty array.");
+        console.warn(`${ACCOUNT_AUDIT_TABLE_NAME} table does not exist. Returning empty array.`);
         return [];
       }
       throw err;
@@ -255,9 +262,11 @@ export const api = {
       "Party Name": payment["Party Name"],
       "Transporter Name": payment["Transporter Name"],
       "Product": payment["Material Load Details"],
-      "Status": payment.Status_1 || "Pending"
+      "Status": payment.Status_1 || "Pending",
+      "Remark": payment.Remark_1 !== undefined ? payment.Remark_1 : payment.Remark,
+      "Amount": payment.Amount
     };
-    const { data, error } = await supabase.from("Posting").insert([insertData]).select().single();
+    const { data, error } = await supabase.from(ACCOUNT_AUDIT_TABLE_NAME).insert([insertData]).select().single();
     if (error) throw error;
     return data;
   },
@@ -276,7 +285,15 @@ export const api = {
     if (payment["Material Load Details"] !== undefined) {
       updateData.Product = payment["Material Load Details"];
     }
-    const { data, error } = await supabase.from("Posting").update(updateData).eq("id", id).select().single();
+    if (payment.Amount !== undefined) {
+      updateData.Amount = payment.Amount;
+    }
+    if (payment.Remark_1 !== undefined) {
+      updateData.Remark = payment.Remark_1;
+    } else if (payment.Remark !== undefined) {
+      updateData.Remark = payment.Remark;
+    }
+    const { data, error } = await supabase.from(ACCOUNT_AUDIT_TABLE_NAME).update(updateData).eq("id", id).select().single();
     if (error) throw error;
     return data;
   },
@@ -286,10 +303,10 @@ export const api = {
       return [];
     }
     try {
-      const { data, error } = await supabase.from("MakePayment").select("*").order("id", { ascending: false });
+      const { data, error } = await supabase.from(POSTING_TABLE_NAME).select("*").order("id", { ascending: false });
       if (error) {
         if (error.code === "42P01") {
-          console.warn("MakePayment table does not exist. Returning empty array.");
+          console.warn(`${POSTING_TABLE_NAME} table does not exist. Returning empty array.`);
           return [];
         }
         throw error;
@@ -297,7 +314,7 @@ export const api = {
       return data || [];
     } catch (err: any) {
       if (err?.code === "42P01" || err?.status === 404) {
-        console.warn("MakePayment table does not exist. Returning empty array.");
+        console.warn(`${POSTING_TABLE_NAME} table does not exist. Returning empty array.`);
         return [];
       }
       throw err;
@@ -310,9 +327,10 @@ export const api = {
       "Party Name": payment["Party Name"],
       "Transporter Name": payment["Transporter Name"],
       "Product": payment["Material Load Details"],
-      "Status": payment.Status2 || "Pending"
+      "Status": payment.Status2 || "Pending",
+      "Remark": payment.Remark2 !== undefined ? payment.Remark2 : payment.Remark
     };
-    const { data, error } = await supabase.from("MakePayment").insert([insertData]).select().single();
+    const { data, error } = await supabase.from(POSTING_TABLE_NAME).insert([insertData]).select().single();
     if (error) throw error;
     return data;
   },
@@ -331,7 +349,12 @@ export const api = {
     if (payment["Material Load Details"] !== undefined) {
       updateData.Product = payment["Material Load Details"];
     }
-    const { data, error } = await supabase.from("MakePayment").update(updateData).eq("id", id).select().single();
+    if (payment.Remark2 !== undefined) {
+      updateData.Remark = payment.Remark2;
+    } else if (payment.Remark !== undefined) {
+      updateData.Remark = payment.Remark;
+    }
+    const { data, error } = await supabase.from(POSTING_TABLE_NAME).update(updateData).eq("id", id).select().single();
     if (error) throw error;
     return data;
   },
@@ -365,7 +388,8 @@ export const api = {
       "Party Name": payment["Party Name"],
       "Transporter Name": payment["Transporter Name"],
       "Product": payment["Material Load Details"],
-      "Status": payment.Status || "Pending"
+      "Status": payment.Status || "Pending",
+      "Remark": payment.Remark
     };
     const { data, error } = await supabase.from("FreightPayment").insert([insertData]).select().single();
     if (error) throw error;
@@ -386,9 +410,11 @@ export const api = {
     if (payment["Material Load Details"] !== undefined) {
       updateData.Product = payment["Material Load Details"];
     }
+    if (payment.Remark !== undefined) {
+      updateData.Remark = payment.Remark;
+    }
     const { data, error } = await supabase.from("FreightPayment").update(updateData).eq("id", id).select().single();
     if (error) throw error;
     return data;
-  }
+  },
 };
-
