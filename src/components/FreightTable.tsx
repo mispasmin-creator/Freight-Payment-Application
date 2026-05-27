@@ -63,6 +63,25 @@ interface FreightTableProps {
   subTab?: "pending" | "history";
 }
 
+const ACCOUNT_CHECKING_FIRMS = ["RKL", "PURAB", "PMMPL"] as const;
+
+const normalizeFirm = (value: unknown): string => String(value || "").trim().toLowerCase();
+
+const getAccountCheckingFirm = (value: unknown): string => {
+  const normalized = normalizeFirm(value);
+  const matchedFirm = ACCOUNT_CHECKING_FIRMS.find((firm) => {
+    const firmKey = firm.toLowerCase();
+    return normalized === firmKey || normalized === `${firmKey} order`;
+  });
+  return matchedFirm || "";
+};
+
+const isAccountCheckingFirm = (value: unknown): boolean =>
+  getAccountCheckingFirm(value) !== "";
+
+const naturalCompare = (a: string, b: string): number =>
+  a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+
 export function FreightTable({
   payments,
   isLoading,
@@ -428,34 +447,46 @@ export function FreightTable({
     (col.key !== "paidAmount" || showPaidAmount)
   );
 
+  const accountCheckingPayments = useMemo(
+    () =>
+      activeTab === "checkkitting"
+        ? payments.filter((payment) => isAccountCheckingFirm(payment["Firm Name"]))
+        : payments,
+    [payments, activeTab]
+  );
+
   const firmOptions = useMemo(
     () =>
-      Array.from(new Set(payments.map((p) => p["Firm Name"]).filter(Boolean) as string[])).sort(),
-    [payments]
+      activeTab === "checkkitting"
+        ? [...ACCOUNT_CHECKING_FIRMS]
+        : Array.from(new Set(payments.map((p) => p["Firm Name"]).filter(Boolean) as string[])).sort(),
+    [payments, activeTab]
   );
 
   const statusOptions = useMemo(
     () =>
       Array.from(
         new Set(
-          payments
+          accountCheckingPayments
             .map((p) => String((getStepField(p, "Status") as string) || p.Status || "").trim())
             .filter(Boolean)
         )
       ).sort(),
-    [payments, activeTab]
+    [accountCheckingPayments, activeTab]
   );
 
   const filteredPayments = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    return payments.filter((payment) => {
-      const firmOk = firmFilter === "all" || payment["Firm Name"] === firmFilter;
+    return accountCheckingPayments.filter((payment) => {
+      const displayFirm = activeTab === "checkkitting" ? getAccountCheckingFirm(payment["Firm Name"]) : payment["Firm Name"];
+      const firmOk = firmFilter === "all" || normalizeFirm(displayFirm) === normalizeFirm(firmFilter);
       const stepStatus = String((getStepField(payment, "Status") as string) || payment.Status || "").trim();
       const statusOk = statusFilter === "all" || stepStatus === statusFilter;
       const searchOk =
         !term ||
         [
           payment["Unique Number"],
+          displayFirm,
           payment["Firm Name"],
           payment["Fms Name"],
           payment["Transporter Name"],
@@ -471,8 +502,14 @@ export function FreightTable({
           .some((value) => String(value).toLowerCase().includes(term));
 
       return firmOk && statusOk && searchOk;
+    }).sort((a, b) => {
+      if (activeTab !== "checkkitting") return 0;
+      return naturalCompare(
+        String(a["Lift ID"] || a["Unique Number"] || a.id || ""),
+        String(b["Lift ID"] || b["Unique Number"] || b.id || ""),
+      );
     });
-  }, [payments, searchTerm, firmFilter, statusFilter, activeTab]);
+  }, [accountCheckingPayments, searchTerm, firmFilter, statusFilter, activeTab]);
 
   const shouldGroupRows = activeTab === "posting" || activeTab === "makepayment" || activeTab === "freight";
 
@@ -559,7 +596,6 @@ export function FreightTable({
       activeTab === "makepayment" ||
       activeTab === "checkkitting" ||
       activeTab === "freight") &&
-    subTab !== "history" &&
     onQuickUpdate ? (
       <Button
         size="sm"
@@ -900,7 +936,6 @@ export function FreightTable({
                   View
                 </Button>
               ) : (activeTab === "posting" || activeTab === "makepayment" || activeTab === "checkkitting" || activeTab === "freight") &&
-                subTab !== "history" &&
                 onQuickUpdate ? (
                 <Button
                   size="sm"
@@ -1210,7 +1245,7 @@ export function FreightTable({
             </Button>
             <Button
               onClick={handleGroupSubmit}
-              disabled={!onQuickUpdate || subTab === "history"}
+              disabled={!onQuickUpdate}
               className="h-10 w-full sm:w-auto px-5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm disabled:opacity-50"
             >
               <Check className="w-4 h-4 mr-2" />
@@ -1439,20 +1474,6 @@ function StepActionDialog({ open, onOpenChange, payment, step, onConfirm }: Step
             />
           </div>
 
-          {/* Delay indicator — only for checkkitting */}
-          {false && (
-            <div className={cn(
-              "flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold",
-              delay > 0
-                ? "bg-rose-50 border border-rose-100 text-rose-600"
-                : "bg-emerald-50 border border-emerald-100 text-emerald-600"
-            )}>
-              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-              {delay > 0
-                ? `${formatDelay(delay).text} delayed from planned date`
-                : "On time — no delay"}
-            </div>
-          )}
         </div>
 
         {/* Footer buttons */}

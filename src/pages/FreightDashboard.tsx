@@ -26,6 +26,19 @@ const showToast = (message: string, type: "success" | "error" | "info" = "info")
   }
 };
 
+const ACCOUNT_CHECKING_FIRMS = ["RKL", "PURAB", "PMMPL"] as const;
+
+const normalizeFirm = (value: unknown): string => String(value || "").trim().toLowerCase();
+
+const getAccountCheckingFirm = (value: unknown): string => {
+  const normalized = normalizeFirm(value);
+  const matchedFirm = ACCOUNT_CHECKING_FIRMS.find((firm) => {
+    const firmKey = firm.toLowerCase();
+    return normalized === firmKey || normalized === `${firmKey} order`;
+  });
+  return matchedFirm || "";
+};
+
 const calculateDelayWithHours = (planned?: string, actual?: string) => {
   if (!planned || !actual) return 0;
   const plannedDate = new Date(planned);
@@ -148,7 +161,7 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
     return isAdmin
       ? checkKittingPayments
       : checkKittingPayments.filter(
-          (p) => p["Firm Name"]?.toLowerCase() === userFirm.toLowerCase()
+          (p) => normalizeFirm(getAccountCheckingFirm(p["Firm Name"]) || p["Firm Name"]) === normalizeFirm(getAccountCheckingFirm(userFirm) || userFirm)
         );
   }, [checkKittingPayments, isAdmin, userFirm]);
 

@@ -65,6 +65,8 @@ interface DeliveryRow {
 
 interface FullKittinRow {
   "Lift No"?: string | null;
+  "Indent No"?: string | null;
+  "Material Load Details"?: string | null;
   "Bilty Number"?: string | null;
   "Transporter Name"?: string | null;
   "Vehicle Number"?: string | null;
@@ -75,6 +77,7 @@ interface FullKittinRow {
 
 interface LiftAccountRow {
   "Lift No"?: string | null;
+  "Indent no."?: string | null;
   Timestamp?: string | null;
   "Firm Name"?: string | null;
   "Vendor Name"?: string | null;
@@ -85,6 +88,15 @@ interface LiftAccountRow {
   "Bilty No. 2"?: string | null;
   "Bilty Image"?: string | null;
   "Transporter Rate"?: number | string | null;
+  "Transporting Rate"?: number | string | null;
+  "Type Of Transporting Rate"?: string | null;
+  "Area lifting"?: string | null;
+  "Lead Time To Reach Factory (days)"?: number | string | null;
+  "Driver No."?: string | number | null;
+  Qty?: number | string | null;
+  "Truck Qty"?: number | string | null;
+  Rate?: number | string | null;
+  "Bill Image"?: string | null;
   "Lifting Qty"?: number | string | null;
   "Total Bill Quantity"?: number | string | null;
   "Bill No."?: string | null;
@@ -92,27 +104,43 @@ interface LiftAccountRow {
 }
 
 interface MismatchRow {
+  "Lift ID"?: string | null;
   "Lift No"?: string | null;
+  "Lift Number"?: string | null;
+  "Indent Number"?: string | null;
   "Bilty No."?: string | null;
   "Truck No."?: string | null;
   "Transporter Name"?: string | null;
+  Transporter?: string | null;
   "Bilty Image"?: string | null;
+  "Total Freight"?: number | string | null;
   [key: string]: unknown;
 }
 
 interface KittingHistoryItem {
   liftId: string;
+  indentNo: string;
   date: string;
   firmName: string;
   partyName: string;
   productName: string;
+  poQty: number | null;
   transporterName: string;
   vehicleNumber: string;
   biltyNumber: string;
   biltyImage: string;
   freightAmount: number | null;
+  typeOfRate: string;
+  transportingPerMtRate: number | null;
+  totalTruckBillingQty: number | null;
+  materialRate: number | null;
   billingQty: number | null;
   billNo: string;
+  areaLifting: string;
+  leadTimeDays: number | null;
+  driverNo: string;
+  billImage: string;
+  hasBilty: "Yes" | "No";
   systemName: string;
 }
 
@@ -125,6 +153,41 @@ const num = (v: unknown): number | null => {
 };
 
 const isFilled = (v: unknown): boolean => str(v) !== "";
+
+const ACCOUNT_CHECKING_FIRMS = ["RKL", "PURAB", "PMMPL"] as const;
+
+const normalizeFirm = (value: unknown): string => str(value).toLowerCase();
+
+const getAccountCheckingFirm = (value: unknown): string => {
+  const normalized = normalizeFirm(value);
+  const matchedFirm = ACCOUNT_CHECKING_FIRMS.find((firm) => {
+    const firmKey = firm.toLowerCase();
+    return normalized === firmKey || normalized === `${firmKey} order`;
+  });
+  return matchedFirm || "";
+};
+
+const isAccountCheckingFirm = (value: unknown): boolean =>
+  getAccountCheckingFirm(value) !== "";
+
+const naturalCompare = (a: string, b: string): number =>
+  a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+
+const firstFilled = (...values: unknown[]): string => {
+  for (const value of values) {
+    const text = str(value);
+    if (text) return text;
+  }
+  return "";
+};
+
+const firstNumber = (...values: unknown[]): number | null => {
+  for (const value of values) {
+    const parsed = num(value);
+    if (parsed !== null) return parsed;
+  }
+  return null;
+};
 
 const validBilty = (v: unknown): boolean => {
   const value = str(v).toLowerCase();
@@ -191,16 +254,32 @@ function buildPurchaseRows(
   mismatch: MismatchRow[],
 ): KittingHistoryItem[] {
   const doneLiftNos = new Set<string>();
+  const doneIndentNos = new Set<string>();
+  const doneVehicleNos = new Set<string>();
   const fkByLiftNo = new Map<string, FullKittinRow>();
+  const fkByIndentNo = new Map<string, FullKittinRow>();
+  const fkByVehicleNo = new Map<string, FullKittinRow>();
   const fkByBilty = new Map<string, FullKittinRow>();
 
   for (const fk of fullkittin) {
     const fkLiftNo = str(fk["Lift No"]).toLowerCase();
+    const fkIndentNo = str(fk["Indent No"]).toLowerCase();
+    const fkVehicleNo = str(fk["Vehicle Number"]).toLowerCase();
     const fkBilty = str(fk["Bilty Number"]).toLowerCase();
 
     if (fkLiftNo) {
       doneLiftNos.add(fkLiftNo);
       fkByLiftNo.set(fkLiftNo, fk);
+    }
+
+    if (fkIndentNo) {
+      doneIndentNos.add(fkIndentNo);
+      fkByIndentNo.set(fkIndentNo, fk);
+    }
+
+    if (fkVehicleNo) {
+      doneVehicleNos.add(fkVehicleNo);
+      fkByVehicleNo.set(fkVehicleNo, fk);
     }
 
     if (validBilty(fkBilty)) {
@@ -211,7 +290,7 @@ function buildPurchaseRows(
 
   const mmByLift = new Map<string, MismatchRow>();
   for (const mm of mismatch) {
-    const key = str(mm["Lift No"]).toLowerCase();
+    const key = firstFilled(mm["Lift Number"], mm["Lift ID"], mm["Lift No"]).toLowerCase();
     if (key) mmByLift.set(key, mm);
   }
 
@@ -219,6 +298,8 @@ function buildPurchaseRows(
 
   for (const la of liftAccounts) {
     const liftNum = str(la["Lift No"]).toLowerCase();
+    const indentNo = str(la["Indent no."]).toLowerCase();
+    const truckNo = str(la["Truck No."]).toLowerCase();
     const biltyNo1 = str(la["Bilty No."]).toLowerCase();
     const biltyNo2 = str(la["Bilty No. 2"]).toLowerCase();
     const mm = liftNum ? mmByLift.get(liftNum) : undefined;
@@ -226,6 +307,8 @@ function buildPurchaseRows(
 
     const isDone =
       (liftNum !== "" && doneLiftNos.has(liftNum)) ||
+      (indentNo !== "" && doneIndentNos.has(indentNo)) ||
+      (truckNo !== "" && doneVehicleNos.has(truckNo)) ||
       (validBilty(biltyNo1) && doneLiftNos.has(`bilty:${biltyNo1}`)) ||
       (validBilty(biltyNo2) && doneLiftNos.has(`bilty:${biltyNo2}`)) ||
       (validBilty(mmBilty) && doneLiftNos.has(`bilty:${mmBilty}`));
@@ -235,6 +318,10 @@ function buildPurchaseRows(
     let fk: FullKittinRow | undefined;
     if (liftNum && fkByLiftNo.has(liftNum)) {
       fk = fkByLiftNo.get(liftNum);
+    } else if (indentNo && fkByIndentNo.has(indentNo)) {
+      fk = fkByIndentNo.get(indentNo);
+    } else if (truckNo && fkByVehicleNo.has(truckNo)) {
+      fk = fkByVehicleNo.get(truckNo);
     } else if (biltyNo1 && fkByBilty.has(biltyNo1)) {
       fk = fkByBilty.get(biltyNo1);
     } else if (biltyNo2 && fkByBilty.has(biltyNo2)) {
@@ -243,35 +330,43 @@ function buildPurchaseRows(
       fk = fkByBilty.get(mmBilty);
     }
 
+    const biltyNumber = firstFilled(fk?.["Bilty Number"], mm?.["Bilty No."], la["Bilty No."], la["Bilty No. 2"]) || "-";
+    const freightAmount = firstNumber(
+      fk?.Amount,
+      mm?.["Total Freight"],
+      la["Transporter Rate"],
+      la["Transporting Rate"],
+    );
+
     merged.push({
       liftId: str(la["Lift No"]) || "-",
+      indentNo: str(la["Indent no."]) || str(fk?.["Indent No"]) || str(mm?.["Indent Number"]) || "-",
       date: str(la.Timestamp),
       firmName: str(la["Firm Name"]),
       partyName: str(la["Vendor Name"]),
-      productName: str(la["Raw Material Name"]),
+      productName: firstFilled(fk?.["Material Load Details"], la["Raw Material Name"]) || "-",
+      poQty: num(la.Qty),
       transporterName:
-        str(fk?.["Transporter Name"]) ||
-        str(mm?.["Transporter Name"]) ||
-        str(la["Transporter Name"]) ||
+        firstFilled(fk?.["Transporter Name"], mm?.["Transporter Name"], mm?.Transporter, la["Transporter Name"]) ||
         "-",
       vehicleNumber:
-        str(fk?.["Vehicle Number"]) ||
-        str(mm?.["Truck No."]) ||
-        str(la["Truck No."]) ||
+        firstFilled(fk?.["Vehicle Number"], mm?.["Truck No."], la["Truck No."]) ||
         "-",
-      biltyNumber:
-        str(fk?.["Bilty Number"]) ||
-        str(mm?.["Bilty No."]) ||
-        str(la["Bilty No."]) ||
-        "-",
+      biltyNumber,
       biltyImage:
-        str(fk?.["Bilty Image"]) ||
-        str(mm?.["Bilty Image"]) ||
-        str(la["Bilty Image"]),
-      freightAmount:
-        fk?.Amount != null ? num(fk.Amount) : num(la["Transporter Rate"]),
+        firstFilled(fk?.["Bilty Image"], mm?.["Bilty Image"], la["Bilty Image"]),
+      freightAmount,
+      typeOfRate: firstFilled(fk?.["Rate Type"], la["Type Of Transporting Rate"]) || "-",
+      transportingPerMtRate: num(la["Transporting Rate"]),
+      totalTruckBillingQty: num(la["Truck Qty"]) ?? num(la["Total Bill Quantity"]),
+      materialRate: num(la.Rate),
       billingQty: num(la["Lifting Qty"]) ?? num(la["Total Bill Quantity"]),
       billNo: str(la["Bill No."]) || "-",
+      areaLifting: str(la["Area lifting"]) || "-",
+      leadTimeDays: num(la["Lead Time To Reach Factory (days)"]),
+      driverNo: str(la["Driver No."]) || "-",
+      billImage: str(la["Bill Image"]),
+      hasBilty: validBilty(biltyNumber) ? "Yes" : "No",
       systemName: "Purchase FMS",
     });
   }
@@ -313,19 +408,30 @@ function buildOrderRows(
 
       return {
         liftId: str(dispatch["D-Sr Number"]) || "-",
+        indentNo: "-",
         date: str(dispatch["Date Of Dispatch"]),
-        firmName: str(order?.["Firm Name"]),
+        firmName: getAccountCheckingFirm(order?.["Firm Name"]) || str(order?.["Firm Name"]),
         partyName: str(dispatch["Party Name"]) || str(order?.["Party Names"]),
         productName:
           str(dispatch["Product Name"]) || str(order?.["Product Name"]),
+        poQty: null,
         transporterName: str(dispatch["Transporter Name"]) || "-",
         vehicleNumber: str(dispatch["Truck No."]) || "-",
         biltyNumber:
           str(dispatch["Bilty No."]) || str(delivery?.["Bilty No."]) || "-",
         biltyImage: str(delivery?.["Bilty Copy"]),
         freightAmount,
+        typeOfRate: str(dispatch["Type Of Rate"]) || "-",
+        transportingPerMtRate: ratePerMt || null,
+        totalTruckBillingQty: actualQty,
+        materialRate: null,
         billingQty: actualQty,
         billNo: str(dispatch["Bill Number"]) || "-",
+        areaLifting: "-",
+        leadTimeDays: null,
+        driverNo: "-",
+        billImage: "",
+        hasBilty: validBilty(dispatch["Bilty No."]) || validBilty(delivery?.["Bilty No."]) ? "Yes" : "No",
         systemName: "Order Management System",
       };
     });
@@ -427,8 +533,13 @@ export function FullKittingHistory() {
     };
   }, []);
 
+  const accountCheckingRows = useMemo(
+    () => rows.filter((r) => isAccountCheckingFirm(r.firmName)),
+    [rows],
+  );
+
   const filtered = useMemo(() => {
-    return rows.filter((r) => {
+    return accountCheckingRows.filter((r) => {
       // Exclude processed records
       const uniqueId = getRowUniqueId(r);
       if (processedIds.has(uniqueId) || processedIds.has(`KIT-${r.liftId}`)) {
@@ -440,6 +551,7 @@ export function FullKittingHistory() {
         !term ||
         [
           r.liftId,
+          r.indentNo,
           r.date,
           r.firmName,
           r.partyName,
@@ -448,6 +560,10 @@ export function FullKittingHistory() {
           r.vehicleNumber,
           r.biltyNumber,
           r.billNo,
+          r.areaLifting,
+          r.driverNo,
+          r.typeOfRate,
+          r.hasBilty,
           r.systemName,
         ]
           .filter(Boolean)
@@ -455,11 +571,11 @@ export function FullKittingHistory() {
       const transporterOk =
         !searchTransporter || r.transporterName === searchTransporter;
       const productOk = !searchProduct || r.productName === searchProduct;
-      const firmOk = !searchFirm || r.firmName === searchFirm;
+      const firmOk = !searchFirm || getAccountCheckingFirm(r.firmName) === searchFirm;
       return searchOk && transporterOk && productOk && firmOk;
-    });
+    }).sort((a, b) => naturalCompare(a.liftId, b.liftId));
   }, [
-    rows,
+    accountCheckingRows,
     searchTerm,
     searchTransporter,
     searchProduct,
@@ -470,21 +586,20 @@ export function FullKittingHistory() {
   const transporterOptions = useMemo(
     () =>
       Array.from(
-        new Set(rows.map((r) => r.transporterName).filter(Boolean)),
+        new Set(accountCheckingRows.map((r) => r.transporterName).filter(Boolean)),
       ).sort(),
-    [rows],
+    [accountCheckingRows],
   );
   const productOptions = useMemo(
     () =>
       Array.from(
-        new Set(rows.map((r) => r.productName).filter(Boolean)),
+        new Set(accountCheckingRows.map((r) => r.productName).filter(Boolean)),
       ).sort(),
-    [rows],
+    [accountCheckingRows],
   );
   const firmOptions = useMemo(
-    () =>
-      Array.from(new Set(rows.map((r) => r.firmName).filter(Boolean))).sort(),
-    [rows],
+    () => [...ACCOUNT_CHECKING_FIRMS],
+    [],
   );
 
   const hasFilters =
@@ -693,7 +808,7 @@ export function FullKittingHistory() {
         <div className="ml-auto text-xs font-medium text-slate-500">
           Showing{" "}
           <span className="font-bold text-slate-700">{filtered.length}</span> of{" "}
-          <span className="font-bold text-slate-700">{rows.length}</span> kitted
+          <span className="font-bold text-slate-700">{accountCheckingRows.length}</span> kitted
           records
         </div>
 
@@ -812,7 +927,9 @@ export function FullKittingHistory() {
                     {formatDate(r.date)}
                   </span>
                   <span>Qty: {r.billingQty ?? "-"}</span>
+                  <span>PO: {r.poQty ?? "-"}</span>
                   <span>Bill: {r.billNo}</span>
+                  <span>Bilty: {r.hasBilty}</span>
                 </div>
               </div>
             ))}
@@ -825,17 +942,28 @@ export function FullKittingHistory() {
                   {[
                     "Select",
                     "Lift ID",
+                    "Indent",
                     "Date",
                     "Firm",
                     "System",
                     "Party / Vendor",
                     "Product",
+                    "PO Qty",
                     "Transporter",
                     "Truck No.",
                     "Bilty No.",
+                    "Has Bilty",
                     "Freight Amt",
                     "Billing Qty",
+                    "Type Of Rate",
+                    "Per MT Rate",
+                    "Truck Bill Qty",
+                    "Material Rate",
+                    "Area",
+                    "Lead Days",
+                    "Driver No.",
                     "Bill No.",
+                    "Bill Image",
                     "Bilty Image",
                   ].map((h, i) => (
                     <TableHead
@@ -886,6 +1014,11 @@ export function FullKittingHistory() {
                         {r.liftId}
                       </span>
                     </TableCell>
+                    <TableCell className="py-3">
+                      <span className="font-mono text-sm text-slate-600">
+                        {r.indentNo}
+                      </span>
+                    </TableCell>
                     <TableCell className="py-3 text-sm text-slate-600 whitespace-nowrap">
                       {formatDate(r.date)}
                     </TableCell>
@@ -923,6 +1056,11 @@ export function FullKittingHistory() {
                         {r.productName || "-"}
                       </div>
                     </TableCell>
+                    <TableCell className="py-3 text-center">
+                      <span className="text-sm text-slate-600">
+                        {r.poQty ?? "-"}
+                      </span>
+                    </TableCell>
                     <TableCell className="py-3">
                       <div
                         className="text-sm text-slate-600 truncate max-w-[150px]"
@@ -941,6 +1079,18 @@ export function FullKittingHistory() {
                         {r.biltyNumber}
                       </span>
                     </TableCell>
+                    <TableCell className="py-3 text-center">
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-bold",
+                          r.hasBilty === "Yes"
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                            : "bg-rose-50 text-rose-700 border border-rose-200",
+                        )}
+                      >
+                        {r.hasBilty}
+                      </span>
+                    </TableCell>
                     <TableCell className="py-3 text-right">
                       <span className="font-bold text-sm text-slate-900">
                         {formatCurrency(r.freightAmount)}
@@ -952,9 +1102,59 @@ export function FullKittingHistory() {
                       </span>
                     </TableCell>
                     <TableCell className="py-3">
+                      <span className="text-sm text-slate-600 whitespace-nowrap">
+                        {r.typeOfRate}
+                      </span>
+                    </TableCell>
+                    <TableCell className="py-3 text-right">
+                      <span className="text-sm text-slate-600">
+                        {r.transportingPerMtRate ?? "-"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="py-3 text-center">
+                      <span className="text-sm text-slate-600">
+                        {r.totalTruckBillingQty ?? "-"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="py-3 text-right">
+                      <span className="text-sm text-slate-600">
+                        {r.materialRate ?? "-"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="py-3">
+                      <span className="text-sm text-slate-600 whitespace-nowrap">
+                        {r.areaLifting}
+                      </span>
+                    </TableCell>
+                    <TableCell className="py-3 text-center">
+                      <span className="text-sm text-slate-600">
+                        {r.leadTimeDays ?? "-"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="py-3">
+                      <span className="font-mono text-sm text-slate-600">
+                        {r.driverNo}
+                      </span>
+                    </TableCell>
+                    <TableCell className="py-3">
                       <span className="font-mono text-sm text-slate-600">
                         {r.billNo}
                       </span>
+                    </TableCell>
+                    <TableCell className="py-3">
+                      {r.billImage ? (
+                        <a
+                          href={r.billImage}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-semibold text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap"
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          View
+                        </a>
+                      ) : (
+                        <span className="text-slate-300 text-xs">-</span>
+                      )}
                     </TableCell>
                     <TableCell className="py-3">
                       {r.biltyImage ? (
