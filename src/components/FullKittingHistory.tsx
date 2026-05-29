@@ -70,6 +70,7 @@ interface DeliveryRow {
 }
 
 interface FullKittinRow {
+  id?: number | string | null;
   "Lift No"?: string | null;
   "Indent No"?: string | null;
   "Material Load Details"?: string | null;
@@ -77,6 +78,9 @@ interface FullKittinRow {
   "Transporter Name"?: string | null;
   "Vehicle Number"?: string | null;
   "Bilty Image"?: string | null;
+  "Rate Type"?: string | null;
+  "Transporting Per MT Rate"?: number | string | null;
+  "Transporting Rate"?: number | string | null;
   Amount?: number | string | null;
   [key: string]: unknown;
 }
@@ -244,38 +248,19 @@ function buildPurchaseRows(
   liftAccounts: LiftAccountRow[],
   mismatch: MismatchRow[],
 ): KittingHistoryItem[] {
-  const doneLiftNos = new Set<string>();
-  const doneIndentNos = new Set<string>();
-  const doneVehicleNos = new Set<string>();
   const fkByLiftNo = new Map<string, FullKittinRow>();
-  const fkByIndentNo = new Map<string, FullKittinRow>();
-  const fkByVehicleNo = new Map<string, FullKittinRow>();
   const fkByBilty = new Map<string, FullKittinRow>();
-
   for (const fk of fullkittin) {
-    const fkLiftNo = str(fk["Lift No"]).toLowerCase();
-    const fkIndentNo = str(fk["Indent No"]).toLowerCase();
-    const fkVehicleNo = str(fk["Vehicle Number"]).toLowerCase();
-    const fkBilty = str(fk["Bilty Number"]).toLowerCase();
+    const liftNo = str(fk["Lift No"]).toLowerCase();
+    const bilty = str(fk["Bilty Number"]).toLowerCase();
 
-    if (fkLiftNo) {
-      doneLiftNos.add(fkLiftNo);
-      fkByLiftNo.set(fkLiftNo, fk);
+    if (liftNo) {
+      fkByLiftNo.set(liftNo, fk);
+      continue;
     }
 
-    if (fkIndentNo) {
-      doneIndentNos.add(fkIndentNo);
-      fkByIndentNo.set(fkIndentNo, fk);
-    }
-
-    if (fkVehicleNo) {
-      doneVehicleNos.add(fkVehicleNo);
-      fkByVehicleNo.set(fkVehicleNo, fk);
-    }
-
-    if (validBilty(fkBilty)) {
-      doneLiftNos.add(`bilty:${fkBilty}`);
-      fkByBilty.set(fkBilty, fk);
+    if (validBilty(bilty) && !fkByBilty.has(bilty)) {
+      fkByBilty.set(bilty, fk);
     }
   }
 
@@ -289,67 +274,49 @@ function buildPurchaseRows(
 
   for (const la of liftAccounts) {
     const liftNum = str(la["Lift No"]).toLowerCase();
-    const indentNo = str(la["Indent no."]).toLowerCase();
-    const truckNo = str(la["Truck No."]).toLowerCase();
     const biltyNo1 = str(la["Bilty No."]).toLowerCase();
     const biltyNo2 = str(la["Bilty No. 2"]).toLowerCase();
+    const fk = (liftNum && fkByLiftNo.get(liftNum)) ||
+      (validBilty(biltyNo1) && fkByBilty.get(biltyNo1)) ||
+      (validBilty(biltyNo2) && fkByBilty.get(biltyNo2));
+
+    if (!fk) continue;
+
     const mm = liftNum ? mmByLift.get(liftNum) : undefined;
-    const mmBilty = str(mm?.["Bilty No."]).toLowerCase();
+    const fkMatchesLift = liftNum !== "" && str(fk["Lift No"]).toLowerCase() === liftNum;
 
-    const isDone =
-      (liftNum !== "" && doneLiftNos.has(liftNum)) ||
-      (indentNo !== "" && doneIndentNos.has(indentNo)) ||
-      (truckNo !== "" && doneVehicleNos.has(truckNo)) ||
-      (validBilty(biltyNo1) && doneLiftNos.has(`bilty:${biltyNo1}`)) ||
-      (validBilty(biltyNo2) && doneLiftNos.has(`bilty:${biltyNo2}`)) ||
-      (validBilty(mmBilty) && doneLiftNos.has(`bilty:${mmBilty}`));
-
-    if (!isDone) continue;
-
-    let fk: FullKittinRow | undefined;
-    if (liftNum && fkByLiftNo.has(liftNum)) {
-      fk = fkByLiftNo.get(liftNum);
-    } else if (indentNo && fkByIndentNo.has(indentNo)) {
-      fk = fkByIndentNo.get(indentNo);
-    } else if (truckNo && fkByVehicleNo.has(truckNo)) {
-      fk = fkByVehicleNo.get(truckNo);
-    } else if (biltyNo1 && fkByBilty.has(biltyNo1)) {
-      fk = fkByBilty.get(biltyNo1);
-    } else if (biltyNo2 && fkByBilty.has(biltyNo2)) {
-      fk = fkByBilty.get(biltyNo2);
-    } else if (mmBilty && fkByBilty.has(mmBilty)) {
-      fk = fkByBilty.get(mmBilty);
-    }
-
-    const biltyNumber = firstFilled(fk?.["Bilty Number"], mm?.["Bilty No."], la["Bilty No."], la["Bilty No. 2"]) || "-";
+    const biltyNumber = firstFilled(fk["Bilty Number"], mm?.["Bilty No."], la["Bilty No."], la["Bilty No. 2"]) || "-";
     const freightAmount = firstNumber(
-      fk?.Amount,
+      fkMatchesLift ? fk.Amount : undefined,
       mm?.["Total Freight"],
       la["Transporter Rate"],
-      la["Transporting Rate"],
     );
-    const timestamp = str(la.Timestamp);
+    const timestamp = firstFilled(la.Timestamp, mm?.Timestamp);
 
     merged.push({
       liftId: str(la["Lift No"]) || "-",
-      indentNo: str(la["Indent no."]) || str(fk?.["Indent No"]) || str(mm?.["Indent Number"]) || "-",
+      indentNo: str(la["Indent no."]) || str(fk["Indent No"]) || str(mm?.["Indent Number"]) || "-",
       date: timestamp,
       firmName: str(la["Firm Name"]),
       partyName: str(la["Vendor Name"]),
-      productName: firstFilled(fk?.["Material Load Details"], la["Raw Material Name"]) || "-",
+      productName: firstFilled(fk["Material Load Details"], la["Raw Material Name"]) || "-",
       poQty: num(la.Qty),
       transporterName:
-        firstFilled(fk?.["Transporter Name"], mm?.["Transporter Name"], mm?.Transporter, la["Transporter Name"]) ||
+        firstFilled(fk["Transporter Name"], mm?.["Transporter Name"], mm?.Transporter, la["Transporter Name"]) ||
         "-",
       vehicleNumber:
-        firstFilled(fk?.["Vehicle Number"], mm?.["Truck No."], la["Truck No."]) ||
+        firstFilled(fk["Vehicle Number"], mm?.["Truck No."], la["Truck No."]) ||
         "-",
       biltyNumber,
       biltyImage:
-        firstFilled(fk?.["Bilty Image"], mm?.["Bilty Image"], la["Bilty Image"]),
+        firstFilled(fk["Bilty Image"], mm?.["Bilty Image"], la["Bilty Image"]),
       freightAmount,
-      typeOfRate: firstFilled(fk?.["Rate Type"], la["Type Of Transporting Rate"]) || "-",
-      transportingPerMtRate: num(la["Transporting Rate"]),
+      typeOfRate: firstFilled(fk["Rate Type"], la["Type Of Transporting Rate"]) || "-",
+      transportingPerMtRate: firstNumber(
+        fk["Transporting Per MT Rate"],
+        fk["Transporting Rate"],
+        la["Transporting Rate"],
+      ),
       totalTruckBillingQty: num(la["Truck Qty"]) ?? num(la["Total Bill Quantity"]),
       materialRate: num(la.Rate),
       billingQty: num(la["Lifting Qty"]) ?? num(la["Total Bill Quantity"]),
