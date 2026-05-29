@@ -43,8 +43,8 @@ interface DispatchRow {
   "Transport Rate @Per Matric Ton"?: number | string | null;
   "Actual Truck Qty"?: number | string | null;
   "Bill Number"?: string | number | null;
-  Planned1?: string | null;
-  Actual1?: string | null;
+  "Bill Copy"?: string | null;
+  "Fullkitting Actual"?: string | null;
   [key: string]: unknown;
 }
 
@@ -53,12 +53,18 @@ interface OrderReceiptRow {
   "Firm Name"?: string | null;
   "Party Names"?: string | null;
   "Product Name"?: string | null;
+  Quantity?: number | string | null;
+  "Freight Amount"?: number | string | null;
+  "Rate Of Material"?: number | string | null;
+  Address?: string | null;
+  "Lead Time to Reach Factory"?: number | string | null;
   [key: string]: unknown;
 }
 
 interface DeliveryRow {
   "D-Sr Number"?: string | number | null;
   "Bilty No."?: string | number | null;
+  "Bilty Number."?: string | number | null;
   "Bilty Copy"?: string | null;
   [key: string]: unknown;
 }
@@ -142,6 +148,7 @@ interface KittingHistoryItem {
   billImage: string;
   hasBilty: "Yes" | "No";
   systemName: string;
+  fullkittingDoneAt: string;
 }
 
 const str = (v: unknown): string => (v != null ? String(v).trim() : "");
@@ -153,22 +160,6 @@ const num = (v: unknown): number | null => {
 };
 
 const isFilled = (v: unknown): boolean => str(v) !== "";
-
-const ACCOUNT_CHECKING_FIRMS = ["RKL", "PURAB", "PMMPL"] as const;
-
-const normalizeFirm = (value: unknown): string => str(value).toLowerCase();
-
-const getAccountCheckingFirm = (value: unknown): string => {
-  const normalized = normalizeFirm(value);
-  const matchedFirm = ACCOUNT_CHECKING_FIRMS.find((firm) => {
-    const firmKey = firm.toLowerCase();
-    return normalized === firmKey || normalized === `${firmKey} order`;
-  });
-  return matchedFirm || "";
-};
-
-const isAccountCheckingFirm = (value: unknown): boolean =>
-  getAccountCheckingFirm(value) !== "";
 
 const naturalCompare = (a: string, b: string): number =>
   a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
@@ -337,11 +328,12 @@ function buildPurchaseRows(
       la["Transporter Rate"],
       la["Transporting Rate"],
     );
+    const timestamp = str(la.Timestamp);
 
     merged.push({
       liftId: str(la["Lift No"]) || "-",
       indentNo: str(la["Indent no."]) || str(fk?.["Indent No"]) || str(mm?.["Indent Number"]) || "-",
-      date: str(la.Timestamp),
+      date: timestamp,
       firmName: str(la["Firm Name"]),
       partyName: str(la["Vendor Name"]),
       productName: firstFilled(fk?.["Material Load Details"], la["Raw Material Name"]) || "-",
@@ -368,6 +360,7 @@ function buildPurchaseRows(
       billImage: str(la["Bill Image"]),
       hasBilty: validBilty(biltyNumber) ? "Yes" : "No",
       systemName: "Purchase FMS",
+      fullkittingDoneAt: timestamp,
     });
   }
 
@@ -392,49 +385,56 @@ function buildOrderRows(
   }
 
   return dispatchRows
-    .filter(
-      (dispatch) => isFilled(dispatch.Planned1) && isFilled(dispatch.Actual1),
-    )
+    .filter((dispatch) => isFilled(dispatch["Fullkitting Actual"]))
     .map((dispatch) => {
       const order = ordersById.get(str(dispatch.po_id));
       const delivery = deliveryByDsr.get(str(dispatch["D-Sr Number"]));
-      const fixedAmount = num(dispatch["Fixed Amount"]);
-      const ratePerMt = num(dispatch["Transport Rate @Per Matric Ton"]) ?? 0;
+      const ratePerMt = num(dispatch["Transport Rate @Per Matric Ton"]);
       const actualQty = num(dispatch["Actual Truck Qty"]);
-      const freightAmount =
-        str(dispatch["Type Of Rate"]).toLowerCase() === "fixed amount"
-          ? fixedAmount
-          : ratePerMt * (actualQty ?? 0);
+      const biltyNumber = firstFilled(
+        delivery?.["Bilty No."],
+        delivery?.["Bilty Number."],
+        dispatch["Bilty No."],
+      );
+      const hasBilty: "Yes" | "No" =
+        validBilty(delivery?.["Bilty Copy"]) || validBilty(biltyNumber)
+          ? "Yes"
+          : "No";
 
       return {
         liftId: str(dispatch["D-Sr Number"]) || "-",
         indentNo: "-",
-        date: str(dispatch["Date Of Dispatch"]),
-        firmName: getAccountCheckingFirm(order?.["Firm Name"]) || str(order?.["Firm Name"]),
-        partyName: str(dispatch["Party Name"]) || str(order?.["Party Names"]),
+        date: str(dispatch["Fullkitting Actual"]),
+        firmName: str(order?.["Firm Name"]),
+        partyName: firstFilled(dispatch["Party Name"], order?.["Party Names"]),
         productName:
-          str(dispatch["Product Name"]) || str(order?.["Product Name"]),
-        poQty: null,
+          firstFilled(dispatch["Product Name"], order?.["Product Name"]) || "-",
+        poQty: num(order?.Quantity),
         transporterName: str(dispatch["Transporter Name"]) || "-",
         vehicleNumber: str(dispatch["Truck No."]) || "-",
-        biltyNumber:
-          str(dispatch["Bilty No."]) || str(delivery?.["Bilty No."]) || "-",
+        biltyNumber: biltyNumber || "-",
         biltyImage: str(delivery?.["Bilty Copy"]),
-        freightAmount,
+        freightAmount: num(order?.["Freight Amount"]),
         typeOfRate: str(dispatch["Type Of Rate"]) || "-",
-        transportingPerMtRate: ratePerMt || null,
+        transportingPerMtRate: ratePerMt,
         totalTruckBillingQty: actualQty,
-        materialRate: null,
+        materialRate: num(order?.["Rate Of Material"]),
         billingQty: actualQty,
         billNo: str(dispatch["Bill Number"]) || "-",
-        areaLifting: "-",
-        leadTimeDays: null,
+        areaLifting: str(order?.Address) || "-",
+        leadTimeDays: num(order?.["Lead Time to Reach Factory"]),
         driverNo: "-",
-        billImage: "",
-        hasBilty: validBilty(dispatch["Bilty No."]) || validBilty(delivery?.["Bilty No."]) ? "Yes" : "No",
+        billImage: str(dispatch["Bill Copy"]),
+        hasBilty,
         systemName: "Order Management System",
+        fullkittingDoneAt: str(dispatch["Fullkitting Actual"]),
       };
-    });
+    })
+    .sort(
+      (a, b) =>
+        new Date(b.fullkittingDoneAt).getTime() -
+        new Date(a.fullkittingDoneAt).getTime(),
+    );
 }
 
 export function FullKittingHistory() {
@@ -475,8 +475,8 @@ export function FullKittingHistory() {
           orderSupabase
             .from("DISPATCH")
             .select("*")
-            .not("Planned1", "is", null)
-            .not("Actual1", "is", null),
+            .not("Fullkitting Actual", "is", null)
+            .order("Fullkitting Actual", { ascending: false }),
           orderSupabase.from("ORDER RECEIPT").select("*"),
           orderSupabase.from("DELIVERY").select("*"),
           api.getCheckKittingPayments(),
@@ -519,7 +519,7 @@ export function FullKittingHistory() {
           setError(
             err instanceof Error
               ? err.message
-              : "Failed to load account checking records",
+              : "Failed to load fullkitting history",
           );
         }
       } finally {
@@ -533,13 +533,8 @@ export function FullKittingHistory() {
     };
   }, []);
 
-  const accountCheckingRows = useMemo(
-    () => rows.filter((r) => isAccountCheckingFirm(r.firmName)),
-    [rows],
-  );
-
   const filtered = useMemo(() => {
-    return accountCheckingRows.filter((r) => {
+    return rows.filter((r) => {
       // Exclude processed records
       const uniqueId = getRowUniqueId(r);
       if (processedIds.has(uniqueId) || processedIds.has(`KIT-${r.liftId}`)) {
@@ -571,11 +566,11 @@ export function FullKittingHistory() {
       const transporterOk =
         !searchTransporter || r.transporterName === searchTransporter;
       const productOk = !searchProduct || r.productName === searchProduct;
-      const firmOk = !searchFirm || getAccountCheckingFirm(r.firmName) === searchFirm;
+      const firmOk = !searchFirm || r.firmName === searchFirm;
       return searchOk && transporterOk && productOk && firmOk;
-    }).sort((a, b) => naturalCompare(a.liftId, b.liftId));
+    });
   }, [
-    accountCheckingRows,
+    rows,
     searchTerm,
     searchTransporter,
     searchProduct,
@@ -586,20 +581,20 @@ export function FullKittingHistory() {
   const transporterOptions = useMemo(
     () =>
       Array.from(
-        new Set(accountCheckingRows.map((r) => r.transporterName).filter(Boolean)),
+        new Set(rows.map((r) => r.transporterName).filter(Boolean)),
       ).sort(),
-    [accountCheckingRows],
+    [rows],
   );
   const productOptions = useMemo(
     () =>
       Array.from(
-        new Set(accountCheckingRows.map((r) => r.productName).filter(Boolean)),
+        new Set(rows.map((r) => r.productName).filter(Boolean)),
       ).sort(),
-    [accountCheckingRows],
+    [rows],
   );
   const firmOptions = useMemo(
-    () => [...ACCOUNT_CHECKING_FIRMS],
-    [],
+    () => Array.from(new Set(rows.map((r) => r.firmName).filter(Boolean))).sort(naturalCompare),
+    [rows],
   );
 
   const hasFilters =
@@ -706,7 +701,7 @@ export function FullKittingHistory() {
         </div>
         <div className="flex items-center justify-center gap-2 py-8 text-sm text-slate-400">
           <Loader2 className="w-4 h-4 animate-spin" />
-          Loading account checking history...
+          Loading fullkitting history...
         </div>
       </div>
     );
@@ -808,7 +803,7 @@ export function FullKittingHistory() {
         <div className="ml-auto text-xs font-medium text-slate-500">
           Showing{" "}
           <span className="font-bold text-slate-700">{filtered.length}</span> of{" "}
-          <span className="font-bold text-slate-700">{accountCheckingRows.length}</span> kitted
+          <span className="font-bold text-slate-700">{rows.length}</span> kitted
           records
         </div>
 
@@ -835,12 +830,12 @@ export function FullKittingHistory() {
             <PackageCheck className="w-7 h-7 text-emerald-400" />
           </div>
           <h3 className="text-base font-semibold text-slate-700 mb-1">
-            No account checking history found
+            No fullkitting history found
           </h3>
           <p className="text-sm text-slate-400 max-w-sm">
             {hasFilters
               ? "No records match your current filters."
-              : "Completed account checking and dispatch records will appear here once data is synced."}
+              : "Completed purchase and dispatch records will appear here once data is synced."}
           </p>
         </div>
       )}
@@ -943,7 +938,7 @@ export function FullKittingHistory() {
                     "Select",
                     "Lift ID",
                     "Indent",
-                    "Date",
+                    "Fullkitting Done",
                     "Firm",
                     "System",
                     "Party / Vendor",
