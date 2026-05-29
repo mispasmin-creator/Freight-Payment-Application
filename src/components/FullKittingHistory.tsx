@@ -45,6 +45,7 @@ interface DispatchRow {
   "Bill Number"?: string | number | null;
   "Bill Copy"?: string | null;
   "Fullkitting Actual"?: string | null;
+  "Fullkitting Status"?: string | null;
   [key: string]: unknown;
 }
 
@@ -251,6 +252,8 @@ function buildPurchaseRows(
   const fkByLiftNo = new Map<string, FullKittinRow>();
   const fkByBilty = new Map<string, FullKittinRow>();
   for (const fk of fullkittin) {
+    if (str(fk.Status).toLowerCase() === "no") continue;
+
     const liftNo = str(fk["Lift No"]).toLowerCase();
     const bilty = str(fk["Bilty Number"]).toLowerCase();
 
@@ -352,7 +355,7 @@ function buildOrderRows(
   }
 
   return dispatchRows
-    .filter((dispatch) => isFilled(dispatch["Fullkitting Actual"]))
+    .filter((dispatch) => isFilled(dispatch["Fullkitting Actual"]) && str(dispatch["Fullkitting Status"]).toLowerCase() !== "no")
     .map((dispatch) => {
       const order = ordersById.get(str(dispatch.po_id));
       const delivery = deliveryByDsr.get(str(dispatch["D-Sr Number"]));
