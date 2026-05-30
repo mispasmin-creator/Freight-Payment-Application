@@ -95,7 +95,7 @@ export function FreightForm({
       setFormData(payment);
     } else {
       setFormData({
-        Status: "Pending",
+        Status: "Not Done",
         "Rate Type": "Per Ton",
         Delay: 0,
         Delay2: 0,
@@ -431,13 +431,13 @@ export function FreightForm({
                   </TabsList>
 
                   <TabsContent value="checkkitting" className="mt-0">
-                    <StepCard title="Account Checking" status={formData.Status3} onStatusChange={(v) => updateField("Status3", v)} statusOptions={["Pending", "Verified", "Done"]} color="brand" remark={formData.Remark3} onRemarkChange={(v) => updateField("Remark3", v)} />
+                    <StepCard title="Account Checking" status={formData.Status3} onStatusChange={(v) => updateField("Status3", v)} statusOptions={["Done", "Not Done"]} color="brand" remark={formData.Remark3} onRemarkChange={(v) => updateField("Remark3", v)} />
                   </TabsContent>
                   <TabsContent value="posting" className="mt-0">
-                    <StepCard title="Account Audit" status={formData.Status_1} onStatusChange={(v) => updateField("Status_1", v)} statusOptions={["Pending", "InProgress", "Done"]} color="blue" remark={formData.Remark_1} onRemarkChange={(v) => updateField("Remark_1", v)} />
+                    <StepCard title="Account Audit" status={formData.Status_1} onStatusChange={(v) => updateField("Status_1", v)} statusOptions={["Done", "Not Done"]} color="blue" remark={formData.Remark_1} onRemarkChange={(v) => updateField("Remark_1", v)} />
                   </TabsContent>
                   <TabsContent value="makepayment" className="mt-0">
-                    <StepCard title="Posting" status={formData.Status2} onStatusChange={(v) => updateField("Status2", v)} statusOptions={["Pending", "Requested", "Completed"]} color="amber" remark={formData.Remark2} onRemarkChange={(v) => updateField("Remark2", v)} />
+                    <StepCard title="Posting" status={formData.Status2} onStatusChange={(v) => updateField("Status2", v)} statusOptions={["Done", "Not Done"]} color="amber" remark={formData.Remark2} onRemarkChange={(v) => updateField("Remark2", v)} />
                   </TabsContent>
                 </Tabs>
 
@@ -458,9 +458,8 @@ export function FreightForm({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Pending">Pending Review</SelectItem>
-                        <SelectItem value="Processing">Financial Processing</SelectItem>
-                        <SelectItem value="Completed">Transaction Completed</SelectItem>
+                        <SelectItem value="Done">Done</SelectItem>
+                        <SelectItem value="Not Done">Not Done</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

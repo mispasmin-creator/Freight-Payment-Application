@@ -229,7 +229,7 @@ const toSystemPayment = (row: KittingHistoryItem): Partial<FreightPayment> => {
     "Lift ID": row.liftId,
     "Firm Name": row.firmName,
     "Fms Name": row.systemName || "Account Checking",
-    Status: "Pending",
+    Status: "Not Done",
     "Transporter Name": row.transporterName,
     "Vehicle Number": row.vehicleNumber,
     "Material Load Details": row.productName,
@@ -371,9 +371,15 @@ function buildOrderRows(
           ? "Yes"
           : "No";
 
+      const doNo = firstFilled(
+        delivery?.["Delivery Order No."],
+        order?.["DO-Delivery Order No."],
+        order?.["Delivery Order No."]
+      );
+
       return {
         liftId: str(dispatch["D-Sr Number"]) || "-",
-        indentNo: "-",
+        indentNo: doNo || "-",
         date: str(dispatch["Fullkitting Actual"]),
         firmName: str(order?.["Firm Name"]),
         partyName: firstFilled(dispatch["Party Name"], order?.["Party Names"]),
@@ -536,7 +542,20 @@ export function FullKittingHistory() {
       const transporterOk =
         !searchTransporter || r.transporterName === searchTransporter;
       const productOk = !searchProduct || r.productName === searchProduct;
-      const firmOk = !searchFirm || r.firmName === searchFirm;
+      let firmOk = !searchFirm;
+      if (searchFirm) {
+        const sf = searchFirm.toLowerCase().trim();
+        const rf = r.firmName ? r.firmName.toLowerCase().trim() : "";
+        if (sf === "rkl" || sf === "rkl order") {
+          firmOk = rf === "rkl" || rf === "rkl order";
+        } else if (sf === "pmmpl" || sf === "pmmpl order") {
+          firmOk = rf === "pmmpl" || rf === "pmmpl order";
+        } else if (sf === "purab" || sf === "purab order") {
+          firmOk = rf === "purab" || rf === "purab order";
+        } else {
+          firmOk = rf === sf;
+        }
+      }
       return searchOk && transporterOk && productOk && firmOk;
     });
   }, [
@@ -562,10 +581,7 @@ export function FullKittingHistory() {
       ).sort(),
     [rows],
   );
-  const firmOptions = useMemo(
-    () => Array.from(new Set(rows.map((r) => r.firmName).filter(Boolean))).sort(naturalCompare),
-    [rows],
-  );
+  const firmOptions = ["RKL", "PMMPL", "PURAB"];
 
   const hasFilters =
     searchTerm || searchTransporter || searchProduct || searchFirm;

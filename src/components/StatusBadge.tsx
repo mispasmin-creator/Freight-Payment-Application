@@ -10,6 +10,7 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
   
   const variants: Record<string, string> = {
     pending: "bg-amber-50 text-amber-700 border-amber-200/50",
+    "not done": "bg-amber-50 text-amber-700 border-amber-200/50",
     completed: "bg-emerald-50 text-emerald-700 border-emerald-200/50",
     done: "bg-emerald-50 text-emerald-700 border-emerald-200/50",
     delayed: "bg-rose-50 text-rose-700 border-rose-200/50",
@@ -23,6 +24,7 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
 
   const dotVariants: Record<string, string> = {
     pending: "bg-amber-500",
+    "not done": "bg-amber-500",
     completed: "bg-emerald-500",
     done: "bg-emerald-500",
     delayed: "bg-rose-500",

@@ -408,18 +408,18 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
       const updateData: Partial<FreightPayment> & { id: number } = { id: payment.id! };
 
       if (step === "checkkitting") {
-        updateData.Status3 = selectedStatus || (value === "yes" ? "Completed" : "Pending");
+        updateData.Status3 = selectedStatus || (value === "yes" ? "Done" : "Not Done");
         if (remark !== undefined) updateData.Remark3 = remark;
         if (value === "yes") {
           updateData.Actual3 = today;
           updateData.Actual = today;
-          updateData.Status_1 = "Completed";
-          updateData.Status = "Completed";
+          updateData.Status_1 = "Not Done";
+          updateData.Status = "Not Done";
           updateData.Planned2 = today;
-          updateData.Status2 = "Pending";
+          updateData.Status2 = "Not Done";
         }
       } else if (step === "posting") {
-        const finalStatus = selectedStatus || (value === "yes" ? "Done" : "Pending");
+        const finalStatus = selectedStatus || (value === "yes" ? "Done" : "Not Done");
         updateData.Status_1 = finalStatus;
         if (amount !== undefined) updateData.Amount = amount;
         if (remark !== undefined) updateData.Remark_1 = remark;
@@ -428,14 +428,14 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
           updateData.Delay = calculateDelayWithHours(payment.Planned, today);
         }
       } else if (step === "makepayment" || step === "payment") {
-        updateData.Status2 = selectedStatus || (value === "yes" ? "Completed" : "Pending");
+        updateData.Status2 = selectedStatus || (value === "yes" ? "Done" : "Not Done");
         if (remark !== undefined) updateData.Remark2 = remark;
         if (value === "yes") {
           updateData.Actual2 = today;
           updateData.Delay2 = calculateDelayWithHours(payment.Planned2, today);
         }
       } else if (step === "freight") {
-        updateData.Status = selectedStatus || (value === "yes" ? "Completed" : "Pending");
+        updateData.Status = selectedStatus || (value === "yes" ? "Done" : "Not Done");
         if (remark !== undefined) updateData.Remark = remark;
         if (value === "yes") {
           updateData.Actual4 = today;

@@ -262,7 +262,7 @@ export const api = {
       "Party Name": payment["Party Name"],
       "Transporter Name": payment["Transporter Name"],
       "Product": payment["Material Load Details"],
-      "Status": payment.Status_1 || "Pending",
+      "Status": payment.Status_1 || "Not Done",
       "Remark": payment.Remark_1 !== undefined ? payment.Remark_1 : payment.Remark,
       "Amount": payment.Amount
     };
@@ -327,7 +327,7 @@ export const api = {
       "Party Name": payment["Party Name"],
       "Transporter Name": payment["Transporter Name"],
       "Product": payment["Material Load Details"],
-      "Status": payment.Status2 || "Pending",
+      "Status": payment.Status2 || "Not Done",
       "Remark": payment.Remark2 !== undefined ? payment.Remark2 : payment.Remark
     };
     const { data, error } = await supabase.from(POSTING_TABLE_NAME).insert([insertData]).select().single();
@@ -388,7 +388,7 @@ export const api = {
       "Party Name": payment["Party Name"],
       "Transporter Name": payment["Transporter Name"],
       "Product": payment["Material Load Details"],
-      "Status": payment.Status || "Pending",
+      "Status": payment.Status || "Not Done",
       "Remark": payment.Remark
     };
     const { data, error } = await supabase.from("FreightPayment").insert([insertData]).select().single();
