@@ -622,7 +622,9 @@ export function FreightTable({
 
   useEffect(() => {
     if (!groupDialog.open || !groupDialog.group) return;
-    setGroupStatus(String((getStepField(groupDialog.group.parent, "Status") as string) || groupStatusOptions[0] || ""));
+    const existingStatus = getStepField(groupDialog.group.parent, "Status") as string;
+    const initialStatus = (existingStatus && groupStatusOptions.includes(existingStatus)) ? existingStatus : "";
+    setGroupStatus(initialStatus);
     setGroupRemark(String((getStepField(groupDialog.group.parent, "Remark") as string) || ""));
     const amountValue = groupDialog.group.parent.Amount;
     const paidAmount = groupDialog.group.parent.PostingAmount;
@@ -640,6 +642,7 @@ export function FreightTable({
 
   const handleGroupSubmit = () => {
     if (!groupDialog.group || !onQuickUpdate) return;
+    if (groupStatus !== "Done" && groupStatus !== "Not Done") return;
     const parsedAmount = groupAmount.trim() === "" ? undefined : Number(groupAmount);
     const shouldDistributeAmount = activeTab === "posting" && Number.isFinite(parsedAmount);
     const totalAmountInPaise = shouldDistributeAmount ? Math.round((parsedAmount || 0) * 100) : undefined;
@@ -1245,7 +1248,7 @@ export function FreightTable({
             </Button>
             <Button
               onClick={handleGroupSubmit}
-              disabled={!onQuickUpdate}
+              disabled={!onQuickUpdate || (groupStatus !== "Done" && groupStatus !== "Not Done")}
               className="h-10 w-full sm:w-auto px-5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm disabled:opacity-50"
             >
               <Check className="w-4 h-4 mr-2" />
@@ -1339,7 +1342,8 @@ function StepActionDialog({ open, onOpenChange, payment, step, onConfirm }: Step
       const existingActual = payment[config.actualKey] as string | undefined;
       setActualDate(existingActual ? existingActual.split("T")[0].split(" ")[0] : today);
       const existingStatus = payment[config.statusKey] as string | undefined;
-      setSelectedStatus(existingStatus || config.statusOptions[0]);
+      const initialStatus = (existingStatus && config.statusOptions.includes(existingStatus)) ? existingStatus : "";
+      setSelectedStatus(initialStatus);
 
       // Handle Remark retrieval based on step mapping
       const stepRemarkMap: Record<string, keyof FreightPayment> = {
@@ -1380,7 +1384,11 @@ function StepActionDialog({ open, onOpenChange, payment, step, onConfirm }: Step
 
   const delay = calcDelay();
 
-  const handleMarkDone = () => onConfirm(payment, step, "yes", actualDate, selectedStatus, remark);
+  const handleMarkDone = () => {
+    if (selectedStatus === "Done" || selectedStatus === "Not Done") {
+      onConfirm(payment, step, "yes", actualDate, selectedStatus, remark);
+    }
+  };
   const handleKeepPending = () => onConfirm(payment, step, "no", undefined, selectedStatus, remark);
 
   return (
@@ -1496,8 +1504,13 @@ function StepActionDialog({ open, onOpenChange, payment, step, onConfirm }: Step
           )}
           {(step === "posting" || step === "makepayment" || step === "freight") ? (
             <Button
-              onClick={() => onConfirm(payment, step, "yes", undefined, selectedStatus, remark)}
-              className="h-10 w-full sm:w-auto px-5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm"
+              onClick={() => {
+                if (selectedStatus === "Done" || selectedStatus === "Not Done") {
+                  onConfirm(payment, step, "yes", undefined, selectedStatus, remark);
+                }
+              }}
+              disabled={selectedStatus !== "Done" && selectedStatus !== "Not Done"}
+              className="h-10 w-full sm:w-auto px-5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm disabled:opacity-50"
             >
               <Check className="w-4 h-4 mr-2" />
               Update Status
@@ -1505,7 +1518,8 @@ function StepActionDialog({ open, onOpenChange, payment, step, onConfirm }: Step
           ) : (
             <Button
               onClick={handleMarkDone}
-              className="h-10 w-full sm:w-auto px-5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm"
+              disabled={selectedStatus !== "Done" && selectedStatus !== "Not Done"}
+              className="h-10 w-full sm:w-auto px-5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm disabled:opacity-50"
             >
               <Check className="w-4 h-4 mr-2" />
               Mark as Done
