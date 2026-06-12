@@ -681,11 +681,11 @@ export function FullKittingHistory() {
 
   if (loading) {
     return (
-      <div className="w-full rounded-xl border border-slate-200 bg-white overflow-hidden">
-        <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+      <div className="w-full rounded-xl border border-[#E2E8F0] bg-[#FFFFFF] overflow-hidden">
+        <div className="p-4 border-b border-[#E2E8F0] bg-slate-50/50">
           <div className="h-5 w-48 bg-slate-200 rounded animate-pulse" />
         </div>
-        <div className="flex items-center justify-center gap-2 py-8 text-sm text-slate-400">
+        <div className="flex items-center justify-center gap-3 py-8 text-[13px] text-slate-400">
           <Loader2 className="w-4 h-4 animate-spin" />
           Loading fullkitting history...
         </div>
@@ -696,8 +696,8 @@ export function FullKittingHistory() {
   if (error) {
     return (
       <div className="w-full rounded-xl border border-rose-200 bg-rose-50 p-6 text-center">
-        <p className="text-sm font-semibold text-rose-700">{error}</p>
-        <p className="text-xs text-rose-400 mt-1">
+        <p className="text-[13px] font-semibold text-rose-700">{error}</p>
+        <p className="text-[12px] text-rose-400 mt-1">
           Check Purchase/ORDER Supabase connection, table names, and RLS
           permissions.
         </p>
@@ -706,8 +706,8 @@ export function FullKittingHistory() {
   }
 
   return (
-    <div className="w-full rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
-      <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/40 flex flex-wrap gap-3 items-center">
+    <div className="w-full rounded-xl border border-[#E2E8F0] bg-[#FFFFFF] overflow-hidden shadow-sm">
+      <div className="px-4 py-3 border-b border-[#E2E8F0] bg-slate-50/40 flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-[220px] max-w-sm">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
           <input
@@ -715,19 +715,19 @@ export function FullKittingHistory() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search records..."
-            className="w-full pl-8 pr-7 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 bg-white"
+            className="w-full pl-8 pr-7 py-1.5 text-[12px] border border-[#E2E8F0] rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 bg-[#FFFFFF]"
           />
           {searchTerm && (
             <button
               onClick={() => setSearchTerm("")}
               className="absolute right-2 top-1/2 -translate-y-1/2"
             >
-              <X className="w-3 h-3 text-slate-400 hover:text-slate-600" />
+              <X className="w-3 h-3 text-slate-400 hover:text-[#64748B]" />
             </button>
           )}
         </div>
 
-        <div className="flex items-center gap-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+        <div className="flex items-center gap-3 text-[12px] font-semibold text-slate-400 uppercase tracking-wider">
           <Filter className="w-3.5 h-3.5" />
           Filters
         </div>
@@ -735,7 +735,7 @@ export function FullKittingHistory() {
         <select
           value={searchTransporter}
           onChange={(e) => setSearchTransporter(e.target.value)}
-          className="h-8 min-w-[150px] bg-white border border-slate-200 rounded-lg px-2 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+          className="h-8 min-w-[150px] bg-[#FFFFFF] border border-[#E2E8F0] rounded-lg px-2 text-[12px] text-[#64748B] focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
         >
           <option value="">All transporters</option>
           {transporterOptions.map((transporter) => (
@@ -748,7 +748,7 @@ export function FullKittingHistory() {
         <select
           value={searchProduct}
           onChange={(e) => setSearchProduct(e.target.value)}
-          className="h-8 min-w-[150px] bg-white border border-slate-200 rounded-lg px-2 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+          className="h-8 min-w-[150px] bg-[#FFFFFF] border border-[#E2E8F0] rounded-lg px-2 text-[12px] text-[#64748B] focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
         >
           <option value="">All products</option>
           {productOptions.map((product) => (
@@ -761,7 +761,7 @@ export function FullKittingHistory() {
         <select
           value={searchFirm}
           onChange={(e) => setSearchFirm(e.target.value)}
-          className="h-8 min-w-[130px] bg-white border border-slate-200 rounded-lg px-2 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+          className="h-8 min-w-[130px] bg-[#FFFFFF] border border-[#E2E8F0] rounded-lg px-2 text-[12px] text-[#64748B] focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
         >
           <option value="">All firms</option>
           {firmOptions.map((firm) => (
@@ -786,10 +786,10 @@ export function FullKittingHistory() {
           </button>
         )}
 
-        <div className="ml-auto text-xs font-medium text-slate-500">
+        <div className="ml-auto text-[12px] font-medium text-[#64748B]">
           Showing{" "}
-          <span className="font-bold text-slate-700">{filtered.length}</span> of{" "}
-          <span className="font-bold text-slate-700">{rows.length}</span> kitted
+          <span className="font-bold text-[#0F172A]">{filtered.length}</span> of{" "}
+          <span className="font-bold text-[#0F172A]">{rows.length}</span> kitted
           records
         </div>
 
@@ -797,7 +797,7 @@ export function FullKittingHistory() {
           size="sm"
           onClick={processSelectedRows}
           disabled={selectedRows.length === 0 || isBatchProcessing}
-          className="h-8 px-3 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+          className="h-8 px-3 text-[12px] font-bold bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
         >
           {isBatchProcessing && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
           Submit{selectedRows.length > 0 ? ` (${selectedRows.length})` : ""}
@@ -805,7 +805,7 @@ export function FullKittingHistory() {
       </div>
 
       {processMessage && (
-        <div className="px-4 py-2 border-b border-slate-100 bg-slate-50 text-xs font-semibold text-slate-600">
+        <div className="px-4 py-2 border-b border-[#E2E8F0] bg-slate-50 text-[12px] font-semibold text-[#64748B]">
           {processMessage}
         </div>
       )}
@@ -815,10 +815,10 @@ export function FullKittingHistory() {
           <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mb-4">
             <PackageCheck className="w-7 h-7 text-emerald-400" />
           </div>
-          <h3 className="text-base font-semibold text-slate-700 mb-1">
+          <h3 className="text-base font-semibold text-[#0F172A] mb-1">
             No fullkitting history found
           </h3>
-          <p className="text-sm text-slate-400 max-w-sm">
+          <p className="text-[13px] text-slate-400 max-w-sm">
             {hasFilters
               ? "No records match your current filters."
               : "Completed purchase and dispatch records will appear here once data is synced."}
@@ -830,20 +830,20 @@ export function FullKittingHistory() {
         <>
           <div className="md:hidden divide-y divide-slate-100">
             {filtered.map((r, i) => (
-              <div key={`${r.liftId}-${i}`} className="p-4 bg-white">
+              <div key={`${r.liftId}-${i}`} className="p-4 bg-[#FFFFFF]">
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1 min-w-0 mr-3">
-                    <span className="font-mono font-bold text-sm text-slate-800">
+                    <span className="font-mono font-bold text-[13px] text-slate-800">
                       {r.liftId}
                     </span>
                     <div className="flex flex-wrap items-center gap-1.5 mt-1">
                       {r.firmName && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-700 font-semibold text-xs">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 border border-[#E2E8F0] text-[#0F172A] font-semibold text-[12px]">
                           {r.firmName}
                         </span>
                       )}
                       {r.systemName && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-700 font-semibold text-xs whitespace-nowrap">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-700 font-semibold text-[12px] whitespace-nowrap">
                           {r.systemName}
                         </span>
                       )}
@@ -852,11 +852,11 @@ export function FullKittingHistory() {
                       </span>
                     </div>
                   </div>
-                  <span className="font-bold text-base text-slate-900 shrink-0">
+                  <span className="font-bold text-base text-[#0F172A] shrink-0">
                     {formatCurrency(r.freightAmount)}
                   </span>
                 </div>
-                <label className="w-full mb-3 h-9 px-3 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-between text-xs font-bold text-slate-600">
+                <label className="w-full mb-3 h-9 px-3 rounded-lg border border-[#E2E8F0] bg-slate-50 flex items-center justify-between text-[12px] font-bold text-[#64748B]">
                   <span>Select for submit</span>
                   <input
                     type="checkbox"
@@ -867,7 +867,7 @@ export function FullKittingHistory() {
                   />
                 </label>
 
-                <div className="text-xs text-slate-500 space-y-1 mb-3">
+                <div className="text-[12px] text-[#64748B] space-y-1 mb-3">
                   <div className="flex items-center gap-1.5">
                     <User className="w-3 h-3 text-slate-400 shrink-0" />
                     <span>{r.partyName || "-"}</span>
@@ -918,8 +918,8 @@ export function FullKittingHistory() {
 
           <div className="hidden md:block overflow-x-auto scrollbar-thin scrollbar-track-slate-100 scrollbar-thumb-slate-300">
             <Table className="min-w-max">
-              <TableHeader>
-                <TableRow className="border-b border-slate-200 bg-slate-50/80 hover:bg-slate-50/80">
+              <TableHeader className="sticky top-0 z-30 shadow-sm">
+                <TableRow className="border-b border-[#E2E8F0] bg-[#F1F5F9] hover:bg-[#F1F5F9]">
                   {[
                     "Select",
                     "Lift ID",
@@ -950,9 +950,9 @@ export function FullKittingHistory() {
                     <TableHead
                       key={h}
                       className={cn(
-                        "h-10 text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap",
+                        "h-12 px-4 text-[12px] font-bold text-[#64748B] uppercase tracking-wider whitespace-nowrap",
                         i === 0 &&
-                          "sticky left-0 bg-slate-50/80 z-10 shadow-[4px_0_6px_-4px_rgba(0,0,0,0.05)]",
+                          "sticky left-0 bg-[#F1F5F9] z-10 shadow-[4px_0_6px_-4px_rgba(0,0,0,0.05)]",
                         h === "Freight Amt" && "text-right",
                       )}
                     >
@@ -977,8 +977,8 @@ export function FullKittingHistory() {
                   <TableRow
                     key={`${r.liftId}-${idx}`}
                     className={cn(
-                      "border-b border-slate-100 hover:bg-slate-50/50 transition-colors duration-150",
-                      idx % 2 === 0 ? "bg-white" : "bg-slate-50/30",
+                      "border-b border-[#E2E8F0] hover:bg-[#F1F5F9] zebra-row transition-colors duration-150",
+                      idx % 2 === 0 ? "bg-[#FFFFFF]" : "bg-slate-50/30",
                     )}
                   >
                     <TableCell className="py-3 sticky left-0 bg-inherit z-20 shadow-[4px_0_6px_-4px_rgba(0,0,0,0.05)] text-center">
@@ -991,21 +991,21 @@ export function FullKittingHistory() {
                       />
                     </TableCell>
                     <TableCell className="py-3">
-                      <span className="font-mono font-bold text-sm text-slate-800">
+                      <span className="font-mono font-bold text-[13px] text-slate-800">
                         {r.liftId}
                       </span>
                     </TableCell>
                     <TableCell className="py-3">
-                      <span className="font-mono text-sm text-slate-600">
+                      <span className="font-mono text-[13px] text-[#64748B]">
                         {r.indentNo}
                       </span>
                     </TableCell>
-                    <TableCell className="py-3 text-sm text-slate-600 whitespace-nowrap">
+                    <TableCell className="py-3 text-[13px] text-[#64748B] whitespace-nowrap">
                       {formatDate(r.date)}
                     </TableCell>
                     <TableCell className="py-3">
                       {r.firmName ? (
-                        <div className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-700 font-semibold text-xs whitespace-nowrap">
+                        <div className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 border border-[#E2E8F0] text-[#0F172A] font-semibold text-[12px] whitespace-nowrap">
                           {r.firmName}
                         </div>
                       ) : (
@@ -1014,7 +1014,7 @@ export function FullKittingHistory() {
                     </TableCell>
                     <TableCell className="py-3">
                       {r.systemName ? (
-                        <div className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-700 font-semibold text-xs whitespace-nowrap">
+                        <div className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-700 font-semibold text-[12px] whitespace-nowrap">
                           {r.systemName}
                         </div>
                       ) : (
@@ -1023,7 +1023,7 @@ export function FullKittingHistory() {
                     </TableCell>
                     <TableCell className="py-3">
                       <div
-                        className="text-sm font-medium text-slate-700 truncate max-w-[160px]"
+                        className="text-[13px] font-medium text-[#0F172A] truncate max-w-[160px]"
                         title={r.partyName}
                       >
                         {r.partyName || "-"}
@@ -1031,39 +1031,39 @@ export function FullKittingHistory() {
                     </TableCell>
                     <TableCell className="py-3">
                       <div
-                        className="text-sm text-slate-600 truncate max-w-[180px]"
+                        className="text-[13px] text-[#64748B] truncate max-w-[180px]"
                         title={r.productName}
                       >
                         {r.productName || "-"}
                       </div>
                     </TableCell>
                     <TableCell className="py-3 text-center">
-                      <span className="text-sm text-slate-600">
+                      <span className="text-[13px] text-[#64748B]">
                         {r.poQty ?? "-"}
                       </span>
                     </TableCell>
                     <TableCell className="py-3">
                       <div
-                        className="text-sm text-slate-600 truncate max-w-[150px]"
+                        className="text-[13px] text-[#64748B] truncate max-w-[150px]"
                         title={r.transporterName}
                       >
                         {r.transporterName}
                       </div>
                     </TableCell>
                     <TableCell className="py-3">
-                      <span className="font-mono text-sm text-slate-600">
+                      <span className="font-mono text-[13px] text-[#64748B]">
                         {r.vehicleNumber}
                       </span>
                     </TableCell>
                     <TableCell className="py-3">
-                      <span className="font-mono text-sm text-slate-600">
+                      <span className="font-mono text-[13px] text-[#64748B]">
                         {r.biltyNumber}
                       </span>
                     </TableCell>
                     <TableCell className="py-3 text-center">
                       <span
                         className={cn(
-                          "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-bold",
+                          "inline-flex items-center rounded-md px-2 py-0.5 text-[12px] font-bold",
                           r.hasBilty === "Yes"
                             ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                             : "bg-rose-50 text-rose-700 border border-rose-200",
@@ -1073,52 +1073,52 @@ export function FullKittingHistory() {
                       </span>
                     </TableCell>
                     <TableCell className="py-3 text-right">
-                      <span className="font-bold text-sm text-slate-900">
+                      <span className="font-bold text-[13px] text-[#0F172A]">
                         {formatCurrency(r.freightAmount)}
                       </span>
                     </TableCell>
                     <TableCell className="py-3 text-center">
-                      <span className="text-sm text-slate-600">
+                      <span className="text-[13px] text-[#64748B]">
                         {r.billingQty ?? "-"}
                       </span>
                     </TableCell>
                     <TableCell className="py-3">
-                      <span className="text-sm text-slate-600 whitespace-nowrap">
+                      <span className="text-[13px] text-[#64748B] whitespace-nowrap">
                         {r.typeOfRate}
                       </span>
                     </TableCell>
                     <TableCell className="py-3 text-right">
-                      <span className="text-sm text-slate-600">
+                      <span className="text-[13px] text-[#64748B]">
                         {r.transportingPerMtRate ?? "-"}
                       </span>
                     </TableCell>
                     <TableCell className="py-3 text-center">
-                      <span className="text-sm text-slate-600">
+                      <span className="text-[13px] text-[#64748B]">
                         {r.totalTruckBillingQty ?? "-"}
                       </span>
                     </TableCell>
                     <TableCell className="py-3 text-right">
-                      <span className="text-sm text-slate-600">
+                      <span className="text-[13px] text-[#64748B]">
                         {r.materialRate ?? "-"}
                       </span>
                     </TableCell>
                     <TableCell className="py-3">
-                      <span className="text-sm text-slate-600 whitespace-nowrap">
+                      <span className="text-[13px] text-[#64748B] whitespace-nowrap">
                         {r.areaLifting}
                       </span>
                     </TableCell>
                     <TableCell className="py-3 text-center">
-                      <span className="text-sm text-slate-600">
+                      <span className="text-[13px] text-[#64748B]">
                         {r.leadTimeDays ?? "-"}
                       </span>
                     </TableCell>
                     <TableCell className="py-3">
-                      <span className="font-mono text-sm text-slate-600">
+                      <span className="font-mono text-[13px] text-[#64748B]">
                         {r.driverNo}
                       </span>
                     </TableCell>
                     <TableCell className="py-3">
-                      <span className="font-mono text-sm text-slate-600">
+                      <span className="font-mono text-[13px] text-[#64748B]">
                         {r.billNo}
                       </span>
                     </TableCell>
@@ -1128,13 +1128,13 @@ export function FullKittingHistory() {
                           href={r.billImage}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-semibold text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap"
+                          className="inline-flex items-center gap-1.5 px-2 py-1 text-[12px] font-semibold text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap"
                         >
                           <FileText className="w-3.5 h-3.5" />
                           View
                         </a>
                       ) : (
-                        <span className="text-slate-300 text-xs">-</span>
+                        <span className="text-slate-300 text-[12px]">-</span>
                       )}
                     </TableCell>
                     <TableCell className="py-3">
@@ -1143,13 +1143,13 @@ export function FullKittingHistory() {
                           href={r.biltyImage}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-semibold text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap"
+                          className="inline-flex items-center gap-1.5 px-2 py-1 text-[12px] font-semibold text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap"
                         >
                           <FileText className="w-3.5 h-3.5" />
                           View
                         </a>
                       ) : (
-                        <span className="text-slate-300 text-xs">-</span>
+                        <span className="text-slate-300 text-[12px]">-</span>
                       )}
                     </TableCell>
                   </TableRow>
@@ -1158,11 +1158,11 @@ export function FullKittingHistory() {
             </Table>
           </div>
 
-          <div className="px-4 py-2.5 border-t border-slate-100 bg-slate-50/30 text-xs text-slate-500 flex justify-between items-center">
+          <div className="px-4 py-2.5 border-t border-[#E2E8F0] bg-slate-50/30 text-[12px] text-[#64748B] flex justify-between items-center">
             <div className="flex items-center gap-1">
               <IndianRupee className="w-3 h-3" />
               Total Freight:{" "}
-              <span className="font-semibold text-slate-700 ml-1">
+              <span className="font-semibold text-[#0F172A] ml-1">
                 {formatCurrency(
                   filtered.reduce((s, r) => s + (r.freightAmount ?? 0), 0),
                 )}

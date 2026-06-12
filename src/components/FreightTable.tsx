@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { FreightPayment } from "../types";
 import {
   Table,
@@ -29,9 +29,7 @@ import { Button } from "@/components/ui/button";
 import { formatDelayDuration } from "@/lib/delay";
 import {
   Edit2,
-  MapPin,
   FileText,
-  Settings,
   Check,
   X,
   Search,
@@ -39,13 +37,23 @@ import {
   ChevronRight,
   Package,
   Banknote,
-  Calendar,
   Clock,
-  AlertCircle,
+  AlertTriangle,
+  Filter,
+  Eye,
+  Truck,
+  Building2,
+  Hash,
+  Calendar,
+  DollarSign,
+  Image,
+  MessageSquare,
+  User,
+  MapPin,
+  CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Column configuration
 interface ColumnDef {
   key: string;
   label: string;
@@ -64,23 +72,12 @@ interface FreightTableProps {
 }
 
 const ACCOUNT_CHECKING_FIRMS = ["RKL", "PURAB", "PMMPL"] as const;
-
-const normalizeFirm = (value: unknown): string => String(value || "").trim().toLowerCase();
-
-const getAccountCheckingFirm = (value: unknown): string => {
-  const normalized = normalizeFirm(value);
-  const matchedFirm = ACCOUNT_CHECKING_FIRMS.find((firm) => {
-    const firmKey = firm.toLowerCase();
-    return normalized === firmKey || normalized === `${firmKey} order`;
-  });
-  return matchedFirm || "";
+const STEP_CONFIG: Record<string, any> = {
+  checkkitting: { title: "Account Checking", statusKey: "Status3", remarkKey: "Remark3", icon: Package },
+  posting: { title: "Account Audit", statusKey: "Status_1", remarkKey: "Remark_1", icon: FileText },
+  makepayment: { title: "Posting", statusKey: "Status2", remarkKey: "Remark2", icon: Banknote },
+  freight: { title: "Freight Payment", statusKey: "Status", remarkKey: "Remark", icon: CreditCard },
 };
-
-const isAccountCheckingFirm = (value: unknown): boolean =>
-  getAccountCheckingFirm(value) !== "";
-
-const naturalCompare = (a: string, b: string): number =>
-  a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
 
 export function FreightTable({
   payments,
@@ -90,620 +87,135 @@ export function FreightTable({
   activeTab = "posting",
   subTab = "pending",
 }: FreightTableProps) {
-  const [showColumnDropdown, setShowColumnDropdown] = useState(false);
-  const [columnSearch, setColumnSearch] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [firmFilter, setFirmFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({});
-  const [stepDialog, setStepDialog] = useState<{
-    open: boolean;
-    payment: FreightPayment | null;
-  }>({ open: false, payment: null });
-  const [groupDialog, setGroupDialog] = useState<{
-    open: boolean;
-    group: { key: string; parent: FreightPayment; children: FreightPayment[]; isGrouped: boolean } | null;
-  }>({ open: false, group: null });
-  const [groupStatus, setGroupStatus] = useState("");
-  const [groupRemark, setGroupRemark] = useState("");
-  const [groupAmount, setGroupAmount] = useState("");
-  const [groupPaidAmount, setGroupPaidAmount] = useState("");
+  const [selectedPayment, setSelectedPayment] = useState<FreightPayment | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState("");
+  const [updateRemark, setUpdateRemark] = useState("");
 
-  // Default column visibility
-  const defaultColumns: Record<string, boolean> = {
-    uniqueNumber: true,
-    firmName: true,
-    fmsName: true,
-    transporterName: true,
-    partyName: true,
-    billingQty: true,
-    billNumber: true,
-    vehicleNumber: true,
-    route: true,
-    materialDetails: false, // hidden by default for cleaner view
-    biltyNumber: true,
-    rateType: false,
-    amount: true,
-    paidAmount: true,
-    biltyImage: false,
-    plannedDate: true,
-    actualDate: true,
-    delayDays: true,
-    stepStatus: true,
-    overallStatus: true,
-  };
-
-  // Load saved preferences
-  useEffect(() => {
-    const saved = localStorage.getItem("freight_table_columns_v3");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setVisibleColumns(parsed);
-      } catch (e) {
-        console.error("Error loading column preferences:", e);
-        setVisibleColumns(defaultColumns);
-      }
-    } else {
-      setVisibleColumns(defaultColumns);
-    }
-  }, []);
-
-  // Save preferences
-  const saveColumnPreferences = (updated: Record<string, boolean>) => {
-    setVisibleColumns(updated);
-    localStorage.setItem("freight_table_columns_v3", JSON.stringify(updated));
-  };
-
-  const toggleColumn = (key: string) => {
-    const updated = { ...visibleColumns, [key]: !isColumnVisible(key) };
-    saveColumnPreferences(updated);
-  };
-
-  const resetColumns = () => {
-    saveColumnPreferences(defaultColumns);
-    setColumnSearch("");
-  };
-
-  // Step-specific field accessors (improved with fallbacks)
-  const getStepField = (payment: FreightPayment, field: "Planned" | "Actual" | "Delay" | "Status" | "Remark") => {
-    const stepMap: Record<string, { planned: string; actual: string; delay: string; status: string; remark: string }> = {
-      posting: { planned: "Planned", actual: "Actual", delay: "Delay", status: "Status_1", remark: "Remark_1" },
-      makepayment: { planned: "Planned2", actual: "Actual2", delay: "Delay2", status: "Status2", remark: "Remark2" },
-      checkkitting: { planned: "Planned3", actual: "Actual3", delay: "Delay3", status: "Status3", remark: "Remark3" },
-      freight: { planned: "Actual4", actual: "Actual4", delay: "Delay4", status: "Status", remark: "Remark" },
+  const getStepField = useCallback((payment: FreightPayment, field: string) => {
+    const stepMap: Record<string, any> = {
+      posting: { status: "Status_1", remark: "Remark_1" },
+      makepayment: { status: "Status2", remark: "Remark2" },
+      checkkitting: { status: "Status3", remark: "Remark3" },
+      freight: { status: "Status", remark: "Remark" },
     };
     const step = stepMap[activeTab] || stepMap.posting;
-    switch (field) {
-      case "Planned":
-        return payment[step.planned as keyof FreightPayment];
-      case "Actual":
-        return payment[step.actual as keyof FreightPayment];
-      case "Delay":
-        return payment[step.delay as keyof FreightPayment];
-      case "Status":
-        return payment[step.status as keyof FreightPayment];
-      case "Remark":
-        return payment[step.remark as keyof FreightPayment];
-      default:
-        return null;
-    }
-  };
+    return payment[step[field] as keyof FreightPayment];
+  }, [activeTab]);
 
-  const getStepName = () => {
+  const getStepName = useCallback(() => {
     const names: Record<string, string> = {
       posting: "Account Audit",
       makepayment: "Posting",
       checkkitting: "Account Checking",
-      freight: "Freight",
+      freight: "Freight Payment",
     };
     return names[activeTab] || "Step";
-  };
+  }, [activeTab]);
 
-  // Formatting utilities
-  const formatDate = (dateStr?: string | null) => {
+  const formatDate = useCallback((dateStr?: string | null) => {
     if (!dateStr) return "—";
     try {
       const date = new Date(dateStr);
       if (isNaN(date.getTime())) return dateStr;
-      return date.toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      });
+      return date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
     } catch {
       return dateStr;
     }
-  };
+  }, []);
 
-  const formatCurrency = (amount?: number) => {
-    if (amount === undefined || amount === null) return "₹0";
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
+  const formatCurrency = useCallback((amount?: number) => {
+    if (!amount) return "₹0";
+    return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(amount);
+  }, []);
 
-  const formatDelay = (days?: number) => {
+  const formatDelay = useCallback((days?: number) => {
     const delay = Number(days) || 0;
     return {
       text: formatDelayDuration(delay),
       className: delay > 0 ? "text-rose-600 bg-rose-50" : "text-emerald-600 bg-emerald-50",
     };
-  };
+  }, []);
 
-  // Column definitions
-  const columnDefs: ColumnDef[] = [
-    {
-      key: "uniqueNumber",
-      label: "Unique ID",
-      width: "130px",
-      render: (p) => (
-        <span className="font-mono text-xs text-slate-500">{p["Unique Number"] || "—"}</span>
-      ),
-    },
-    {
-      key: "firmName",
-      label: "Firm",
-      width: "120px",
-      render: (p) => (
-        <div className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-700 font-semibold text-xs">
-          {p["Firm Name"] || "—"}
-        </div>
-      ),
-    },
-    {
-      key: "fmsName",
-      label: "FMS",
-      width: "160px",
-      render: (p) => (
-        <div className="truncate text-sm text-slate-600" title={p["Fms Name"]}>
-          {p["Fms Name"] || "—"}
-        </div>
-      ),
-    },
-    {
-      key: "transporterName",
-      label: "Transporter",
-      width: "170px",
-      render: (p) => (
-        <div className="truncate text-sm font-medium text-slate-700" title={p["Transporter Name"]}>
-          {p["Transporter Name"] || "—"}
-        </div>
-      ),
-    },
-    {
-      key: "partyName",
-      label: "Party Name",
-      width: "160px",
-      render: (p) => (
-        <div className="truncate text-sm text-slate-600" title={p["Party Name"]}>
-          {p["Party Name"] || "—"}
-        </div>
-      ),
-    },
-    {
-      key: "billingQty",
-      label: "Billing Qty",
-      width: "110px",
-      align: "right",
-      render: (p) => (
-        <span className="text-sm text-slate-600">
-          {p["Billing Qty"] !== undefined && p["Billing Qty"] !== null ? p["Billing Qty"] : "—"}
-        </span>
-      ),
-    },
-    {
-      key: "billNumber",
-      label: "Bill Number",
-      width: "130px",
-      render: (p) => (
-        <span className="font-mono text-sm text-slate-600">{p["Bill Number"] || "—"}</span>
-      ),
-    },
-    {
-      key: "vehicleNumber",
-      label: "Vehicle",
-      width: "130px",
-      render: (p) => (
-        <span className="font-mono text-sm text-slate-600">{p["Vehicle Number"] || "—"}</span>
-      ),
-    },
-    {
-      key: "route",
-      label: "Route",
-      width: "160px",
-      render: (p) => (
-        <div className="flex items-center gap-1.5 text-sm">
-          <span className="font-medium text-slate-700">{p.From || "—"}</span>
-          <ChevronRight className="w-3 h-3 text-slate-300" />
-          <span className="font-medium text-slate-700">{p.To || "—"}</span>
-        </div>
-      ),
-    },
-    {
-      key: "materialDetails",
-      label: "Material",
-      width: "200px",
-      render: (p) => (
-        <div className="truncate text-sm text-slate-500" title={p["Material Load Details"]}>
-          {p["Material Load Details"] || "—"}
-        </div>
-      ),
-    },
-    {
-      key: "biltyNumber",
-      label: "Bilty No.",
-      width: "130px",
-      render: (p) => (
-        <span className="font-mono text-sm text-slate-600">{p["Bilty Number"] || "—"}</span>
-      ),
-    },
-    {
-      key: "rateType",
-      label: "Rate Type",
-      width: "110px",
-      render: (p) => (
-        <span className="text-xs font-semibold uppercase text-slate-400">
-          {p["Rate Type"] || "—"}
-        </span>
-      ),
-    },
-    {
-      key: "amount",
-      label: "Amount",
-      width: "120px",
-      align: "right",
-      render: (p) => (
-        <span className="font-bold text-sm text-slate-900">{formatCurrency(p.Amount)}</span>
-      ),
-    },
-    {
-      key: "paidAmount",
-      label: "Paid Amount",
-      width: "130px",
-      align: "right",
-      render: (p) => (
-        <span className="font-bold text-sm text-emerald-700">
-          {p.PostingAmount !== undefined && p.PostingAmount !== null ? formatCurrency(p.PostingAmount) : "-"}
-        </span>
-      ),
-    },
-    {
-      key: "biltyImage",
-      label: "Bilty",
-      width: "100px",
-      render: (p) =>
-        p["Bilty Image"] ? (
-          <a
-            href={p["Bilty Image"]}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-semibold text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
-          >
-            <FileText className="w-3.5 h-3.5" />
-            View
-          </a>
-        ) : (
-          <span className="text-slate-300 text-xs">—</span>
-        ),
-    },
-    {
-      key: "plannedDate",
-      label: `${getStepName()} Planned`,
-      width: "120px",
-      render: (p) => (
-        <span className="text-sm text-slate-600">{formatDate(getStepField(p, "Planned") as string)}</span>
-      ),
-    },
-    {
-      key: "actualDate",
-      label: `${getStepName()} Actual`,
-      width: "120px",
-      render: (p) => (
-        <span className="text-sm text-slate-600">{formatDate(getStepField(p, "Actual") as string)}</span>
-      ),
-    },
-    {
-      key: "delayDays",
-      label: `${getStepName()} Delay`,
-      width: "110px",
-      render: (p) => {
-        const delay = Number(getStepField(p, "Delay")) || 0;
-        const { text, className } = formatDelay(delay);
-        return (
-          <span
-            className={cn(
-              "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold",
-              className
-            )}
-          >
-            {text}
-          </span>
-        );
-      },
-    },
-    {
-      key: "stepStatus",
-      label: `${getStepName()} Status`,
-      width: "130px",
-      render: (p) => <StatusBadge status={getStepField(p, "Status") as string} />,
-    },
-    {
-      key: "overallStatus",
-      label: "Overall Status",
-      width: "140px",
-      render: (p) => <StatusBadge status={p.Status} />,
-    },
-  ];
-
-  const removedTableColumnKeys = new Set(["route", "plannedDate", "actualDate"]);
-  const showPaidAmount = activeTab === "posting" || activeTab === "makepayment" || activeTab === "freight";
-  const isColumnVisible = (key: string) => visibleColumns[key] ?? defaultColumns[key] ?? false;
-  const visibleColumnDefs = columnDefs.filter((col) =>
-    isColumnVisible(col.key) &&
-    !removedTableColumnKeys.has(col.key) &&
-    (col.key !== "paidAmount" || showPaidAmount)
-  );
-
-  const accountCheckingPayments = useMemo(
-    () =>
-      activeTab === "checkkitting"
-        ? payments.filter((payment) => isAccountCheckingFirm(payment["Firm Name"]))
-        : payments,
-    [payments, activeTab]
-  );
-
-  const firmOptions = useMemo(
-    () =>
-      activeTab === "checkkitting"
-        ? [...ACCOUNT_CHECKING_FIRMS]
-        : Array.from(new Set(payments.map((p) => p["Firm Name"]).filter(Boolean) as string[])).sort(),
-    [payments, activeTab]
-  );
-
-  const statusOptions = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          accountCheckingPayments
-            .map((p) => String((getStepField(p, "Status") as string) || p.Status || "").trim())
-            .filter(Boolean)
-        )
-      ).sort(),
-    [accountCheckingPayments, activeTab]
-  );
+  const isAccountCheckingFirm = useCallback((value: unknown) => {
+    const normalized = String(value || "").trim().toLowerCase();
+    return ACCOUNT_CHECKING_FIRMS.some(firm => normalized === firm.toLowerCase());
+  }, []);
 
   const filteredPayments = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    return accountCheckingPayments.filter((payment) => {
-      const displayFirm = activeTab === "checkkitting" ? getAccountCheckingFirm(payment["Firm Name"]) : payment["Firm Name"];
-      const firmOk = firmFilter === "all" || normalizeFirm(displayFirm) === normalizeFirm(firmFilter);
-      const stepStatus = String((getStepField(payment, "Status") as string) || payment.Status || "").trim();
+    return payments.filter((payment) => {
+      if (activeTab === "checkkitting" && !isAccountCheckingFirm(payment["Firm Name"])) return false;
+      
+      const firmOk = firmFilter === "all" || String(payment["Firm Name"] || "").toLowerCase() === firmFilter.toLowerCase();
+      const stepStatus = String(getStepField(payment, "status") || "").trim();
       const statusOk = statusFilter === "all" || stepStatus === statusFilter;
-      const searchOk =
-        !term ||
-        [
-          payment["Unique Number"],
-          displayFirm,
-          payment["Firm Name"],
-          payment["Fms Name"],
-          payment["Transporter Name"],
-          payment["Vehicle Number"],
-          payment.From,
-          payment.To,
-          payment["Material Load Details"],
-          payment["Bilty Number"],
-          payment.Status,
-          stepStatus,
-        ]
-          .filter(Boolean)
-          .some((value) => String(value).toLowerCase().includes(term));
-
+      const searchOk = !term || [
+        payment["Unique Number"], payment["Firm Name"], payment["Fms Name"],
+        payment["Transporter Name"], payment["Vehicle Number"], payment.From, payment.To
+      ].some(v => String(v || "").toLowerCase().includes(term));
+      
       return firmOk && statusOk && searchOk;
-    }).sort((a, b) => {
-      if (activeTab !== "checkkitting") return 0;
-      return naturalCompare(
-        String(a["Lift ID"] || a["Unique Number"] || a.id || ""),
-        String(b["Lift ID"] || b["Unique Number"] || b.id || ""),
-      );
     });
-  }, [accountCheckingPayments, searchTerm, firmFilter, statusFilter, activeTab]);
+  }, [payments, searchTerm, firmFilter, statusFilter, activeTab, getStepField, isAccountCheckingFirm]);
 
-  const shouldGroupRows = activeTab === "posting" || activeTab === "makepayment" || activeTab === "freight";
+  const firmOptions = useMemo(() => {
+    const firms = new Set(payments.map(p => p["Firm Name"]).filter(Boolean));
+    return Array.from(firms).sort();
+  }, [payments]);
 
-  const normalizeGroupValue = (value?: string) => String(value || "").trim().toLowerCase();
+  const statusOptions = useMemo(() => {
+    const statuses = new Set(filteredPayments.map(p => String(getStepField(p, "status") || "").trim()).filter(Boolean));
+    return Array.from(statuses).sort();
+  }, [filteredPayments, getStepField]);
 
-  const groupedPayments = useMemo(() => {
-    if (!shouldGroupRows) {
-      return filteredPayments.map((payment) => ({
-        key: `single:${payment.id}`,
-        parent: payment,
-        children: [payment],
-        isGrouped: false,
-      }));
+  const handleUpdate = useCallback(() => {
+    if (selectedPayment && updateStatus && onQuickUpdate) {
+      onQuickUpdate(selectedPayment, activeTab, "yes", undefined, updateStatus, updateRemark);
+      setShowDetailModal(false);
+      setSelectedPayment(null);
+      setUpdateStatus("");
+      setUpdateRemark("");
     }
+  }, [selectedPayment, updateStatus, updateRemark, onQuickUpdate, activeTab]);
 
-    const groups = new Map<string, FreightPayment[]>();
-    filteredPayments.forEach((payment) => {
-      const transporter = normalizeGroupValue(payment["Transporter Name"]);
-      const key = transporter
-        ? `transporter:${transporter}`
-        : `single:${payment.id}`;
-      const existing = groups.get(key) || [];
-      existing.push(payment);
-      groups.set(key, existing);
-    });
+  const openDetailModal = useCallback((payment: FreightPayment) => {
+    setSelectedPayment(payment);
+    setUpdateStatus(String(getStepField(payment, "status") || ""));
+    setUpdateRemark(String(getStepField(payment, "remark") || ""));
+    setShowDetailModal(true);
+  }, [getStepField]);
 
-    return Array.from(groups.entries()).map(([key, children]) => {
-      const biltyNumbers = Array.from(
-        new Set(
-          children
-            .map((payment) => String(payment["Bilty Number"] || "").trim())
-            .filter(Boolean),
-        ),
-      );
-      const parent = children.length > 1
-        ? {
-            ...children[0],
-            id: children[0].id,
-            Amount: children.reduce((sum, payment) => sum + (payment.Amount || 0), 0),
-            "Billing Qty": children.reduce((sum, payment) => sum + (payment["Billing Qty"] || 0), 0),
-            "Bilty Number": biltyNumbers.join(", "),
-            PostingAmount: children.some((payment) => payment.PostingAmount !== undefined && payment.PostingAmount !== null)
-              ? children.reduce((sum, payment) => sum + (payment.PostingAmount || 0), 0)
-              : undefined,
-          }
-        : children[0];
+  const columnDefs: ColumnDef[] = [
+    { key: "uniqueNumber", label: "ID", width: "100px", render: (p) => <span className="font-mono text-xs text-slate-500">{p["Unique Number"] || "—"}</span> },
+    { key: "firmName", label: "Firm", width: "120px", render: (p) => <span className="px-2 py-0.5 rounded-md bg-slate-100 text-xs font-semibold">{p["Firm Name"] || "—"}</span> },
+    { key: "transporterName", label: "Transporter", width: "150px", render: (p) => <span className="text-xs text-slate-600 truncate block" title={p["Transporter Name"]}>{p["Transporter Name"] || "—"}</span> },
+    { key: "vehicleNumber", label: "Vehicle", width: "110px", render: (p) => <span className="font-mono text-xs">{p["Vehicle Number"] || "—"}</span> },
+    { key: "route", label: "Route", width: "140px", render: (p) => (
+      <div className="flex items-center gap-1 text-xs">
+        <span>{p.From || "—"}</span>
+        <ChevronRight className="w-3 h-3 text-slate-300" />
+        <span>{p.To || "—"}</span>
+      </div>
+    )},
+    { key: "amount", label: "Amount", width: "110px", align: "right", render: (p) => <span className="font-bold text-sm">{formatCurrency(p.Amount)}</span> },
+    { key: "stepStatus", label: `${getStepName()} Status`, width: "130px", render: (p) => <StatusBadge status={getStepField(p, "status") as string} /> },
+    { key: "overallStatus", label: "Overall", width: "120px", render: (p) => <StatusBadge status={p.Status} /> },
+  ];
 
-      return {
-        key,
-        parent,
-        children,
-        isGrouped: children.length > 1,
-      };
-    });
-  }, [filteredPayments, shouldGroupRows]);
-
-  const openPaymentUpdatePopup = (payment: FreightPayment) => {
-    setGroupDialog({
-      open: true,
-      group: {
-        key: `single:${payment.id}`,
-        parent: payment,
-        children: [payment],
-        isGrouped: false,
-      },
-    });
-  };
-
-  const renderRowAction = (payment: FreightPayment, compact = false) =>
-    subTab === "history" ? (
-      <Button
-        size="sm"
-        onClick={() => openPaymentUpdatePopup(payment)}
-        className={cn(
-          "text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-sm rounded-lg",
-          compact ? "h-6 px-2" : "h-7 px-3"
-        )}
-      >
-        <FileText className={cn("w-3.5 h-3.5", !compact && "mr-1")} />
-        View
-      </Button>
-    ) :
-    (activeTab === "posting" ||
-      activeTab === "makepayment" ||
-      activeTab === "checkkitting" ||
-      activeTab === "freight") &&
-    onQuickUpdate ? (
-      <Button
-        size="sm"
-        onClick={() => openPaymentUpdatePopup(payment)}
-        className={cn(
-          "text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-sm rounded-lg",
-          compact ? "h-6 px-2" : "h-7 px-3"
-        )}
-      >
-        Update
-      </Button>
-    ) : (
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => onEdit(payment)}
-        className="h-7 w-7 p-0 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-      >
-        <Edit2 className="w-3.5 h-3.5" />
-      </Button>
-    );
-
-  const groupStatusOptions = STEP_CONFIG[activeTab]?.statusOptions || statusOptions;
-
-  useEffect(() => {
-    if (!groupDialog.open || !groupDialog.group) return;
-    const existingStatus = getStepField(groupDialog.group.parent, "Status") as string;
-    const initialStatus = (existingStatus && groupStatusOptions.includes(existingStatus)) ? existingStatus : "";
-    setGroupStatus(initialStatus);
-    setGroupRemark(String((getStepField(groupDialog.group.parent, "Remark") as string) || ""));
-    const amountValue = groupDialog.group.parent.Amount;
-    const paidAmount = groupDialog.group.parent.PostingAmount;
-    setGroupAmount(
-      amountValue !== undefined && amountValue !== null
-        ? String(amountValue)
-        : ""
-    );
-    setGroupPaidAmount(
-      paidAmount !== undefined && paidAmount !== null
-        ? String(paidAmount)
-        : ""
-    );
-  }, [groupDialog.open, groupDialog.group, activeTab]);
-
-  const handleGroupSubmit = () => {
-    if (!groupDialog.group || !onQuickUpdate) return;
-    if (groupStatus !== "Done" && groupStatus !== "Not Done") return;
-    const parsedAmount = groupAmount.trim() === "" ? undefined : Number(groupAmount);
-    const shouldDistributeAmount = activeTab === "posting" && Number.isFinite(parsedAmount);
-    const totalAmountInPaise = shouldDistributeAmount ? Math.round((parsedAmount || 0) * 100) : undefined;
-    const currentTotal = groupDialog.group.children.reduce((sum, child) => sum + (child.Amount || 0), 0);
-    let allocatedAmountInPaise = 0;
-
-    groupDialog.group.children.forEach((child) => {
-      let childAmount: number | undefined;
-      if (shouldDistributeAmount && totalAmountInPaise !== undefined) {
-        if (groupDialog.group!.children.length === 1) {
-          childAmount = parsedAmount;
-        } else if (currentTotal > 0) {
-          const isLastChild = child === groupDialog.group!.children[groupDialog.group!.children.length - 1];
-          const childAmountInPaise = isLastChild
-            ? totalAmountInPaise - allocatedAmountInPaise
-            : Math.round(totalAmountInPaise * ((child.Amount || 0) / currentTotal));
-          allocatedAmountInPaise += childAmountInPaise;
-          childAmount = childAmountInPaise / 100;
-        } else {
-          const isLastChild = child === groupDialog.group!.children[groupDialog.group!.children.length - 1];
-          const childAmountInPaise = isLastChild
-            ? totalAmountInPaise - allocatedAmountInPaise
-            : Math.round(totalAmountInPaise / groupDialog.group!.children.length);
-          allocatedAmountInPaise += childAmountInPaise;
-          childAmount = childAmountInPaise / 100;
-        }
-      }
-      onQuickUpdate(child, activeTab, "yes", undefined, groupStatus, groupRemark, childAmount);
-    });
-    setGroupDialog({ open: false, group: null });
-  };
-
-  const getPopupColumnWidth = (key: string) => {
-    if (key === "stepStatus" || key === "overallStatus") return "140px";
-    if (key === "route" || key === "materialDetails") return "180px";
-    if (key === "transporterName" || key === "partyName") return "170px";
-    if (key === "amount" || key === "paidAmount") return "120px";
-    return "130px";
-  };
-
-  const popupColumnDefs = columnDefs.filter((col) =>
-    !removedTableColumnKeys.has(col.key) &&
-    (col.key !== "paidAmount" || showPaidAmount)
-  );
-  const popupTableGridTemplate = popupColumnDefs.map((col) => getPopupColumnWidth(col.key)).join(" ");
-
-  // Loading skeleton
   if (isLoading) {
     return (
-      <div className="w-full rounded-xl border border-slate-200 bg-white overflow-hidden">
-        <div className="p-4 border-b border-slate-100 bg-slate-50/50">
-          <div className="h-5 w-32 bg-slate-200 rounded animate-pulse" />
-        </div>
-        <div className="divide-y divide-slate-100">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="p-4 flex gap-4">
-              <div className="h-4 w-24 bg-slate-100 rounded animate-pulse" />
-              <div className="h-4 w-32 bg-slate-100 rounded animate-pulse" />
-              <div className="h-4 w-28 bg-slate-100 rounded animate-pulse" />
-              <div className="h-4 w-36 bg-slate-100 rounded animate-pulse" />
-              <div className="h-4 w-20 bg-slate-100 rounded animate-pulse ml-auto" />
+      <div className="rounded-xl border bg-white overflow-hidden">
+        <div className="p-6 space-y-4">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="flex gap-4 animate-pulse">
+              <div className="h-4 w-20 bg-slate-200 rounded" />
+              <div className="h-4 w-32 bg-slate-200 rounded" />
+              <div className="h-4 w-28 bg-slate-200 rounded" />
+              <div className="h-4 w-24 bg-slate-200 rounded ml-auto" />
             </div>
           ))}
         </div>
@@ -711,822 +223,242 @@ export function FreightTable({
     );
   }
 
-  // Empty state
-  if (payments.length === 0) {
-    return (
-      <div className="w-full rounded-xl border border-slate-200 bg-white overflow-hidden">
-        <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-          <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-            <MapPin className="w-7 h-7 text-slate-400" />
-          </div>
-          <h3 className="text-base font-semibold text-slate-700 mb-1">No shipments found</h3>
-          <p className="text-sm text-slate-400 max-w-sm">
-            {subTab === "history"
-              ? "No completed shipments in history"
-              : "Active pending shipments will appear here"}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="w-full rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-slate-100 bg-slate-50/40">
-        <div className="relative flex-1 min-w-[220px] max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+    <div className="w-full rounded-xl border bg-white overflow-hidden shadow-sm">
+      {/* Header Toolbar */}
+      <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b bg-slate-50/50">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
-            placeholder="Search records..."
+            placeholder="Search shipments..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-8 pr-8 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
+            className="w-full pl-9 pr-8 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
           />
           {searchTerm && (
-            <button onClick={() => setSearchTerm("")} className="absolute right-2.5 top-1/2 -translate-y-1/2">
-              <X className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" />
+            <button onClick={() => setSearchTerm("")} className="absolute right-2 top-1/2 -translate-y-1/2">
+              <X className="w-4 h-4 text-slate-400 hover:text-slate-600" />
             </button>
           )}
         </div>
 
-        <Select value={firmFilter} onValueChange={setFirmFilter}>
-          <SelectTrigger className="h-8 w-[150px] bg-white border-slate-200 rounded-lg text-xs">
+        <Select value={firmFilter} onValueChange={(value) => setFirmFilter(value ?? "all")}>
+          <SelectTrigger className="h-9 w-[140px] bg-white">
+            <Building2 className="w-4 h-4 mr-2 text-slate-400" />
             <SelectValue placeholder="All firms" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All firms</SelectItem>
             {firmOptions.map((firm) => (
-              <SelectItem key={firm} value={firm}>
-                {firm}
-              </SelectItem>
+              <SelectItem key={firm} value={firm}>{firm}</SelectItem>
             ))}
           </SelectContent>
         </Select>
 
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="h-8 w-[150px] bg-white border-slate-200 rounded-lg text-xs">
-            <SelectValue placeholder="All statuses" />
+        <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value ?? "all")}>
+          <SelectTrigger className="h-9 w-[140px] bg-white">
+            <Filter className="w-4 h-4 mr-2 text-slate-400" />
+            <SelectValue placeholder="All status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="all">All status</SelectItem>
             {statusOptions.map((status) => (
-              <SelectItem key={status} value={status}>
-                {status}
-              </SelectItem>
+              <SelectItem key={status} value={status}>{status}</SelectItem>
             ))}
           </SelectContent>
         </Select>
 
         {(searchTerm || firmFilter !== "all" || statusFilter !== "all") && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setSearchTerm("");
-              setFirmFilter("all");
-              setStatusFilter("all");
-            }}
-            className="h-8 px-2 text-xs text-slate-400 hover:text-slate-600"
-          >
-            <X className="w-3.5 h-3.5 mr-1" />
+          <Button variant="ghost" size="sm" onClick={() => { setSearchTerm(""); setFirmFilter("all"); setStatusFilter("all"); }} className="h-9 text-slate-500">
+            <RotateCcw className="w-3.5 h-3.5 mr-1" />
             Clear
           </Button>
         )}
 
-        <div className="ml-auto text-xs font-medium text-slate-500">
-          Showing <span className="font-bold text-slate-700">{shouldGroupRows ? groupedPayments.length : filteredPayments.length}</span> of{" "}
-          <span className="font-bold text-slate-700">{payments.length}</span> shipments
-        </div>
-
-        <div className="relative">
-          <Button
-            onClick={() => setShowColumnDropdown(!showColumnDropdown)}
-            variant="outline"
-            size="sm"
-            className="h-8 gap-1.5 text-xs font-medium border-slate-200 bg-white shadow-sm hover:bg-slate-50"
-          >
-            <Settings className="w-3.5 h-3.5" />
-            Columns
-          </Button>
-
-          {showColumnDropdown && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setShowColumnDropdown(false)} />
-              <div className="absolute right-0 mt-2 w-72 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                <div className="p-3 border-b border-slate-100 bg-slate-50/30">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                      Customize Columns
-                    </h4>
-                    <Button
-                      onClick={resetColumns}
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2 text-xs text-slate-500 hover:text-slate-700"
-                    >
-                      <RotateCcw className="w-3 h-3 mr-1" />
-                      Reset
-                    </Button>
-                  </div>
-                  <div className="relative">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Search columns..."
-                      value={columnSearch}
-                      onChange={(e) => setColumnSearch(e.target.value)}
-                      className="w-full pl-8 pr-8 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                    />
-                    {columnSearch && (
-                      <button
-                        onClick={() => setColumnSearch("")}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2"
-                      >
-                        <X className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <div className="max-h-80 overflow-y-auto p-2">
-                  {columnDefs
-                    .filter((col) =>
-                      col.label.toLowerCase().includes(columnSearch.toLowerCase())
-                    )
-                    .map((col) => (
-                      <button
-                        key={col.key}
-                        onClick={() => toggleColumn(col.key)}
-                        className="w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-slate-50 transition-colors group"
-                      >
-                        <div
-                          className={cn(
-                            "w-4 h-4 rounded border flex items-center justify-center transition-all",
-                            isColumnVisible(col.key)
-                              ? "bg-blue-600 border-blue-600"
-                              : "border-slate-300 bg-white"
-                          )}
-                        >
-                          {isColumnVisible(col.key) && <Check className="w-3 h-3 text-white" />}
-                        </div>
-                        <span className="text-sm text-slate-700 group-hover:text-slate-900">
-                          {col.label}
-                        </span>
-                      </button>
-                    ))}
-                </div>
-              </div>
-            </>
-          )}
+        <div className="ml-auto text-sm text-slate-500">
+          <span className="font-semibold text-slate-700">{filteredPayments.length}</span> of{" "}
+          <span className="font-semibold text-slate-700">{payments.length}</span> shipments
         </div>
       </div>
 
-      {/* Mobile Card View */}
-      <div className="md:hidden divide-y divide-slate-100">
-        {groupedPayments.map((group) => {
-          const payment = group.parent;
-          const stepStatus = getStepField(payment, "Status") as string;
-          const stepDelay = Number(getStepField(payment, "Delay")) || 0;
-          return (
-            <div key={group.key} className="p-4 bg-white">
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex-1 min-w-0 mr-3">
-                  <span className="font-mono font-bold text-sm text-slate-800">
-                    {payment["Unique Number"] || `#${payment.id}`}
-                  </span>
-                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-700 font-semibold text-xs">
-                      {payment["Firm Name"] || "—"}
-                    </span>
-                    <StatusBadge status={payment.Status} />
-                    {group.isGrouped && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 border border-blue-100 text-blue-700 font-semibold text-xs">
-                        {group.children.length} rows
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <span className="font-bold text-base text-slate-900 shrink-0">{formatCurrency(payment.Amount)}</span>
+      {/* Mobile View */}
+      <div className="md:hidden divide-y">
+        {filteredPayments.map((payment) => (
+          <div key={payment.id} className="p-4 space-y-3">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="font-mono font-semibold text-sm">{payment["Unique Number"] || `#${payment.id}`}</p>
+                <p className="text-xs text-slate-500 mt-0.5">{payment["Firm Name"]}</p>
               </div>
-
-              <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-2">
-                <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-                <span className="font-medium">{payment.From || "—"}</span>
-                <ChevronRight className="w-3 h-3 text-slate-300" />
-                <span className="font-medium">{payment.To || "—"}</span>
-                {payment["Vehicle Number"] && (
-                  <span className="ml-auto font-mono text-slate-400 shrink-0">{payment["Vehicle Number"]}</span>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">{getStepName()}:</span>
-                <StatusBadge status={stepStatus} />
-                {stepDelay > 0 && (
-                  <span className="text-xs font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full ml-auto">
-                    {formatDelay(stepDelay).text} late
-                  </span>
-                )}
-              </div>
-
-              {!group.isGrouped && (subTab === "history" ? (
-                <Button
-                  size="sm"
-                  onClick={() => openPaymentUpdatePopup(payment)}
-                  className="w-full h-10 text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  <FileText className="w-4 h-4 mr-2" />
-                  View
-                </Button>
-              ) : (activeTab === "posting" || activeTab === "makepayment" || activeTab === "checkkitting" || activeTab === "freight") &&
-                onQuickUpdate ? (
-                <Button
-                  size="sm"
-                  onClick={() => openPaymentUpdatePopup(payment)}
-                  className="w-full h-10 text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  <Check className="w-4 h-4 mr-2" />
-                  Update
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onEdit(payment)}
-                  className="w-full h-10 text-sm font-medium text-blue-600 border-blue-200 hover:bg-blue-50"
-                >
-                  <Edit2 className="w-4 h-4 mr-1.5" />
-                  Edit Record
-                </Button>
-              ))}
-
-              {group.isGrouped && (
-                <Button
-                  size="sm"
-                  onClick={() => setGroupDialog({ open: true, group })}
-                  className="w-full h-10 text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  {subTab === "history" ? <FileText className="w-4 h-4 mr-2" /> : <Check className="w-4 h-4 mr-2" />}
-                  {subTab === "history" ? "View" : "Update"}
-                </Button>
-              )}
+              <p className="font-bold text-base">{formatCurrency(payment.Amount)}</p>
             </div>
-          );
-        })}
+            
+            <div className="flex items-center gap-2 text-xs text-slate-500">
+              <Truck className="w-3.5 h-3.5" />
+              <span className="truncate">{payment["Transporter Name"] || "—"}</span>
+              <span className="mx-1">•</span>
+              <span>{payment["Vehicle Number"] || "—"}</span>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <StatusBadge status={getStepField(payment, "status") as string} />
+              <StatusBadge status={payment.Status} />
+            </div>
+
+            <Button onClick={() => openDetailModal(payment)} className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+              <Eye className="w-4 h-4 mr-2" />
+              {subTab === "history" ? "View Details" : "Update Status"}
+            </Button>
+          </div>
+        ))}
       </div>
 
-      {/* Desktop Table View */}
-      <div className="hidden md:block overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-track-slate-100 scrollbar-thumb-slate-300">
-        <Table className="min-w-max">
-          <TableHeader>
-            <TableRow className="border-b border-slate-200 bg-slate-50/80 hover:bg-slate-50/80">
-              <TableHead
-                className="sticky left-0 bg-slate-50/80 z-20 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-left shadow-[4px_0_6px_-4px_rgba(0,0,0,0.05)]"
-                style={{ width: "90px" }}
-              >
-                Actions
-              </TableHead>
-              {visibleColumnDefs.map((col, idx) => (
-                <TableHead
-                  key={col.key}
-                  style={{ width: col.width }}
-                  className={cn(
-                    "h-10 text-[11px] font-bold text-slate-500 uppercase tracking-wider",
-                    col.align === "right" && "text-right"
-                  )}
-                >
+      {/* Desktop Table */}
+      <div className="hidden md:block overflow-x-auto">
+        <Table>
+          <TableHeader className="bg-slate-50 sticky top-0">
+            <TableRow>
+              <TableHead className="sticky left-0 bg-slate-50 z-10 w-[70px]">Action</TableHead>
+              {columnDefs.map((col) => (
+                <TableHead key={col.key} style={{ width: col.width }} className={cn(col.align === "right" && "text-right")}>
                   {col.label}
                 </TableHead>
               ))}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {groupedPayments.map((group, idx) => (
-              <React.Fragment key={group.key}>
-              <TableRow
-                className={cn(
-                  "border-b border-slate-100 hover:bg-slate-50/50 transition-colors duration-150 group",
-                  idx % 2 === 0 ? "bg-white" : "bg-slate-50/30"
-                )}
-              >
-                <TableCell className="sticky left-0 bg-inherit z-20 py-3 text-left shadow-[4px_0_6px_-4px_rgba(0,0,0,0.05)]">
-                  {group.isGrouped ? (
-                    <Button
-                      size="sm"
-                      onClick={() => setGroupDialog({ open: true, group })}
-                      className="h-7 px-3 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-sm rounded-lg"
-                    >
-                      {subTab === "history" ? <FileText className="w-3.5 h-3.5 mr-1" /> : <Check className="w-3.5 h-3.5 mr-1" />}
-                      {subTab === "history" ? "View" : "Update"}
-                    </Button>
-                  ) : (
-                    renderRowAction(group.parent)
-                  )}
+            {filteredPayments.map((payment, idx) => (
+              <TableRow key={payment.id} className={cn("hover:bg-slate-50/80", idx % 2 === 0 ? "bg-white" : "bg-slate-50/30")}>
+                <TableCell className="sticky left-0 bg-inherit">
+                  <Button onClick={() => openDetailModal(payment)} size="sm" className="h-8 px-3 bg-blue-600 hover:bg-blue-700 text-white text-xs">
+                    {subTab === "history" ? <Eye className="w-3.5 h-3.5 mr-1" /> : <Check className="w-3.5 h-3.5 mr-1" />}
+                    {subTab === "history" ? "View" : "Update"}
+                  </Button>
                 </TableCell>
-                {visibleColumnDefs.map((col) => (
-                  <TableCell
-                    key={col.key}
-                    className={cn(
-                      "py-3 text-sm",
-                      col.align === "right" && "text-right"
-                    )}
-                  >
-                    {col.render ? col.render(group.parent) : "-"}
+                {columnDefs.map((col) => (
+                  <TableCell key={col.key} className={cn("py-3", col.align === "right" && "text-right")}>
+                    {col.render ? col.render(payment) : "—"}
                   </TableCell>
                 ))}
               </TableRow>
-              </React.Fragment>
             ))}
           </TableBody>
         </Table>
       </div>
 
-      {/* Footer with summary */}
-      <div className="px-4 py-2.5 border-t border-slate-100 bg-slate-50/30 text-xs text-slate-500 flex justify-between items-center">
-        <div>
-          Total Amount:{" "}
-          <span className="font-semibold text-slate-700">
-            {formatCurrency(filteredPayments.reduce((sum, p) => sum + (p.Amount || 0), 0))}
-          </span>
-        </div>
-        <div className="text-slate-400">
-          Last updated: {new Date().toLocaleDateString("en-IN")}
-        </div>
+      {/* Footer */}
+      <div className="px-4 py-3 border-t bg-slate-50/50 flex justify-between items-center text-sm">
+        <span className="text-slate-500">Total Amount: <strong className="text-slate-700">{formatCurrency(filteredPayments.reduce((sum, p) => sum + (p.Amount || 0), 0))}</strong></span>
+        <span className="text-slate-400 text-xs">Updated: {new Date().toLocaleDateString("en-IN")}</span>
       </div>
 
-      <Dialog
-        open={groupDialog.open}
-        onOpenChange={(open: boolean) => setGroupDialog((prev) => ({ ...prev, open }))}
-      >
-        <DialogContent className="w-[96vw] max-w-[96vw] sm:max-w-[96vw] md:max-w-[96vw] lg:max-w-[96vw] xl:max-w-[96vw] max-h-[90vh] bg-white rounded-2xl p-0 overflow-hidden border border-white shadow-2xl shadow-slate-950/20 gap-0 flex flex-col">
-          <DialogHeader className="px-5 py-4 border-b border-slate-100 bg-slate-50/95 shrink-0">
-            <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-lg bg-brand-50 border border-brand-200 flex items-center justify-center shadow-sm shrink-0">
-                <Check className="w-4 h-4 text-blue-600" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <DialogTitle className="text-slate-900 font-bold text-base leading-tight">
-                  {STEP_CONFIG[activeTab]?.title || "Update"}
-                </DialogTitle>
-                {groupDialog.group && (
-                  <div className="mt-1 flex flex-wrap items-center gap-2">
-                    <p className="text-xs font-medium text-slate-500 truncate">
-                      {groupDialog.group.parent["Transporter Name"] || "-"} | Bilty {groupDialog.group.parent["Bilty Number"] || "-"} | {groupDialog.group.children.length} rows
-                    </p>
-                    {showPaidAmount && (
-                      <span className="inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-800">
-                        Paid Amount: {groupDialog.group.parent.PostingAmount !== undefined && groupDialog.group.parent.PostingAmount !== null
-                          ? formatCurrency(groupDialog.group.parent.PostingAmount)
-                          : "-"}
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
+      {/* Detail Modal */}
+      <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-blue-600" />
+              Shipment Details
+            </DialogTitle>
           </DialogHeader>
 
-          {subTab !== "history" && (
-          <div className="px-5 py-4 border-b border-slate-100 bg-white shrink-0">
-            <div className={cn("grid grid-cols-1 gap-4", activeTab === "posting" ? "md:grid-cols-[180px_180px_1fr]" : "md:grid-cols-[220px_1fr]")}>
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                  <Clock className="w-3 h-3" /> Status
-                </Label>
-                <Select value={groupStatus} onValueChange={(value) => setGroupStatus(value ?? "")}>
-                  <SelectTrigger className="h-9 bg-white border-slate-200 rounded-lg text-sm">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {groupStatusOptions.map((status) => (
-                      <SelectItem key={status} value={status}>
-                        {status}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          {selectedPayment && (
+            <div className="space-y-5">
+              {/* Header Card */}
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-xs text-slate-500 uppercase tracking-wide">Unique ID</p>
+                    <p className="font-mono font-bold text-lg">{selectedPayment["Unique Number"] || `#${selectedPayment.id}`}</p>
+                  </div>
+                  <StatusBadge status={selectedPayment.Status} />
+                </div>
+                <div className="grid grid-cols-2 gap-4 mt-3 pt-3 border-t border-blue-100/50">
+                  <div>
+                    <p className="text-xs text-slate-500">Firm</p>
+                    <p className="font-semibold">{selectedPayment["Firm Name"] || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Amount</p>
+                    <p className="font-bold text-lg text-emerald-600">{formatCurrency(selectedPayment.Amount)}</p>
+                  </div>
+                </div>
               </div>
 
-              {activeTab === "posting" && (
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Amount</Label>
-                  <Input
-                    type="number"
-                    value={groupAmount}
-                    onChange={(e) => setGroupAmount(e.target.value)}
-                    placeholder="Enter amount..."
-                    className="h-9 bg-white border-slate-200 rounded-lg text-sm"
-                  />
+              {/* Details Grid */}
+              <div className="grid grid-cols-2 gap-4">
+                <DetailItem icon={Truck} label="Transporter" value={selectedPayment["Transporter Name"]} />
+                <DetailItem icon={Hash} label="Vehicle Number" value={selectedPayment["Vehicle Number"]} />
+                <DetailItem icon={MapPin} label="Route" value={`${selectedPayment.From || "—"} → ${selectedPayment.To || "—"}`} />
+                <DetailItem icon={Package} label="Material" value={selectedPayment["Material Load Details"]} />
+                <DetailItem icon={User} label="Party Name" value={selectedPayment["Party Name"]} />
+                <DetailItem icon={FileText} label="Bilty Number" value={selectedPayment["Bilty Number"]} />
+                <DetailItem icon={Calendar} label={getStepName()} value={formatDate(getStepField(selectedPayment, "status") as string)} />
+              </div>
+
+              {/* Update Section for pending tab */}
+              {subTab !== "history" && onQuickUpdate && (
+                <div className="border-t pt-4 mt-2">
+                  <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                    <Check className="w-4 h-4 text-green-600" />
+                    Update {getStepName()}
+                  </h4>
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-xs text-slate-500">Status</Label>
+                      <Select value={updateStatus} onValueChange={(value) => setUpdateStatus(value ?? "")}> 
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Done">Done</SelectItem>
+                          <SelectItem value="Not Done">Not Done</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-slate-500 flex items-center gap-1">
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        Remark
+                      </Label>
+                      <Input
+                        value={updateRemark}
+                        onChange={(e) => setUpdateRemark(e.target.value)}
+                        placeholder="Add a remark..."
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
-
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Remark</Label>
-                <Input
-                  type="text"
-                  value={groupRemark}
-                  onChange={(e) => setGroupRemark(e.target.value)}
-                  placeholder="Enter remark..."
-                  className="h-9 bg-white border-slate-200 rounded-lg text-sm"
-                />
-              </div>
             </div>
-          </div>
           )}
 
-          <div className="hidden md:block overflow-auto flex-1 min-h-0">
-            <div className="min-w-max text-[11px]">
-              <div
-                className="sticky top-0 z-20 grid border-b border-slate-200 bg-slate-50/95"
-                style={{ gridTemplateColumns: popupTableGridTemplate }}
-              >
-                  {popupColumnDefs.map((col) => (
-                    <div
-                      key={col.key}
-                      className={cn(
-                        "min-h-9 px-1.5 py-2 text-left text-[9px] font-bold text-slate-500 uppercase tracking-wider whitespace-normal break-words",
-                        col.align === "right" && "text-right"
-                      )}
-                    >
-                      {col.label}
-                    </div>
-                  ))}
-              </div>
-              <div>
-                {groupDialog.group?.children.map((child, idx) => (
-                  <div
-                    key={child.id}
-                    style={{ gridTemplateColumns: popupTableGridTemplate }}
-                    className={cn(
-                      "grid border-b border-slate-100 hover:bg-slate-50/50 transition-colors duration-150",
-                      idx % 2 === 0 ? "bg-white" : "bg-slate-50/30"
-                    )}
-                  >
-                    {popupColumnDefs.map((col) => (
-                      <div
-                        key={col.key}
-                        className={cn(
-                          "min-w-0 px-1.5 py-2 text-[11px] leading-snug whitespace-normal break-words",
-                          (col.key === "stepStatus" || col.key === "overallStatus") && "[&>*]:whitespace-normal [&>*]:break-words",
-                          col.align === "right" && "text-right"
-                        )}
-                      >
-                        {col.render ? col.render(child) : "-"}
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="md:hidden overflow-y-auto flex-1 min-h-0 divide-y divide-slate-100">
-            {groupDialog.group?.children.map((child) => (
-              <div key={child.id} className="p-4 bg-white">
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <div className="min-w-0">
-                    <p className="font-mono text-xs font-bold text-slate-800 truncate">
-                      {child["Unique Number"] || `#${child.id}`}
-                    </p>
-                    <p className="text-xs text-slate-500 truncate">
-                      {child["Firm Name"] || "-"}
-                    </p>
-                  </div>
-                  <span className="font-bold text-sm text-slate-900 shrink-0">{formatCurrency(child.Amount)}</span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  {showPaidAmount && (
-                    <div>
-                      <span className="block text-[10px] font-bold text-slate-400 uppercase mb-0.5">Paid Amount</span>
-                      <span className="font-bold text-emerald-700">
-                        {child.PostingAmount !== undefined && child.PostingAmount !== null ? formatCurrency(child.PostingAmount) : "-"}
-                      </span>
-                    </div>
-                  )}
-                  <div>
-                    <span className="block text-[10px] font-bold text-slate-400 uppercase mb-0.5">Party</span>
-                    <span className="font-semibold text-slate-700 break-words">{child["Party Name"] || "-"}</span>
-                  </div>
-                  <div>
-                    <span className="block text-[10px] font-bold text-slate-400 uppercase mb-0.5">Transporter</span>
-                    <span className="font-semibold text-slate-700 break-words">{child["Transporter Name"] || "-"}</span>
-                  </div>
-                  <div>
-                    <span className="block text-[10px] font-bold text-slate-400 uppercase mb-0.5">Bilty</span>
-                    <span className="font-mono text-slate-700 break-words">{child["Bilty Number"] || "-"}</span>
-                  </div>
-                  <div>
-                    <span className="block text-[10px] font-bold text-slate-400 uppercase mb-0.5">Vehicle</span>
-                    <span className="font-mono text-slate-700 break-words">{child["Vehicle Number"] || "-"}</span>
-                  </div>
-                  <div className="col-span-2">
-                    <span className="block text-[10px] font-bold text-slate-400 uppercase mb-0.5">Material</span>
-                    <span className="text-slate-700 break-words">{child["Material Load Details"] || "-"}</span>
-                  </div>
-                  <div>
-                    <span className="block text-[10px] font-bold text-slate-400 uppercase mb-0.5">{getStepName()} Status</span>
-                    <StatusBadge status={getStepField(child, "Status") as string} />
-                  </div>
-                  <div>
-                    <span className="block text-[10px] font-bold text-slate-400 uppercase mb-0.5">Overall</span>
-                    <StatusBadge status={child.Status} />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {subTab !== "history" && (
-          <DialogFooter className="mx-0 mb-0 px-5 py-4 border-t border-slate-100 bg-slate-50/95 flex flex-col-reverse sm:flex-row gap-2 sm:justify-end shrink-0">
-            <Button
-              variant="outline"
-              onClick={() => setGroupDialog({ open: false, group: null })}
-              className="h-10 w-full sm:w-auto px-5 text-xs font-semibold border-slate-200 text-slate-600 bg-white hover:bg-slate-50"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleGroupSubmit}
-              disabled={!onQuickUpdate || (groupStatus !== "Done" && groupStatus !== "Not Done")}
-              className="h-10 w-full sm:w-auto px-5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm disabled:opacity-50"
-            >
-              <Check className="w-4 h-4 mr-2" />
-              Submit
-            </Button>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setShowDetailModal(false)}>Cancel</Button>
+            {subTab !== "history" && onQuickUpdate && (
+              <Button onClick={handleUpdate} disabled={!updateStatus} className="bg-blue-600 hover:bg-blue-700">
+                <Check className="w-4 h-4 mr-2" />
+                Update Status
+              </Button>
+            )}
           </DialogFooter>
-          )}
         </DialogContent>
       </Dialog>
-
-      <StepActionDialog
-        open={stepDialog.open}
-        onOpenChange={(open: boolean) => setStepDialog((prev) => ({ ...prev, open }))}
-        payment={stepDialog.payment}
-        step={activeTab}
-        onConfirm={(payment: FreightPayment, step: string, value: "yes" | "no", actualDate?: string, selectedStatus?: string, remark?: string) => {
-          onQuickUpdate?.(payment, step, value, actualDate, selectedStatus, remark);
-          setStepDialog({ open: false, payment: null });
-        }}
-      />
     </div>
   );
 }
 
-/* ─── Step Action Dialog ─── */
-interface StepActionDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  payment: FreightPayment | null;
-  step: string;
-  onConfirm: (payment: FreightPayment, step: string, value: "yes" | "no", actualDate?: string, selectedStatus?: string, remark?: string) => void;
-}
-
-const STEP_CONFIG: Record<string, {
-  title: string;
-  plannedKey: keyof FreightPayment;
-  actualKey: keyof FreightPayment;
-  statusKey: keyof FreightPayment;
-  statusOptions: string[];
-  doneStatus: string;
-  icon: React.ElementType;
-}> = {
-  checkkitting: {
-    title: "Account Checking",
-    plannedKey: "Planned3",
-    actualKey: "Actual3",
-    statusKey: "Status3",
-    statusOptions: ["Done", "Not Done"],
-    doneStatus: "Done",
-    icon: Package,
-  },
-  posting: {
-    title: "Account Audit",
-    plannedKey: "Planned",
-    actualKey: "Actual",
-    statusKey: "Status_1",
-    statusOptions: ["Done", "Not Done"],
-    doneStatus: "Done",
-    icon: FileText,
-  },
-  makepayment: {
-    title: "Posting",
-    plannedKey: "Planned2",
-    actualKey: "Actual2",
-    statusKey: "Status2",
-    statusOptions: ["Done", "Not Done"],
-    doneStatus: "Done",
-    icon: Banknote,
-  },
-  freight: {
-    title: "Freight Payment",
-    plannedKey: "Actual4",
-    actualKey: "Actual4",
-    statusKey: "Status",
-    statusOptions: ["Done", "Not Done"],
-    doneStatus: "Done",
-    icon: Banknote,
-  },
-};
-
-function StepActionDialog({ open, onOpenChange, payment, step, onConfirm }: StepActionDialogProps) {
-  const today = new Date().toISOString().split("T")[0];
-  const [actualDate, setActualDate] = useState(today);
-  const [selectedStatus, setSelectedStatus] = useState("");
-  const [remark, setRemark] = useState("");
-
-  const config = STEP_CONFIG[step];
-
-  useEffect(() => {
-    if (open && payment && config) {
-      const existingActual = payment[config.actualKey] as string | undefined;
-      setActualDate(existingActual ? existingActual.split("T")[0].split(" ")[0] : today);
-      const existingStatus = payment[config.statusKey] as string | undefined;
-      const initialStatus = (existingStatus && config.statusOptions.includes(existingStatus)) ? existingStatus : "";
-      setSelectedStatus(initialStatus);
-
-      // Handle Remark retrieval based on step mapping
-      const stepRemarkMap: Record<string, keyof FreightPayment> = {
-        checkkitting: "Remark3",
-        posting: "Remark_1",
-        makepayment: "Remark2",
-        freight: "Remark",
-      };
-      const remarkKey = stepRemarkMap[step] || "Remark";
-      const existingRemark = payment[remarkKey] as string | undefined;
-      setRemark(existingRemark || "");
-    }
-  }, [open, payment, step]);
-
-  if (!payment || !config) return null;
-
-  const Icon = config.icon;
-  const plannedDate = payment[config.plannedKey] as string | undefined;
-
-  const formatDate = (d?: string) => {
-    if (!d) return "Not set";
-    try {
-      return new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-    } catch {
-      return d;
-    }
-  };
-
-  const calcDelay = () => {
-    if (!plannedDate || !actualDate) return 0;
-    try {
-      const diffHours = Math.ceil((new Date(actualDate).getTime() - new Date(plannedDate).getTime()) / 3600000);
-      return diffHours > 0 ? Number((diffHours / 24).toFixed(2)) : 0;
-    } catch {
-      return 0;
-    }
-  };
-
-  const delay = calcDelay();
-
-  const handleMarkDone = () => {
-    if (selectedStatus === "Done" || selectedStatus === "Not Done") {
-      onConfirm(payment, step, "yes", actualDate, selectedStatus, remark);
-    }
-  };
-  const handleKeepPending = () => onConfirm(payment, step, "no", undefined, selectedStatus, remark);
-
+// Helper Component
+function DetailItem({ icon: Icon, label, value }: { icon: any; label: string; value?: string | null }) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md w-[94vw] bg-white rounded-2xl p-0 overflow-hidden border border-white shadow-2xl shadow-slate-950/20 gap-0">
-        {/* Colored header */}
-        <DialogHeader className="p-0">
-          <div className="px-5 pt-5 pb-4 border-b border-slate-100 bg-slate-50/95">
-            <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-lg bg-brand-50 border border-brand-200 flex items-center justify-center shadow-sm shrink-0">
-                <Icon className="w-4 h-4 text-blue-600" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <DialogTitle className="text-slate-900 font-bold text-base leading-tight">
-                  {config.title}
-                </DialogTitle>
-                <p className="text-slate-500 text-xs font-medium mt-1">Update step status for this shipment</p>
-              </div>
-            </div>
-            {/* Payment info chip */}
-            <div className="mt-4 rounded-lg border border-slate-200 bg-white px-3 py-2.5 flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-slate-900 font-bold text-xs font-mono truncate">
-                  {payment["Unique Number"] || `#${payment.id}`}
-                </p>
-                <p className="text-slate-500 text-[11px] truncate">
-                  {payment["Firm Name"]} • {payment.From} → {payment.To}
-                </p>
-              </div>
-              <p className="text-slate-900 font-bold text-sm shrink-0">
-                ₹{payment.Amount?.toLocaleString("en-IN") || "—"}
-              </p>
-            </div>
-          </div>
-        </DialogHeader>
-
-        {/* Form body */}
-        <div className="px-5 py-5 space-y-4 bg-white">
-          {/* Details for Posting, MakePayment, and Freight Payment steps */}
-          {(step === "posting" || step === "makepayment" || step === "freight") && (
-            <div className="space-y-3 bg-slate-50/70 p-3.5 rounded-lg border border-slate-200">
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div>
-                  <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Party Name</span>
-                  <span className="font-semibold text-slate-700 block truncate" title={payment["Party Name"] || "—"}>
-                    {payment["Party Name"] || "—"}
-                  </span>
-                </div>
-                <div>
-                  <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Transporter</span>
-                  <span className="font-semibold text-slate-700 block truncate" title={payment["Transporter Name"] || "—"}>
-                    {payment["Transporter Name"] || "—"}
-                  </span>
-                </div>
-              </div>
-              <div className="pt-2 border-t border-slate-200/60">
-                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Product</span>
-                <span className="font-semibold text-slate-700 block truncate" title={payment["Material Load Details"] || "—"}>
-                  {payment["Material Load Details"] || "—"}
-                </span>
-              </div>
-            </div>
-          )}
-
-          {/* Status select */}
-          <div className="space-y-1.5">
-            <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-              <Clock className="w-3 h-3" /> Status
-            </Label>
-            <Select value={selectedStatus} onValueChange={(v) => setSelectedStatus(v ?? "")}>
-              <SelectTrigger className="h-9 bg-white border-slate-200 rounded-lg text-sm">
-                <SelectValue placeholder="Select status" />
-              </SelectTrigger>
-              <SelectContent>
-                {config.statusOptions.map((opt) => (
-                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Remark Input */}
-          <div className="space-y-1.5">
-            <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Remark</Label>
-            <Input
-              type="text"
-              value={remark}
-              onChange={(e) => setRemark(e.target.value)}
-              placeholder="Enter remark..."
-              className="h-9 bg-white border-slate-200 rounded-lg text-sm"
-            />
-          </div>
-
-        </div>
-
-        {/* Footer buttons */}
-        <DialogFooter className="mx-0 mb-0 px-5 py-4 border-t border-slate-100 bg-slate-50/95 flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            className="h-10 w-full sm:w-auto px-5 text-xs font-semibold border-slate-200 text-slate-600 bg-white hover:bg-slate-50"
-          >
-            Cancel
-          </Button>
-          {step !== "posting" && step !== "makepayment" && step !== "freight" && (
-            <Button
-              variant="outline"
-              onClick={handleKeepPending}
-              className="h-10 w-full sm:w-auto px-5 text-xs font-semibold border-slate-200 text-slate-600 bg-white hover:bg-slate-50"
-            >
-              Keep Pending
-            </Button>
-          )}
-          {(step === "posting" || step === "makepayment" || step === "freight") ? (
-            <Button
-              onClick={() => {
-                if (selectedStatus === "Done" || selectedStatus === "Not Done") {
-                  onConfirm(payment, step, "yes", undefined, selectedStatus, remark);
-                }
-              }}
-              disabled={selectedStatus !== "Done" && selectedStatus !== "Not Done"}
-              className="h-10 w-full sm:w-auto px-5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm disabled:opacity-50"
-            >
-              <Check className="w-4 h-4 mr-2" />
-              Update Status
-            </Button>
-          ) : (
-            <Button
-              onClick={handleMarkDone}
-              disabled={selectedStatus !== "Done" && selectedStatus !== "Not Done"}
-              className="h-10 w-full sm:w-auto px-5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm disabled:opacity-50"
-            >
-              <Check className="w-4 h-4 mr-2" />
-              Mark as Done
-            </Button>
-          )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <div className="flex items-start gap-2 p-2 rounded-lg bg-slate-50/50">
+      <Icon className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{label}</p>
+        <p className="text-sm font-medium text-slate-700 truncate" title={value || "—"}>{value || "—"}</p>
+      </div>
+    </div>
   );
 }

@@ -1,97 +1,201 @@
 import React from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
-  Banknote,
-  ChevronRight,
-  CircleDot,
-  FileText,
-  LayoutDashboard,
+  Gauge,
+  ClipboardList,
+  FileBarChart2,
+  SendHorizontal,
+  Wallet,
+  ShieldCheck,
   LogOut,
-  Package,
-  Users,
+  CircleDot,
+  ChevronRight,
+  Zap,
+  ChevronLeft,
 } from "lucide-react";
 import { LoginUser } from "@/api";
 import { cn } from "@/lib/utils";
 
-const jakartaSans: React.CSSProperties = {
-  fontFamily: "'Plus Jakarta Sans', Inter, sans-serif",
-};
+const jk: React.CSSProperties = { fontFamily: "'Inter', 'Plus Jakarta Sans', system-ui, sans-serif" };
+
+// ─── Nav config ───────────────────────────────
+const NAV_CONFIG = {
+  dashboard: { 
+    icon: Gauge, 
+    label: "Dashboard", 
+    iconBg: "#eef2ff", 
+    iconColor: "#4f46e5", 
+    activeBg: "#4f46e5",
+    gradient: "from-indigo-500 to-indigo-600",
+    description: ""
+  },
+  checkkitting: { 
+    icon: ClipboardList, 
+    label: "Account Checking", 
+    iconBg: "#fef3c7", 
+    iconColor: "#d97706", 
+    activeBg: "#d97706",
+    gradient: "from-amber-500 to-amber-600",
+    description: ""
+  },
+  posting: { 
+    icon: FileBarChart2, 
+    label: "Account Audit", 
+    iconBg: "#dbeafe", 
+    iconColor: "#2563eb", 
+    activeBg: "#2563eb",
+    gradient: "from-blue-500 to-blue-600",
+    description: ""
+  },
+  makepayment: { 
+    icon: SendHorizontal, 
+    label: "Posting", 
+    iconBg: "#fce7f3", 
+    iconColor: "#db2777", 
+    activeBg: "#db2777",
+    gradient: "from-pink-500 to-pink-600",
+    description: ""
+  },
+  freight: { 
+    icon: Wallet, 
+    label: "Freight Payment", 
+    iconBg: "#dcfce7", 
+    iconColor: "#16a34a", 
+    activeBg: "#16a34a",
+    gradient: "from-emerald-500 to-emerald-600",
+    description: ""
+  },
+  users: { 
+    icon: ShieldCheck, 
+    label: "User Management", 
+    iconBg: "#f3e8ff", 
+    iconColor: "#9333ea", 
+    activeBg: "#9333ea",
+    gradient: "from-purple-500 to-purple-600",
+    description: ""
+  },
+} as const;
+
+type TabKey = keyof typeof NAV_CONFIG;
 
 interface SidebarItemProps {
-  icon: React.ElementType;
-  label: string;
+  tabKey: TabKey;
   active: boolean;
   onClick: () => void;
   collapsed: boolean;
-  badge?: string | number;
+  badge?: number;
+  isNew?: boolean;
 }
 
-function SidebarItem({ icon: Icon, label, active, onClick, collapsed, badge }: SidebarItemProps) {
+function SidebarItem({ tabKey, active, onClick, collapsed, badge, isNew }: SidebarItemProps) {
+  const cfg = NAV_CONFIG[tabKey];
+  const Icon = cfg.icon;
+
   return (
-    <button
+    <motion.button
       onClick={onClick}
-      title={collapsed ? label : undefined}
+      title={collapsed ? cfg.label : undefined}
       className={cn(
-        "w-full flex items-center gap-3 text-[12.5px] font-semibold transition-all duration-200 rounded-xl group relative overflow-hidden",
-        collapsed ? "justify-center px-0 py-3" : "px-3 py-2.5",
+        "w-full flex items-center gap-4 transition-all duration-300 rounded-xl group relative",
+        collapsed ? "justify-center p-3" : "px-4 py-3.5",
         active
-          ? "bg-brand-50 text-brand-800"
-          : "text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-sm"
+          ? "shadow-lg"
+          : "hover:bg-slate-50 dark:hover:bg-white/5"
       )}
-      style={jakartaSans}
+      style={{
+        background: active ? `linear-gradient(135deg, ${cfg.activeBg}0c, ${cfg.activeBg}04)` : undefined,
+        border: active ? `1px solid ${cfg.activeBg}25` : "1px solid transparent",
+      }}
+      whileHover={{ x: collapsed ? 0 : 3 }}
+      transition={{ type: "spring", stiffness: 400, damping: 30 }}
     >
-      {/* Active left bar */}
       {active && (
         <motion.div
           layoutId="sidebar-active-bar"
-          className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-full bg-brand-600"
-          transition={{ type: "spring", stiffness: 400, damping: 32 }}
+          className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-[60%] rounded-r-full"
+          style={{ background: `linear-gradient(135deg, ${cfg.activeBg}, ${cfg.activeBg}cc)` }}
+          transition={{ type: "spring", stiffness: 500, damping: 38 }}
         />
       )}
 
-      {/* Active BG highlight */}
-      {active && (
-        <motion.div
-          layoutId="sidebar-active-bg"
-          className="absolute inset-0 rounded-xl bg-brand-50"
-          transition={{ type: "spring", stiffness: 400, damping: 32 }}
-          style={{ zIndex: 0 }}
-        />
-      )}
-
-      <Icon
+      <motion.div
         className={cn(
-          "w-[17px] h-[17px] shrink-0 transition-colors duration-200 relative z-10",
-          active ? "text-brand-600" : "text-slate-400 group-hover:text-slate-600"
+          "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300",
+          active ? "shadow-md" : "group-hover:scale-105"
         )}
-      />
+        style={{
+          background: active 
+            ? `linear-gradient(135deg, ${cfg.activeBg}, ${cfg.activeBg}dd)` 
+            : collapsed ? cfg.iconBg : cfg.iconBg,
+          boxShadow: active ? `0 4px 12px ${cfg.activeBg}40` : undefined,
+        }}
+        whileHover={{ scale: 1.05 }}
+        transition={{ type: "spring", stiffness: 400, damping: 25 }}
+      >
+        <Icon
+          className="w-5 h-5"
+          style={{ color: active ? "white" : cfg.iconColor }}
+        />
+      </motion.div>
 
       {!collapsed && (
         <>
-          <span className="flex-1 text-left truncate z-10 relative">{label}</span>
-          {badge && (
+          <div className="flex-1 text-left">
             <span
-              className={cn(
-                "px-1.5 py-0.5 rounded-md text-[9px] font-bold leading-none z-10 relative",
-                active ? "bg-brand-100 text-brand-700" : "bg-rose-100 text-rose-600"
-              )}
+              className="block text-sm font-semibold truncate"
+              style={{
+                color: active ? cfg.activeBg : "#334155",
+                fontFamily: "'Inter', system-ui, sans-serif",
+              }}
             >
-              {badge}
+              {cfg.label}
             </span>
-          )}
-          {active && (
-            <ChevronRight className="w-3 h-3 text-brand-400 opacity-70 z-10 relative" />
-          )}
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {badge !== undefined && badge > 0 && (
+              <motion.span
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="min-w-[24px] h-6 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center"
+                style={{
+                  background: active ? `${cfg.activeBg}20` : "#fef2f2",
+                  color: active ? cfg.activeBg : "#dc2626",
+                  border: active ? `1px solid ${cfg.activeBg}30` : "1px solid #fecaca",
+                }}
+              >
+                {badge > 99 ? "99+" : badge}
+              </motion.span>
+            )}
+            {isNew && !badge && (
+              <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase">
+                New
+              </span>
+            )}
+            {active && !badge && (
+              <ChevronRight className="w-4 h-4 opacity-60" style={{ color: cfg.activeBg }} />
+            )}
+          </div>
         </>
       )}
-    </button>
+
+      {collapsed && badge !== undefined && badge > 0 && (
+        <motion.span
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          className="absolute top-2 right-2 w-3 h-3 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-900"
+        />
+      )}
+    </motion.button>
   );
 }
 
-function SectionDivider({ collapsed }: { collapsed: boolean }) {
-  if (collapsed) return <div className="my-2 mx-3 border-t border-slate-100" />;
-  return <div className="my-1.5" />;
+function SectionLabel({ collapsed }: { label: string; collapsed: boolean }) {
+  if (collapsed) return <div className="my-3 mx-2 border-t border-slate-200/60 dark:border-white/6" />;
+  return <div className="h-3" />;
 }
+
+// ─── Props ────────────────────────────────────────────────────────────────────
 
 interface AppSidebarProps {
   collapsed: boolean;
@@ -100,7 +204,11 @@ interface AppSidebarProps {
   user: LoginUser;
   onNavigate: (tab: string) => void;
   onLogout: () => void;
+  onToggleCollapse?: () => void;
   totalCount?: number;
+  pendingPosting?: number;
+  pendingMakePayment?: number;
+  pendingFreight?: number;
 }
 
 export function AppSidebar({
@@ -110,158 +218,248 @@ export function AppSidebar({
   user,
   onNavigate,
   onLogout,
+  onToggleCollapse,
   totalCount = 0,
+  pendingPosting = 0,
+  pendingMakePayment = 0,
+  pendingFreight = 0,
 }: AppSidebarProps) {
   const userFirm = user["Firm Name"] || "";
-  const hasProcessSteps = allowedTabs.some((t) => ["checkkitting", "posting", "makepayment"].includes(t));
-  const hasMasterData = allowedTabs.some((t) => ["freight", "users"].includes(t));
+  const userRole = user.Role || "User";
+  const avatarLetter = user.Username?.charAt(0)?.toUpperCase() ?? "U";
+  const isAdmin = user.Role?.toLowerCase() === "admin";
+
+  const hasOperations = allowedTabs.some((t) => ["checkkitting", "posting", "makepayment"].includes(t));
+  const hasPayments = allowedTabs.some((t) => ["freight"].includes(t));
+  const hasAdminSection = allowedTabs.includes("users");
+
+  const activeColor = NAV_CONFIG[activeTab as TabKey]?.activeBg ?? "#4f46e5";
+
+  const badgeMap: Record<string, number | undefined> = {
+    checkkitting: totalCount || undefined,
+    posting: pendingPosting || undefined,
+    makepayment: pendingMakePayment || undefined,
+    freight: pendingFreight || undefined,
+  };
 
   return (
-    <aside
+    <motion.aside
+      initial={false}
+      animate={{ width: collapsed ? 88 : 300 }}
       className={cn(
-        "h-screen flex flex-col shrink-0 bg-slate-50 border-r border-slate-200/80 transition-all duration-300 ease-in-out z-30 relative",
-        collapsed ? "w-[68px]" : "w-[252px]"
+        "h-screen flex flex-col shrink-0 transition-all duration-300 ease-out z-30 relative",
+        "bg-white dark:bg-slate-950",
+        "border-r border-slate-200/70 dark:border-white/10"
       )}
     >
-      {/* ─── Logo / Brand ─── */}
+      {/* Brand Header */}
       <div
         className={cn(
-          "h-[60px] flex items-center border-b border-slate-200/70 bg-white shrink-0",
-          collapsed ? "justify-center px-3" : "px-4 gap-3"
+          "shrink-0 flex items-center justify-between border-b border-slate-100 dark:border-white/10",
+          collapsed ? "px-3 h-16" : "px-5 h-16"
         )}
       >
-        {/* Brand-color accent line matching header */}
-        <div className="absolute top-[58px] left-0 right-0 h-[2px] bg-linear-to-r from-brand-600/60 via-brand-400/30 to-transparent" />
-
-        <div className="w-9 h-9 rounded-xl overflow-hidden shadow-sm ring-2 ring-brand-100 shrink-0">
-          <img src="/passary.jpeg" alt="PASMIN" className="w-full h-full object-cover" />
-        </div>
-
-        {!collapsed && (
-          <div className="flex flex-col min-w-0">
-            <span
-              className="font-extrabold text-slate-900 text-[14.5px] tracking-tight leading-tight"
-              style={jakartaSans}
+        <AnimatePresence mode="wait">
+          {!collapsed ? (
+            <motion.div
+              key="expanded"
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              transition={{ duration: 0.2 }}
+              className="flex items-center gap-3"
             >
-              PASMIN
-            </span>
-            <span className="text-[9px] font-semibold text-brand-600 uppercase tracking-[0.14em]">
-              Freight Payments
-            </span>
-          </div>
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg">
+                <Zap className="w-5 h-5 text-white" />
+              </div>
+              <span className="font-bold text-slate-900 dark:text-white text-base tracking-tight" style={jk}>
+                Dashboard
+              </span>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="collapsed"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.2 }}
+              className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg mx-auto"
+            >
+              <Zap className="w-5 h-5 text-white" />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {onToggleCollapse && (
+          <motion.button
+            onClick={onToggleCollapse}
+            className="rounded-lg p-1.5 hover:bg-slate-100 dark:hover:bg-white/10"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <ChevronLeft className={cn(
+              "w-4 h-4 text-slate-500 transition-transform duration-300",
+              collapsed && "rotate-180"
+            )} />
+          </motion.button>
         )}
       </div>
 
-      {/* ─── Navigation ─── */}
-      <nav className="flex-1 overflow-y-auto custom-scrollbar py-3 px-2 space-y-0.5">
+      {/* User Profile */}
+      <div className="px-3 pt-6 pb-4 border-b border-slate-100 dark:border-white/10">
+        <motion.div
+          className={cn(
+            "rounded-xl transition-all duration-300",
+            collapsed ? "p-2" : "p-3"
+          )}
+          style={{
+            background: `linear-gradient(135deg, ${activeColor}08, ${activeColor}02)`,
+            border: `1px solid ${activeColor}15`,
+          }}
+        >
+          <div className={cn("flex items-center", collapsed ? "flex-col gap-2" : "gap-3")}>
+            <div className="relative shrink-0">
+              <div
+                className="w-11 h-11 rounded-xl flex items-center justify-center text-white text-base font-bold shadow-lg"
+                style={{ background: `linear-gradient(135deg, ${activeColor}, ${activeColor}cc)` }}
+              >
+                {avatarLetter}
+              </div>
+              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900" />
+            </div>
+
+            <AnimatePresence>
+              {!collapsed && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="flex-1 min-w-0"
+                >
+                  <p className="text-sm font-bold text-slate-800 dark:text-white truncate capitalize" style={jk}>
+                    {user.Username}
+                  </p>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <CircleDot className="w-2 h-2 text-emerald-500 shrink-0" />
+                    <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 truncate">
+                      {userFirm || userRole}
+                    </p>
+                  </div>
+                  {isAdmin && (
+                    <span className="inline-block mt-1.5 px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 text-[10px] font-bold uppercase">
+                      Admin
+                    </span>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
         {allowedTabs.includes("dashboard") && (
-          <SidebarItem
-            icon={LayoutDashboard}
-            label="Dashboard"
-            active={activeTab === "dashboard"}
-            onClick={() => onNavigate("dashboard")}
-            collapsed={collapsed}
-          />
+          <>
+            <SectionLabel label="" collapsed={collapsed} />
+            <SidebarItem
+              tabKey="dashboard"
+              active={activeTab === "dashboard"}
+              onClick={() => onNavigate("dashboard")}
+              collapsed={collapsed}
+            />
+          </>
         )}
 
-        {hasProcessSteps && <SectionDivider collapsed={collapsed} />}
-
-        {allowedTabs.includes("checkkitting") && (
-          <SidebarItem
-            icon={Package}
-            label="Account Checking"
-            active={activeTab === "checkkitting"}
-            onClick={() => onNavigate("checkkitting")}
-            collapsed={collapsed}
-          />
-        )}
-        {allowedTabs.includes("posting") && (
-          <SidebarItem
-            icon={FileText}
-            label="Account Audit"
-            active={activeTab === "posting"}
-            onClick={() => onNavigate("posting")}
-            collapsed={collapsed}
-          />
-        )}
-        {allowedTabs.includes("makepayment") && (
-          <SidebarItem
-            icon={Banknote}
-            label="Posting"
-            active={activeTab === "makepayment"}
-            onClick={() => onNavigate("makepayment")}
-            collapsed={collapsed}
-          />
-        )}
-
-        {hasMasterData && <SectionDivider collapsed={collapsed} />}
-
-        {allowedTabs.includes("freight") && (
-          <SidebarItem
-            icon={Banknote}
-            label="Freight Payments"
-            active={activeTab === "freight"}
-            onClick={() => onNavigate("freight")}
-            collapsed={collapsed}
-          />
+        {hasOperations && (
+          <>
+            <SectionLabel label="" collapsed={collapsed} />
+            {allowedTabs.includes("checkkitting") && (
+              <SidebarItem
+                tabKey="checkkitting"
+                active={activeTab === "checkkitting"}
+                onClick={() => onNavigate("checkkitting")}
+                collapsed={collapsed}
+                badge={badgeMap.checkkitting}
+              />
+            )}
+            {allowedTabs.includes("posting") && (
+              <SidebarItem
+                tabKey="posting"
+                active={activeTab === "posting"}
+                onClick={() => onNavigate("posting")}
+                collapsed={collapsed}
+                badge={badgeMap.posting}
+              />
+            )}
+            {allowedTabs.includes("makepayment") && (
+              <SidebarItem
+                tabKey="makepayment"
+                active={activeTab === "makepayment"}
+                onClick={() => onNavigate("makepayment")}
+                collapsed={collapsed}
+                badge={badgeMap.makepayment}
+              />
+            )}
+          </>
         )}
 
-        {allowedTabs.includes("users") && (
-          <SidebarItem
-            icon={Users}
-            label="User Management"
-            active={activeTab === "users"}
-            onClick={() => onNavigate("users")}
-            collapsed={collapsed}
-          />
+        {hasPayments && (
+          <>
+            <SectionLabel label="" collapsed={collapsed} />
+            <SidebarItem
+              tabKey="freight"
+              active={activeTab === "freight"}
+              onClick={() => onNavigate("freight")}
+              collapsed={collapsed}
+              badge={badgeMap.freight}
+              isNew={true}
+            />
+          </>
+        )}
+
+        {hasAdminSection && (
+          <>
+            <SectionLabel label="" collapsed={collapsed} />
+            <SidebarItem
+              tabKey="users"
+              active={activeTab === "users"}
+              onClick={() => onNavigate("users")}
+              collapsed={collapsed}
+            />
+          </>
         )}
       </nav>
 
-      {/* ─── User Card ─── */}
-      <div className={cn("border-t border-slate-200/70 bg-white shrink-0", collapsed ? "p-2" : "p-3")}>
-        <div
+      {/* Sign Out */}
+      <div className="shrink-0 px-3 pb-4 pt-3 border-t border-slate-100 dark:border-white/10">
+        <motion.button
+          onClick={onLogout}
           className={cn(
-            "rounded-xl border border-slate-100 bg-slate-50/70",
-            collapsed ? "p-2 flex justify-center" : "p-2.5"
+            "w-full flex items-center justify-center gap-2 transition-all duration-200 rounded-lg",
+            collapsed ? "p-2.5 hover:bg-rose-50 dark:hover:bg-rose-900/20" : "px-4 py-3 hover:bg-rose-50 dark:hover:bg-rose-900/20"
           )}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
         >
-          <div className={cn("flex items-center", collapsed ? "" : "gap-2.5")}>
-            {/* Avatar */}
-            <div
-              className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white text-[11px] font-bold shrink-0 shadow-sm"
-              style={jakartaSans}
-            >
-              {user.Username?.charAt(0)?.toUpperCase() || "U"}
-            </div>
-
+          <LogOut className={cn(
+            "w-4 h-4 transition-colors",
+            collapsed ? "text-slate-500" : "text-rose-500"
+          )} />
+          <AnimatePresence>
             {!collapsed && (
-              <div className="flex-1 min-w-0">
-                <p
-                  className="text-[12px] font-bold text-slate-800 truncate capitalize leading-tight"
-                  style={jakartaSans}
-                >
-                  {user.Username}
-                </p>
-                <div className="flex items-center gap-1 mt-0.5">
-                  <CircleDot className="w-2.5 h-2.5 text-emerald-500" />
-                  <p className="text-[10px] font-medium text-slate-400 truncate">{userFirm || user.Role}</p>
-                </div>
-              </div>
+              <motion.span
+                initial={{ opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: "auto" }}
+                exit={{ opacity: 0, width: 0 }}
+                className="text-sm font-semibold text-rose-600 dark:text-rose-400"
+              >
+                Sign Out
+              </motion.span>
             )}
-          </div>
-
-          {!collapsed && (
-            <button
-              onClick={onLogout}
-              className="flex items-center justify-center gap-1.5 mt-2 w-full py-1.5 text-[11px] font-semibold text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-              style={jakartaSans}
-            >
-              <LogOut className="w-3 h-3" />
-              Sign Out
-            </button>
-          )}
-        </div>
+          </AnimatePresence>
+        </motion.button>
       </div>
-    </aside>
+    </motion.aside>
   );
 }

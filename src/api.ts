@@ -90,7 +90,38 @@ export const api = {
     }
     const { data, error } = await supabase.from(ACCOUNT_CHECKING_TABLE_NAME).select("*").order("id", { ascending: false });
     if (error) throw error;
-    return data || [];
+    
+    let dispatchMap = new Map();
+    try {
+      if (orderSupabaseUrl !== "https://placeholder.supabase.co") {
+        const { data: dispatchData, error: dispatchError } = await orderSupabase
+          .from("DISPATCH")
+          .select('"Unique Number", "Fullkitting Amount"');
+        
+        if (!dispatchError && dispatchData) {
+          dispatchData.forEach((d) => {
+            if (d["Unique Number"]) {
+              dispatchMap.set(d["Unique Number"], d["Fullkitting Amount"]);
+            }
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch DISPATCH data from orderSupabase", e);
+    }
+
+    const result = (data || []).map((item) => {
+      const uniqueNum = item["Unique Number"];
+      if (uniqueNum && dispatchMap.has(uniqueNum)) {
+        const fkAmount = dispatchMap.get(uniqueNum);
+        if (fkAmount !== undefined && fkAmount !== null) {
+          item.Amount = Number(fkAmount);
+        }
+      }
+      return item;
+    });
+
+    return result;
   },
 
   createFreightPayment: async (payment: Partial<FreightPayment>): Promise<FreightPayment> => {

@@ -63,6 +63,20 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [formStep, setFormStep] = useState<string>("posting");
 
+  // Dark mode state — persisted in localStorage
+  const [darkMode, setDarkMode] = useState(() => {
+    return localStorage.getItem("dark_mode") === "true";
+  });
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+    localStorage.setItem("dark_mode", String(darkMode));
+  }, [darkMode]);
+
   const isAdmin = user.Role?.toLowerCase() === "admin";
   const userFirm = user["Firm Name"] || "";
   const allowedTabs = useMemo(() => getUserAllowedTabs(user), [user]);
@@ -154,7 +168,6 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
     retry: 1,
   });
 
-  // isLoading now tracks the kitting query (primary data source)
   const isLoading = isKittingLoading;
 
   const filteredKittingPayments = useMemo(() => {
@@ -171,8 +184,6 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
     }
   }, [error]);
 
-  // All payments are derived purely from AccountChecking (source of truth) + AccountAudit + Posting + FreightPayment tables
-  // The old freightpayemnt table has been deleted
   const allPayments = useMemo(() => {
     const merged: FreightPayment[] = [];
 
@@ -191,7 +202,6 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
         fp["Unique Number"]?.trim().toLowerCase() === uniqueNum.trim().toLowerCase()
       ) : undefined;
 
-      // ID priority: FreightPayment row > MakePayment row > Posting row > virtual negative
       const recordId = freightMatch ? freightMatch.id : (mpMatch ? mpMatch.id : (postingMatch ? postingMatch.id : -kp.id));
       const latestStepMatch = freightMatch || mpMatch || postingMatch;
 
@@ -223,21 +233,18 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
         "Billing Qty": kp["Billing Qty"] !== undefined && kp["Billing Qty"] !== null ? Number(kp["Billing Qty"]) : undefined,
         "Bill Number": kp["Bill Number"],
 
-        // Kitting step — always Completed since record exists in CheckKitting
         Status3: "Completed",
         Actual3: kp.Actual3 || kp.Actual || kp.Timestamp,
         Delay3: kp.Delay3 ?? kp.Delay ?? 0,
         Planned3: kp.Planned3 || kp.Planned || kp.Timestamp,
         Remark3: kp.Remark,
 
-        // Posting step — from Posting table if matched, else Pending
         Status_1: postingMatch ? (postingMatch.Status || "Pending") : "Pending",
         Planned: kp.Planned || kp.Timestamp,
         Actual: postingMatch ? (postingMatch.created_at || kp.Actual) : kp.Actual,
         Delay: postingMatch ? (postingMatch.Delay ?? 0) : (kp.Delay ?? 0),
         Remark_1: postingMatch ? postingMatch.Remark : "",
 
-        // Make Payment step — from MakePayment table if matched, else null (no record yet)
         Status2: mpMatch ? (mpMatch.Status || "Pending") : null,
         Planned2: kp.Planned2,
         Actual2: mpMatch ? (mpMatch.created_at || kp.Actual2) : kp.Actual2,
@@ -269,14 +276,12 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
       }
       if (activeTab === "makepayment") {
         if (subTab === "history") return payment.Status2 === "Completed" || payment.Status2 === "Done";
-        // Pending: posting done AND makepayment not yet done (Status2 null means no MakePayment row yet)
         const isPostingDone = payment.Status_1 === "Done" || payment.Status_1 === "Completed";
         const isMakePaymentDone = payment.Status2 === "Done" || payment.Status2 === "Completed";
         return isPostingDone && !isMakePaymentDone;
       }
       if (activeTab === "freight") {
         if (subTab === "history") return payment.Status === "Completed" || payment.Status === "Done";
-        // Only show in Freight when MakePayment step is Done/Completed
         const isMakePaymentDone = payment.Status2 === "Done" || payment.Status2 === "Completed";
         return isMakePaymentDone && payment.Status !== "Completed" && payment.Status !== "Done";
       }
@@ -284,38 +289,33 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
     });
   }, [allPayments, activeTab, subTab]);
 
+  // Computed pending counts for sidebar badges
+  const isDone = (s?: string | null) => { const n = String(s || "").trim().toLowerCase(); return n === "done" || n === "completed"; };
+  const pendingPosting = allPayments.filter((p) => isDone(p.Status3) && !isDone(p.Status_1)).length;
+  const pendingMakePayment = allPayments.filter((p) => isDone(p.Status_1) && !isDone(p.Status2)).length;
+  const pendingFreight = allPayments.filter((p) => isDone(p.Status2) && !isDone(p.Status)).length;
+  const delayedCount = allPayments.filter((p) => (p.Delay || 0) > 0 || (p.Delay2 || 0) > 0 || (p.Delay4 || 0) > 0).length;
+
   const pageTitle = useMemo(() => {
     switch (activeTab) {
-      case "posting":
-        return "Account Audit";
-      case "makepayment":
-        return "Posting";
-      case "checkkitting":
-        return "Account Checking";
-      case "dashboard":
-        return "Dashboard";
-      case "users":
-        return "User Management";
-      default:
-        return "Freight Payments";
+      case "posting": return "Account Audit";
+      case "makepayment": return "Posting";
+      case "checkkitting": return "Account Checking";
+      case "dashboard": return "Dashboard";
+      case "users": return "User Management";
+      default: return "Freight Payments";
     }
   }, [activeTab]);
 
   const pageDescription = useMemo(() => {
     const firmLabel = isAdmin ? "All firms" : userFirm;
     switch (activeTab) {
-      case "posting":
-        return `Review pending account audit entries • ${firmLabel}`;
-      case "makepayment":
-        return `Entries awaiting posting • ${firmLabel}`;
-      case "checkkitting":
-        return `Verify account checking status • ${firmLabel}`;
-      case "dashboard":
-        return `Overview of freight operations • ${firmLabel}`;
-      case "users":
-        return "Manage users, roles, and page access";
-      default:
-        return `${payments.length} active records • ${firmLabel}`;
+      case "posting": return `Review pending account audit entries • ${firmLabel}`;
+      case "makepayment": return `Entries awaiting posting • ${firmLabel}`;
+      case "checkkitting": return `Verify account checking status • ${firmLabel}`;
+      case "dashboard": return `Overview of freight operations • ${firmLabel}`;
+      case "users": return "Manage users, roles, and page access";
+      default: return `${payments.length} active records • ${firmLabel}`;
     }
   }, [activeTab, isAdmin, userFirm, payments.length]);
 
@@ -333,7 +333,6 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
 
   const quickUpdateMutation = useMutation({
     mutationFn: ({ data, step }: { data: Partial<FreightPayment> & { id: number }; step: string }) => {
-      // Posting-step updates go to the Posting table
       if (step === "posting") {
         const uniqueNumber = data["Unique Number"] ||
           allPayments.find((p) => p.id === data.id)?.["Unique Number"];
@@ -347,7 +346,6 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
         const merged = original ? { ...original, ...data } : data;
         return api.createPostingPayment(merged);
       }
-      // MakePayment-step updates go to the MakePayment table
       if (step === "makepayment") {
         const uniqueNumber = data["Unique Number"] ||
           allPayments.find((p) => p.id === data.id)?.["Unique Number"];
@@ -357,12 +355,10 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
         if (mpMatch?.id) {
           return api.updateMakePaymentPayment(mpMatch.id, data);
         }
-        // No MakePayment row yet — create one
         const original = allPayments.find((p) => p.id === data.id);
         const merged = original ? { ...original, ...data } : data;
         return api.createMakePaymentPayment(merged);
       }
-      // Freight-payment step updates go to the FreightPayment table
       if (step === "freight") {
         const uniqueNumber = data["Unique Number"] ||
           allPayments.find((p) => p.id === data.id)?.["Unique Number"];
@@ -376,7 +372,6 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
         const merged = original ? { ...original, ...data } : data;
         return api.createFreightPaymentPayment(merged);
       }
-      // CheckKitting step updates go to the CheckKitting table
       const uniqueNumber = data["Unique Number"] ||
         allPayments.find((p) => p.id === data.id)?.["Unique Number"];
       const kittingRecord = checkKittingPayments.find((kp) =>
@@ -387,7 +382,6 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
         const { id, created_at, ...updateData } = data as any;
         return api.processKittingPayment({ ...updateData, "Unique Number": kittingRecord["Unique Number"] });
       }
-      // Fallback: no-op promise so UI doesn't crash
       return Promise.resolve(data as any);
     },
     onSuccess: () => {
@@ -466,20 +460,25 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
 
   if (isLoading && checkKittingPayments.length === 0) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-slate-50">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-lg ring-4 ring-brand-100 mb-2">
-            <img src="/passary.jpeg" alt="PASMIN" className="w-full h-full object-cover" />
+      <div className="flex h-screen w-screen items-center justify-center bg-slate-50 dark:bg-[oklch(0.12_0.008_247)]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Loader2 className="w-4 h-4 text-brand-600 animate-spin" />
+            <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 tracking-wide">Loading freight data…</p>
           </div>
-          <Loader2 className="w-6 h-6 text-brand-600 animate-spin" />
-          <p className="text-[12px] font-semibold text-slate-400 tracking-wide">Loading freight data…</p>
+          {/* Skeleton rows */}
+          <div className="mt-2 w-64 space-y-2">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="skeleton h-8 rounded-lg" style={{ opacity: 1 - i * 0.2 }} />
+            ))}
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-slate-50 relative">
+    <div className="flex h-screen w-screen overflow-hidden bg-slate-50 dark:bg-[oklch(0.12_0.008_247)] relative">
       {mobileSidebarOpen && (
         <div
           className="fixed inset-0 bg-black/40 backdrop-blur-sm z-20 lg:hidden"
@@ -487,6 +486,7 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
         />
       )}
 
+      {/* Sidebar */}
       <div
         className={cn(
           "fixed top-0 left-0 h-full z-30 transition-transform duration-300 ease-in-out",
@@ -502,9 +502,13 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
           onNavigate={handleNavigate}
           onLogout={handleLogoutWithConfirm}
           totalCount={allPayments.length}
+          pendingPosting={pendingPosting}
+          pendingMakePayment={pendingMakePayment}
+          pendingFreight={pendingFreight}
         />
       </div>
 
+      {/* Main */}
       <div className="flex-1 flex flex-col h-screen min-w-0 overflow-hidden">
         <AppHeader
           sidebarCollapsed={sidebarCollapsed}
@@ -513,44 +517,47 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
           pageDescription={pageDescription}
           isAdmin={isAdmin}
           userFirm={userFirm}
+          user={user}
+          onLogout={handleLogoutWithConfirm}
+          delayedCount={delayedCount}
+          darkMode={darkMode}
+          onToggleDark={() => setDarkMode((d) => !d)}
         />
 
         <main className="flex-1 overflow-y-auto main-scroll pb-16 lg:pb-0">
-          <div className="p-3 md:p-5 xl:p-6 max-w-[1500px] mx-auto space-y-4 md:space-y-5 animate-fade-in">
+          <div className="p-3 md:p-4 max-w-[1600px] mx-auto space-y-3 md:space-y-4 animate-fade-in">
             {activeTab === "dashboard" ? (
-              <OperationsDashboard payments={payments} onNavigate={handleNavigate} onRefresh={() => refetch()} />
+              <OperationsDashboard payments={allPayments} onNavigate={handleNavigate} onRefresh={() => refetch()} />
             ) : activeTab === "users" ? (
               <Suspense
                 fallback={
                   <div className="flex justify-center py-12">
-                    <Loader2 className="w-8 h-8 text-brand-500 animate-spin" />
+                    <Loader2 className="w-6 h-6 text-brand-500 animate-spin" />
                   </div>
                 }
               >
                 <UserManagementLazy />
               </Suspense>
             ) : (
-              <div className="bg-white/80 backdrop-blur-sm border border-white/60 rounded-2xl shadow-sm overflow-hidden">
+              <div className="bg-white dark:bg-[oklch(0.16_0.006_247)] border border-slate-200/80 dark:border-white/6 rounded-xl shadow-sm overflow-hidden">
                 <Tabs value={subTab} onValueChange={(val) => setSubTab(val as any)} className="w-full">
-                  <div className="px-4 md:px-6 py-4 border-b border-slate-100/80 bg-white/90 flex items-center justify-between flex-wrap gap-3">
-                    <TabsList className="h-9 bg-slate-100/80">
+                  <div className="px-4 py-2.5 border-b border-slate-100 dark:border-white/6 bg-white dark:bg-[oklch(0.16_0.006_247)] flex items-center justify-between flex-wrap gap-2">
+                    <TabsList className="h-8 bg-slate-100/80 dark:bg-white/6 rounded-lg">
                       <TabsTrigger
                         value="pending"
-                        className="rounded-lg px-4 py-1.5 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:text-brand-700 data-[state=active]:shadow-sm transition-all h-7"
-                        style={{ fontFamily: "'Plus Jakarta Sans', Inter, sans-serif" }}
+                        className="rounded-md px-3.5 py-1 text-[11px] font-bold data-[state=active]:bg-white dark:data-[state=active]:bg-white/10 data-[state=active]:text-brand-700 dark:data-[state=active]:text-brand-400 data-[state=active]:shadow-sm transition-all h-6"
                       >
                         Pending
                       </TabsTrigger>
                       <TabsTrigger
                         value="history"
-                        className="rounded-lg px-4 py-1.5 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:text-brand-700 data-[state=active]:shadow-sm transition-all h-7"
-                        style={{ fontFamily: "'Plus Jakarta Sans', Inter, sans-serif" }}
+                        className="rounded-md px-3.5 py-1 text-[11px] font-bold data-[state=active]:bg-white dark:data-[state=active]:bg-white/10 data-[state=active]:text-brand-700 dark:data-[state=active]:text-brand-400 data-[state=active]:shadow-sm transition-all h-6"
                       >
                         History
                       </TabsTrigger>
                     </TabsList>
 
-                    <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <div className="flex items-center gap-2 text-[9.5px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-wider">
                       {error ? (
                         <>
                           <WifiOff className="w-3 h-3 text-rose-500" />
@@ -559,8 +566,8 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
                       ) : (
                         <>
                           <span className="relative flex h-1.5 w-1.5">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
                           </span>
                           <span>Live sync</span>
                         </>
@@ -599,8 +606,9 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
         </main>
       </div>
 
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-20 mobile-nav-bg border-t border-slate-200 safe-pb">
-        <div className="flex items-stretch justify-around px-1 py-1.5">
+      {/* Mobile bottom nav */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-20 mobile-nav-bg border-t border-slate-200 dark:border-white/6 safe-pb">
+        <div className="flex items-stretch justify-around px-1 py-1">
           {allowedTabs.slice(0, 5).map((tab: string) => {
             const tabConfig: Record<string, { icon: React.ElementType; label: string }> = {
               dashboard: { icon: LayoutDashboard, label: "Home" },
@@ -619,13 +627,13 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
                 onClick={() => handleNavigate(tab)}
                 className={cn(
                   "flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-xl flex-1 transition-all active:scale-90",
-                  isActive ? "text-brand-600" : "text-slate-400"
+                  isActive ? "text-brand-600 dark:text-brand-400" : "text-slate-400 dark:text-slate-600"
                 )}
               >
-                <div className={cn("p-1.5 rounded-xl transition-all", isActive ? "bg-brand-50" : "")}>
-                  <Icon className="w-5 h-5" />
+                <div className={cn("p-1.5 rounded-xl transition-all", isActive ? "bg-brand-50 dark:bg-brand-900/30" : "")}>
+                  <Icon className="w-4.5 h-4.5" />
                 </div>
-                <span className={cn("text-[10px] font-bold leading-none", isActive ? "text-brand-600" : "text-slate-400")}>
+                <span className={cn("text-[9px] font-bold leading-none", isActive ? "text-brand-600 dark:text-brand-400" : "text-slate-400 dark:text-slate-600")}>
                   {config.label}
                 </span>
               </button>
