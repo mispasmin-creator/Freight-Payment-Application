@@ -96,12 +96,16 @@ export const api = {
       if (orderSupabaseUrl !== "https://placeholder.supabase.co") {
         const { data: dispatchData, error: dispatchError } = await orderSupabase
           .from("DISPATCH")
-          .select('"Unique Number", "Fullkitting Amount"');
+          .select('"D-Sr Number", "Bilty No.", "Truck No.", "Fullkitting Amount"');
         
         if (!dispatchError && dispatchData) {
           dispatchData.forEach((d) => {
-            if (d["Unique Number"]) {
-              dispatchMap.set(d["Unique Number"], d["Fullkitting Amount"]);
+            const dSr = String(d["D-Sr Number"] || "").trim();
+            const bilty = String(d["Bilty No."] || "").trim();
+            const truck = String(d["Truck No."] || "").trim();
+            const uniqueId = `KIT-${dSr}-${bilty}-${truck}`.replace(/\s+/g, "");
+            if (uniqueId) {
+              dispatchMap.set(uniqueId, d["Fullkitting Amount"]);
             }
           });
         }

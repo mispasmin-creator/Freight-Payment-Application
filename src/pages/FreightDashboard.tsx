@@ -333,57 +333,67 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
   }, [activeTab]);
 
   const quickUpdateMutation = useMutation({
-    mutationFn: ({ data, step }: { data: Partial<FreightPayment> & { id: number }; step: string }) => {
-      if (step === "posting") {
-        const uniqueNumber = data["Unique Number"] ||
-          allPayments.find((p) => p.id === data.id)?.["Unique Number"];
-        const postingMatch = uniqueNumber ? postingPayments.find((pp) =>
-          pp["Unique Number"]?.trim().toLowerCase() === uniqueNumber.trim().toLowerCase()
-        ) : undefined;
-        if (postingMatch?.id) {
-          return api.updatePostingPayment(postingMatch.id, data);
+    mutationFn: async ({ data, step }: { data: (Partial<FreightPayment> & { id: number }) | (Partial<FreightPayment> & { id: number })[]; step: string }) => {
+      const items = Array.isArray(data) ? data : [data];
+      const results = [];
+      for (const item of items) {
+        let res;
+        if (step === "posting") {
+          const uniqueNumber = item["Unique Number"] ||
+            allPayments.find((p) => p.id === item.id)?.["Unique Number"];
+          const postingMatch = uniqueNumber ? postingPayments.find((pp) =>
+            pp["Unique Number"]?.trim().toLowerCase() === uniqueNumber.trim().toLowerCase()
+          ) : undefined;
+          if (postingMatch?.id) {
+            res = await api.updatePostingPayment(postingMatch.id, item);
+          } else {
+            const original = allPayments.find((p) => p.id === item.id);
+            const merged = original ? { ...original, ...item } : item;
+            res = await api.createPostingPayment(merged);
+          }
+        } else if (step === "makepayment") {
+          const uniqueNumber = item["Unique Number"] ||
+            allPayments.find((p) => p.id === item.id)?.["Unique Number"];
+          const mpMatch = uniqueNumber ? makePaymentPayments.find((mp) =>
+            mp["Unique Number"]?.trim().toLowerCase() === uniqueNumber.trim().toLowerCase()
+          ) : undefined;
+          if (mpMatch?.id) {
+            res = await api.updateMakePaymentPayment(mpMatch.id, item);
+          } else {
+            const original = allPayments.find((p) => p.id === item.id);
+            const merged = original ? { ...original, ...item } : item;
+            res = await api.createMakePaymentPayment(merged);
+          }
+        } else if (step === "freight") {
+          const uniqueNumber = item["Unique Number"] ||
+            allPayments.find((p) => p.id === item.id)?.["Unique Number"];
+          const freightMatch = uniqueNumber ? freightPaymentPayments.find((fp) =>
+            fp["Unique Number"]?.trim().toLowerCase() === uniqueNumber.trim().toLowerCase()
+          ) : undefined;
+          if (freightMatch?.id) {
+            res = await api.updateFreightPaymentRecord(freightMatch.id, item);
+          } else {
+            const original = allPayments.find((p) => p.id === item.id);
+            const merged = original ? { ...original, ...item } : item;
+            res = await api.createFreightPaymentPayment(merged);
+          }
+        } else {
+          const uniqueNumber = item["Unique Number"] ||
+            allPayments.find((p) => p.id === item.id)?.["Unique Number"];
+          const kittingRecord = checkKittingPayments.find((kp) =>
+            kp["Unique Number"] && uniqueNumber &&
+            kp["Unique Number"].trim().toLowerCase() === uniqueNumber.trim().toLowerCase()
+          );
+          if (kittingRecord?.id) {
+            const { id, created_at, ...updateData } = item as any;
+            res = await api.processKittingPayment({ ...updateData, "Unique Number": kittingRecord["Unique Number"] });
+          } else {
+            res = item;
+          }
         }
-        const original = allPayments.find((p) => p.id === data.id);
-        const merged = original ? { ...original, ...data } : data;
-        return api.createPostingPayment(merged);
+        results.push(res);
       }
-      if (step === "makepayment") {
-        const uniqueNumber = data["Unique Number"] ||
-          allPayments.find((p) => p.id === data.id)?.["Unique Number"];
-        const mpMatch = uniqueNumber ? makePaymentPayments.find((mp) =>
-          mp["Unique Number"]?.trim().toLowerCase() === uniqueNumber.trim().toLowerCase()
-        ) : undefined;
-        if (mpMatch?.id) {
-          return api.updateMakePaymentPayment(mpMatch.id, data);
-        }
-        const original = allPayments.find((p) => p.id === data.id);
-        const merged = original ? { ...original, ...data } : data;
-        return api.createMakePaymentPayment(merged);
-      }
-      if (step === "freight") {
-        const uniqueNumber = data["Unique Number"] ||
-          allPayments.find((p) => p.id === data.id)?.["Unique Number"];
-        const freightMatch = uniqueNumber ? freightPaymentPayments.find((fp) =>
-          fp["Unique Number"]?.trim().toLowerCase() === uniqueNumber.trim().toLowerCase()
-        ) : undefined;
-        if (freightMatch?.id) {
-          return api.updateFreightPaymentRecord(freightMatch.id, data);
-        }
-        const original = allPayments.find((p) => p.id === data.id);
-        const merged = original ? { ...original, ...data } : data;
-        return api.createFreightPaymentPayment(merged);
-      }
-      const uniqueNumber = data["Unique Number"] ||
-        allPayments.find((p) => p.id === data.id)?.["Unique Number"];
-      const kittingRecord = checkKittingPayments.find((kp) =>
-        kp["Unique Number"] && uniqueNumber &&
-        kp["Unique Number"].trim().toLowerCase() === uniqueNumber.trim().toLowerCase()
-      );
-      if (kittingRecord?.id) {
-        const { id, created_at, ...updateData } = data as any;
-        return api.processKittingPayment({ ...updateData, "Unique Number": kittingRecord["Unique Number"] });
-      }
-      return Promise.resolve(data as any);
+      return Array.isArray(data) ? results : results[0];
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["check-kitting-payments"] });
@@ -398,50 +408,69 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
   });
 
   const handleQuickUpdate = useCallback(
-    (payment: FreightPayment, step: string, value: "yes" | "no", actualDate?: string, selectedStatus?: string, remark?: string, amount?: number, auditImage?: string) => {
+    (
+      payment: FreightPayment | FreightPayment[],
+      step: string,
+      value: "yes" | "no",
+      actualDate?: string,
+      selectedStatus?: string,
+      remark?: string,
+      amount?: number | number[],
+      auditImage?: string
+    ) => {
       const today = actualDate || new Date().toISOString();
-      const updateData: Partial<FreightPayment> & { id: number } = { id: payment.id! };
+      const payments = Array.isArray(payment) ? payment : [payment];
+      const amounts = Array.isArray(amount) ? amount : Array(payments.length).fill(amount);
 
-      if (step === "checkkitting") {
-        updateData.Status3 = selectedStatus || (value === "yes" ? "Done" : "Not Done");
-        if (remark !== undefined) updateData.Remark3 = remark;
-        if (value === "yes") {
-          updateData.Actual3 = today;
-          updateData.Actual = today;
-          updateData.Status_1 = "Not Done";
-          updateData.Status = "Not Done";
-          updateData.Planned2 = today;
-          updateData.Status2 = "Not Done";
-        }
-      } else if (step === "posting") {
-        const finalStatus = selectedStatus || (value === "yes" ? "Done" : "Not Done");
-        updateData.Status_1 = finalStatus;
-        if (amount !== undefined) updateData.Amount = amount;
-        if (remark !== undefined) updateData.Remark_1 = remark;
-        if (auditImage !== undefined) updateData["Audit Image"] = auditImage;
-        if (finalStatus === "Done") {
-          updateData.Actual = today;
-          updateData.Delay = calculateDelayWithHours(payment.Planned, today);
-        }
-      } else if (step === "makepayment" || step === "payment") {
-        updateData.Status2 = selectedStatus || (value === "yes" ? "Done" : "Not Done");
-        if (remark !== undefined) updateData.Remark2 = remark;
-        if (value === "yes") {
-          updateData.Actual2 = today;
-          updateData.Delay2 = calculateDelayWithHours(payment.Planned2, today);
-        }
-      } else if (step === "freight") {
-        updateData.Status = selectedStatus || (value === "yes" ? "Done" : "Not Done");
-        if (remark !== undefined) updateData.Remark = remark;
-        if (value === "yes") {
-          updateData.Actual4 = today;
-          updateData.Delay4 = calculateDelayWithHours(payment.Actual4 || payment.Actual2, today);
-        }
-      }
+      const updateDataArray = payments.map((p, idx) => {
+        const updateData: Partial<FreightPayment> & { id: number } = { id: p.id! };
+        const amt = amounts[idx];
 
-      quickUpdateMutation.mutate({ data: updateData, step });
+        if (step === "checkkitting") {
+          updateData.Status3 = selectedStatus || (value === "yes" ? "Done" : "Not Done");
+          if (remark !== undefined) updateData.Remark3 = remark;
+          if (value === "yes") {
+            updateData.Actual3 = today;
+            updateData.Actual = today;
+            updateData.Status_1 = "Not Done";
+            updateData.Status = "Not Done";
+            updateData.Planned2 = today;
+            updateData.Status2 = "Not Done";
+          }
+        } else if (step === "posting") {
+          const finalStatus = selectedStatus || (value === "yes" ? "Done" : "Not Done");
+          updateData.Status_1 = finalStatus;
+          if (amt !== undefined) updateData.Amount = amt;
+          if (remark !== undefined) updateData.Remark_1 = remark;
+          if (auditImage !== undefined) updateData["Audit Image"] = auditImage;
+          if (finalStatus === "Done") {
+            updateData.Actual = today;
+            updateData.Delay = calculateDelayWithHours(p.Planned, today);
+          }
+        } else if (step === "makepayment" || step === "payment") {
+          updateData.Status2 = selectedStatus || (value === "yes" ? "Done" : "Not Done");
+          if (remark !== undefined) updateData.Remark2 = remark;
+          if (value === "yes") {
+            updateData.Actual2 = today;
+            updateData.Delay2 = calculateDelayWithHours(p.Planned2, today);
+          }
+        } else if (step === "freight") {
+          updateData.Status = selectedStatus || (value === "yes" ? "Done" : "Not Done");
+          if (remark !== undefined) updateData.Remark = remark;
+          if (value === "yes") {
+            updateData.Actual4 = today;
+            updateData.Delay4 = calculateDelayWithHours(p.Actual4 || p.Actual2, today);
+          }
+        }
+        return updateData;
+      });
+
+      quickUpdateMutation.mutate({
+        data: Array.isArray(payment) ? updateDataArray : updateDataArray[0],
+        step,
+      });
     },
-    [quickUpdateMutation]
+    [quickUpdateMutation, allPayments, postingPayments, makePaymentPayments, freightPaymentPayments, checkKittingPayments]
   );
 
   const handleNavigate = useCallback(

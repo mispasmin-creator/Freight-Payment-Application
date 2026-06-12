@@ -68,7 +68,7 @@ interface FreightTableProps {
   payments: FreightPayment[];
   isLoading: boolean;
   onEdit: (payment: FreightPayment, targetStep?: string) => void;
-  onQuickUpdate?: (payment: FreightPayment, step: string, value: "yes" | "no", actualDate?: string, selectedStatus?: string, remark?: string, amount?: number, auditImage?: string) => void;
+  onQuickUpdate?: (payment: FreightPayment | FreightPayment[], step: string, value: "yes" | "no", actualDate?: string, selectedStatus?: string, remark?: string, amount?: number | number[], auditImage?: string) => void;
   activeTab?: string;
   subTab?: "pending" | "history";
 }
@@ -251,6 +251,7 @@ export function FreightTable({
         const totalAmountInPaise = amt !== undefined ? Math.round(amt * 100) : undefined;
         const currentTotal = selectedGroup.children.reduce((sum: number, child: FreightPayment) => sum + (child.Amount || 0), 0);
         
+        const childAmounts: number[] = [];
         selectedGroup.children.forEach((child: FreightPayment) => {
           let childAmount = child.Amount;
           if (totalAmountInPaise !== undefined) {
@@ -274,8 +275,9 @@ export function FreightTable({
               }
             }
           }
-          onQuickUpdate(child, activeTab, "yes", undefined, updateStatus, updateRemark, childAmount, activeTab === "posting" ? updateAuditImage : undefined);
+          childAmounts.push(childAmount);
         });
+        onQuickUpdate(selectedGroup.children, activeTab, "yes", undefined, updateStatus, updateRemark, childAmounts, activeTab === "posting" ? updateAuditImage : undefined);
       } else {
         onQuickUpdate(selectedPayment, activeTab, "yes", undefined, updateStatus, updateRemark, amt, activeTab === "posting" ? updateAuditImage : undefined);
       }
