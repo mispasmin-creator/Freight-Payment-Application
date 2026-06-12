@@ -267,6 +267,32 @@
   background: rgba(20, 22, 28, 0.92);
 }
 
+/* ===== Popup Landscape Fit ===== */
+@media (orientation: landscape) and (max-height: 640px) {
+  [data-slot="dialog-content"] {
+    max-height: calc(100dvh - 1rem) !important;
+    overflow-y: auto;
+    border-radius: 14px;
+  }
+
+  [data-slot="dialog-header"] {
+    gap: 0.35rem;
+  }
+
+  [data-slot="dialog-footer"] {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+
+  .landscape-popup {
+    max-height: calc(100dvh - 1rem) !important;
+  }
+
+  .landscape-popup-body {
+    max-height: calc(100dvh - 5.5rem) !important;
+  }
+}
+
 /* ===== Glass Effect ===== */
 .glass {
   background: rgba(255, 255, 255, 0.7);

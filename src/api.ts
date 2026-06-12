@@ -295,7 +295,8 @@ export const api = {
       "Product": payment["Material Load Details"],
       "Status": payment.Status_1 || "Not Done",
       "Remark": payment.Remark_1 !== undefined ? payment.Remark_1 : payment.Remark,
-      "Amount": payment.Amount
+      "Amount": payment.Amount,
+      "Audit Image": payment["Audit Image"]
     };
     const { data, error } = await supabase.from(ACCOUNT_AUDIT_TABLE_NAME).insert([insertData]).select().single();
     if (error) throw error;
@@ -323,6 +324,9 @@ export const api = {
       updateData.Remark = payment.Remark_1;
     } else if (payment.Remark !== undefined) {
       updateData.Remark = payment.Remark;
+    }
+    if (payment["Audit Image"] !== undefined) {
+      updateData["Audit Image"] = payment["Audit Image"];
     }
     const { data, error } = await supabase.from(ACCOUNT_AUDIT_TABLE_NAME).update(updateData).eq("id", id).select().single();
     if (error) throw error;

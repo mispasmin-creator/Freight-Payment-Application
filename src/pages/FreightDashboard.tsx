@@ -244,6 +244,7 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
         Actual: postingMatch ? (postingMatch.created_at || kp.Actual) : kp.Actual,
         Delay: postingMatch ? (postingMatch.Delay ?? 0) : (kp.Delay ?? 0),
         Remark_1: postingMatch ? postingMatch.Remark : "",
+        "Audit Image": postingMatch ? postingMatch["Audit Image"] : "",
 
         Status2: mpMatch ? (mpMatch.Status || "Pending") : null,
         Planned2: kp.Planned2,
@@ -397,7 +398,7 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
   });
 
   const handleQuickUpdate = useCallback(
-    (payment: FreightPayment, step: string, value: "yes" | "no", actualDate?: string, selectedStatus?: string, remark?: string, amount?: number) => {
+    (payment: FreightPayment, step: string, value: "yes" | "no", actualDate?: string, selectedStatus?: string, remark?: string, amount?: number, auditImage?: string) => {
       const today = actualDate || new Date().toISOString();
       const updateData: Partial<FreightPayment> & { id: number } = { id: payment.id! };
 
@@ -417,6 +418,7 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
         updateData.Status_1 = finalStatus;
         if (amount !== undefined) updateData.Amount = amount;
         if (remark !== undefined) updateData.Remark_1 = remark;
+        if (auditImage !== undefined) updateData["Audit Image"] = auditImage;
         if (finalStatus === "Done") {
           updateData.Actual = today;
           updateData.Delay = calculateDelayWithHours(payment.Planned, today);

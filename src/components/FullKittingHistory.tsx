@@ -11,6 +11,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   Calendar,
   ExternalLink,
   FileText,
@@ -413,6 +420,13 @@ function buildOrderRows(
     );
 }
 
+export interface GroupedKittingHistory {
+  key: string;
+  isGrouped: boolean;
+  parent: KittingHistoryItem;
+  children: KittingHistoryItem[];
+}
+
 export function FullKittingHistory() {
   const queryClient = useQueryClient();
   const [rows, setRows] = useState<KittingHistoryItem[]>([]);
@@ -427,6 +441,45 @@ export function FullKittingHistory() {
   const [processedIds, setProcessedIds] = useState<Set<string>>(new Set());
   const [processMessage, setProcessMessage] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedGroup, setSelectedGroup] = useState<GroupedKittingHistory | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [isProcessingGroup, setIsProcessingGroup] = useState(false);
+
+  const openDetailModal = (group: GroupedKittingHistory) => {
+    setSelectedGroup(group);
+    setShowDetailModal(true);
+  };
+
+  const processGroup = async (group: GroupedKittingHistory) => {
+    setIsProcessingGroup(group.children.length > 0);
+    setProcessMessage(null);
+    let successCount = 0;
+    try {
+      for (const row of group.children) {
+        const uniqueId = getRowUniqueId(row);
+        setProcessingId(uniqueId);
+        await api.processKittingPayment(toSystemPayment(row));
+        setProcessedIds((prev) => {
+          const next = new Set(prev);
+          next.add(uniqueId);
+          return next;
+        });
+        successCount += 1;
+      }
+      setShowDetailModal(false);
+      setSelectedGroup(null);
+      setProcessMessage(`Processed ${successCount} records successfully`);
+      queryClient.invalidateQueries({ queryKey: ["check-kitting-payments"] });
+      queryClient.invalidateQueries({ queryKey: ["freight-payments"] });
+    } catch (err) {
+      setProcessMessage(
+        err instanceof Error ? err.message : "Failed to process group",
+      );
+    } finally {
+      setProcessingId(null);
+      setIsProcessingGroup(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -603,6 +656,53 @@ export function FullKittingHistory() {
     selectableFilteredIds.length > 0 &&
     selectableFilteredIds.every((id) => selectedIds.has(id));
 
+  const groupedHistory = useMemo((): GroupedKittingHistory[] => {
+    const groups = new Map<string, KittingHistoryItem[]>();
+    filtered.forEach((r) => {
+      const transporter = str(r.transporterName).toLowerCase();
+      const bilty = str(r.biltyNumber).toLowerCase();
+      const key = (transporter && validBilty(bilty))
+        ? `group:${transporter}_${bilty}`
+        : `single:${r.liftId}_${getRowUniqueId(r)}`;
+      const existing = groups.get(key) || [];
+      existing.push(r);
+      groups.set(key, existing);
+    });
+
+    return Array.from(groups.entries()).map(([key, children]) => {
+      if (children.length === 1) {
+        return {
+          key,
+          isGrouped: false,
+          parent: children[0],
+          children,
+        };
+      }
+
+      const parent: KittingHistoryItem = {
+        ...children[0],
+        freightAmount: children.reduce((sum, item) => sum + (item.freightAmount || 0), 0),
+        billingQty: children.reduce((sum, item) => sum + (item.billingQty || 0), 0),
+        poQty: children.reduce((sum, item) => sum + (item.poQty || 0), 0),
+        totalTruckBillingQty: children.reduce((sum, item) => sum + (item.totalTruckBillingQty || 0), 0),
+        liftId: Array.from(new Set(children.map(c => c.liftId))).join(", "),
+        indentNo: Array.from(new Set(children.map(c => c.indentNo).filter(Boolean))).join(", "),
+        vehicleNumber: Array.from(new Set(children.map(c => c.vehicleNumber).filter(Boolean))).join(", "),
+        firmName: Array.from(new Set(children.map(c => c.firmName).filter(Boolean))).join(", "),
+        partyName: Array.from(new Set(children.map(c => c.partyName).filter(Boolean))).join(", "),
+        productName: Array.from(new Set(children.map(c => c.productName).filter(Boolean))).join(", "),
+        billNo: Array.from(new Set(children.map(c => c.billNo).filter(Boolean))).join(", "),
+      };
+
+      return {
+        key,
+        isGrouped: true,
+        parent,
+        children,
+      };
+    });
+  }, [filtered]);
+
   const toggleRowSelection = (row: KittingHistoryItem) => {
     const uniqueId = getRowUniqueId(row);
     if (processedIds.has(uniqueId) || processedIds.has(`KIT-${row.liftId}`)) {
@@ -615,6 +715,27 @@ export function FullKittingHistory() {
       } else {
         next.add(uniqueId);
       }
+      return next;
+    });
+  };
+
+  const toggleGroupSelection = (group: GroupedKittingHistory) => {
+    const allSelected = group.children.every(
+      (c) => selectedIds.has(getRowUniqueId(c))
+    );
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      group.children.forEach((c) => {
+        const uniqueId = getRowUniqueId(c);
+        if (processedIds.has(uniqueId) || processedIds.has(`KIT-${c.liftId}`)) {
+          return;
+        }
+        if (allSelected) {
+          next.delete(uniqueId);
+        } else {
+          next.add(uniqueId);
+        }
+      });
       return next;
     });
   };
@@ -829,91 +950,105 @@ export function FullKittingHistory() {
       {filtered.length > 0 && (
         <>
           <div className="md:hidden divide-y divide-slate-100">
-            {filtered.map((r, i) => (
-              <div key={`${r.liftId}-${i}`} className="p-4 bg-[#FFFFFF]">
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex-1 min-w-0 mr-3">
-                    <span className="font-mono font-bold text-[13px] text-slate-800">
-                      {r.liftId}
-                    </span>
-                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                      {r.firmName && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 border border-[#E2E8F0] text-[#0F172A] font-semibold text-[12px]">
-                          {r.firmName}
-                        </span>
-                      )}
-                      {r.systemName && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-700 font-semibold text-[12px] whitespace-nowrap">
-                          {r.systemName}
-                        </span>
-                      )}
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold text-[10px] uppercase tracking-wide">
-                        Kitted
+            {groupedHistory.map((group) => {
+              const r = group.parent;
+              return (
+                <div key={group.key} className="p-4 bg-[#FFFFFF]">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1 min-w-0 mr-3">
+                      <span className="font-mono font-bold text-[13px] text-slate-800 truncate block max-w-[200px]" title={r.liftId}>
+                        {group.isGrouped ? (
+                          <span>
+                            {group.children[0].liftId}{" "}
+                            <span className="text-slate-400 font-normal">
+                              (+{group.children.length - 1} more)
+                            </span>
+                          </span>
+                        ) : (
+                          r.liftId
+                        )}
                       </span>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                        {r.firmName && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 border border-[#E2E8F0] text-[#0F172A] font-semibold text-[12px]">
+                            {r.firmName}
+                          </span>
+                        )}
+                        {r.systemName && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-700 font-semibold text-[12px] whitespace-nowrap">
+                            {r.systemName}
+                          </span>
+                        )}
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold text-[10px] uppercase tracking-wide">
+                          Kitted
+                        </span>
+                        {group.isGrouped && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 border border-blue-100 text-blue-700 font-semibold text-[12px]">
+                            {group.children.length} rows
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="font-bold text-base text-[#0F172A] shrink-0">
+                      {formatCurrency(r.freightAmount)}
+                    </span>
+                  </div>
+                  <Button
+                    onClick={() => openDetailModal(group)}
+                    size="sm"
+                    className="w-full mb-3 h-9 bg-blue-600 hover:bg-blue-700 text-white text-[12px] font-bold flex items-center justify-center gap-1.5"
+                  >
+                    Action
+                  </Button>
+
+                  <div className="text-[12px] text-[#64748B] space-y-1 mb-3">
+                    <div className="flex items-center gap-1.5">
+                      <User className="w-3 h-3 text-slate-400 shrink-0" />
+                      <span>{r.partyName || "-"}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Package className="w-3 h-3 text-slate-400 shrink-0" />
+                      <span>{r.productName || "-"}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Truck className="w-3 h-3 text-slate-400 shrink-0" />
+                      <span>{r.transporterName}</span>
+                      {r.vehicleNumber !== "-" && (
+                        <span className="font-mono text-slate-400">
+                          - {r.vehicleNumber}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Hash className="w-3 h-3 text-slate-400 shrink-0" />
+                      <span>Bilty: {r.biltyNumber}</span>
+                      {r.biltyImage && (
+                        <a
+                          href={r.biltyImage}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 ml-1 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 bg-blue-50 rounded hover:bg-blue-100 transition-colors"
+                        >
+                          <ExternalLink className="w-2.5 h-2.5" />
+                          View
+                        </a>
+                      )}
                     </div>
                   </div>
-                  <span className="font-bold text-base text-[#0F172A] shrink-0">
-                    {formatCurrency(r.freightAmount)}
-                  </span>
-                </div>
-                <label className="w-full mb-3 h-9 px-3 rounded-lg border border-[#E2E8F0] bg-slate-50 flex items-center justify-between text-[12px] font-bold text-[#64748B]">
-                  <span>Select for submit</span>
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.has(getRowUniqueId(r))}
-                    disabled={processingId === getRowUniqueId(r) || isBatchProcessing}
-                    onChange={() => toggleRowSelection(r)}
-                    className="h-4 w-4 accent-blue-600"
-                  />
-                </label>
 
-                <div className="text-[12px] text-[#64748B] space-y-1 mb-3">
-                  <div className="flex items-center gap-1.5">
-                    <User className="w-3 h-3 text-slate-400 shrink-0" />
-                    <span>{r.partyName || "-"}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Package className="w-3 h-3 text-slate-400 shrink-0" />
-                    <span>{r.productName || "-"}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Truck className="w-3 h-3 text-slate-400 shrink-0" />
-                    <span>{r.transporterName}</span>
-                    {r.vehicleNumber !== "-" && (
-                      <span className="font-mono text-slate-400">
-                        - {r.vehicleNumber}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Hash className="w-3 h-3 text-slate-400 shrink-0" />
-                    <span>Bilty: {r.biltyNumber}</span>
-                    {r.biltyImage && (
-                      <a
-                        href={r.biltyImage}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 ml-1 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 bg-blue-50 rounded hover:bg-blue-100 transition-colors"
-                      >
-                        <ExternalLink className="w-2.5 h-2.5" />
-                        View
-                      </a>
-                    )}
+                  <div className="flex items-center gap-3 text-[11px] text-slate-400">
+                    <span>
+                      <Calendar className="w-3 h-3 inline mr-1" />
+                      {formatDate(r.date)}
+                    </span>
+                    <span>Qty: {r.billingQty ?? "-"}</span>
+                    <span>PO: {r.poQty ?? "-"}</span>
+                    <span>Bill: {r.billNo}</span>
+                    <span>Bilty: {r.hasBilty}</span>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-3 text-[11px] text-slate-400">
-                  <span>
-                    <Calendar className="w-3 h-3 inline mr-1" />
-                    {formatDate(r.date)}
-                  </span>
-                  <span>Qty: {r.billingQty ?? "-"}</span>
-                  <span>PO: {r.poQty ?? "-"}</span>
-                  <span>Bill: {r.billNo}</span>
-                  <span>Bilty: {r.hasBilty}</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <div className="hidden md:block overflow-x-auto scrollbar-thin scrollbar-track-slate-100 scrollbar-thumb-slate-300">
@@ -921,7 +1056,7 @@ export function FullKittingHistory() {
               <TableHeader className="sticky top-0 z-30 shadow-sm">
                 <TableRow className="border-b border-[#E2E8F0] bg-[#F1F5F9] hover:bg-[#F1F5F9]">
                   {[
-                    "Select",
+                    "Action",
                     "Lift ID",
                     "Indent",
                     "Fullkitting Done",
@@ -952,208 +1087,276 @@ export function FullKittingHistory() {
                       className={cn(
                         "h-12 px-4 text-[12px] font-bold text-[#64748B] uppercase tracking-wider whitespace-nowrap",
                         i === 0 &&
-                          "sticky left-0 bg-[#F1F5F9] z-10 shadow-[4px_0_6px_-4px_rgba(0,0,0,0.05)]",
+                          "left-0 bg-[#F1F5F9] z-10 shadow-[4px_0_6px_-4px_rgba(0,0,0,0.05)]",
                         h === "Freight Amt" && "text-right",
                       )}
                     >
-                      {h === "Select" ? (
-                        <input
-                          type="checkbox"
-                          checked={allFilteredSelected}
-                          disabled={selectableFilteredIds.length === 0 || isBatchProcessing}
-                          onChange={toggleAllFiltered}
-                          className="h-4 w-4 accent-blue-600"
-                          title="Select all visible records"
-                        />
-                      ) : (
-                        h
-                      )}
+                      {h}
                     </TableHead>
                   ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((r, idx) => (
-                  <TableRow
-                    key={`${r.liftId}-${idx}`}
-                    className={cn(
-                      "border-b border-[#E2E8F0] hover:bg-[#F1F5F9] zebra-row transition-colors duration-150",
-                      idx % 2 === 0 ? "bg-[#FFFFFF]" : "bg-slate-50/30",
-                    )}
-                  >
-                    <TableCell className="py-3 sticky left-0 bg-inherit z-20 shadow-[4px_0_6px_-4px_rgba(0,0,0,0.05)] text-center">
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.has(getRowUniqueId(r))}
-                        disabled={processingId === getRowUniqueId(r) || isBatchProcessing}
-                        onChange={() => toggleRowSelection(r)}
-                        className="h-4 w-4 accent-blue-600"
-                      />
-                    </TableCell>
-                    <TableCell className="py-3">
-                      <span className="font-mono font-bold text-[13px] text-slate-800">
-                        {r.liftId}
-                      </span>
-                    </TableCell>
-                    <TableCell className="py-3">
-                      <span className="font-mono text-[13px] text-[#64748B]">
-                        {r.indentNo}
-                      </span>
-                    </TableCell>
-                    <TableCell className="py-3 text-[13px] text-[#64748B] whitespace-nowrap">
-                      {formatDate(r.date)}
-                    </TableCell>
-                    <TableCell className="py-3">
-                      {r.firmName ? (
-                        <div className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 border border-[#E2E8F0] text-[#0F172A] font-semibold text-[12px] whitespace-nowrap">
-                          {r.firmName}
-                        </div>
-                      ) : (
-                        <span className="text-slate-300">-</span>
+                {groupedHistory.map((group, idx) => {
+                  const r = group.parent;
+                  return (
+                    <TableRow
+                      key={group.key}
+                      className={cn(
+                        "border-b border-[#E2E8F0] hover:bg-[#F1F5F9] zebra-row transition-colors duration-150",
+                        idx % 2 === 0 ? "bg-[#FFFFFF]" : "bg-slate-50/30",
                       )}
-                    </TableCell>
-                    <TableCell className="py-3">
-                      {r.systemName ? (
-                        <div className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-700 font-semibold text-[12px] whitespace-nowrap">
-                          {r.systemName}
+                    >
+                      <TableCell className="py-3 left-0 bg-[#FFFFFF] z-20 shadow-[4px_0_6px_-4px_rgba(0,0,0,0.05)] text-center sticky">
+                        <Button
+                          onClick={() => openDetailModal(group)}
+                          size="sm"
+                          className="h-8 px-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold"
+                        >
+                          Action
+                        </Button>
+                      </TableCell>
+                      <TableCell className="py-3">
+                        <div
+                          className="font-mono font-bold text-[13px] text-slate-800 truncate max-w-[150px]"
+                          title={r.liftId}
+                        >
+                          {group.isGrouped ? (
+                            <span>
+                              {group.children[0].liftId}{" "}
+                              <span className="text-slate-400 font-normal">
+                                (+{group.children.length - 1} more)
+                              </span>
+                            </span>
+                          ) : (
+                            r.liftId
+                          )}
                         </div>
-                      ) : (
-                        <span className="text-slate-300">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="py-3">
-                      <div
-                        className="text-[13px] font-medium text-[#0F172A] truncate max-w-[160px]"
-                        title={r.partyName}
-                      >
-                        {r.partyName || "-"}
-                      </div>
-                    </TableCell>
-                    <TableCell className="py-3">
-                      <div
-                        className="text-[13px] text-[#64748B] truncate max-w-[180px]"
-                        title={r.productName}
-                      >
-                        {r.productName || "-"}
-                      </div>
-                    </TableCell>
-                    <TableCell className="py-3 text-center">
-                      <span className="text-[13px] text-[#64748B]">
-                        {r.poQty ?? "-"}
-                      </span>
-                    </TableCell>
-                    <TableCell className="py-3">
-                      <div
-                        className="text-[13px] text-[#64748B] truncate max-w-[150px]"
-                        title={r.transporterName}
-                      >
-                        {r.transporterName}
-                      </div>
-                    </TableCell>
-                    <TableCell className="py-3">
-                      <span className="font-mono text-[13px] text-[#64748B]">
-                        {r.vehicleNumber}
-                      </span>
-                    </TableCell>
-                    <TableCell className="py-3">
-                      <span className="font-mono text-[13px] text-[#64748B]">
-                        {r.biltyNumber}
-                      </span>
-                    </TableCell>
-                    <TableCell className="py-3 text-center">
-                      <span
-                        className={cn(
-                          "inline-flex items-center rounded-md px-2 py-0.5 text-[12px] font-bold",
-                          r.hasBilty === "Yes"
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                            : "bg-rose-50 text-rose-700 border border-rose-200",
+                      </TableCell>
+                      <TableCell className="py-3">
+                        <div
+                          className="font-mono text-[13px] text-[#64748B] truncate max-w-[150px]"
+                          title={r.indentNo}
+                        >
+                          {group.isGrouped ? (
+                            <span>
+                              {group.children[0].indentNo || "-"}{" "}
+                              {group.children.length > 1 && (
+                                <span className="text-slate-400 font-normal">
+                                  (+{group.children.length - 1} more)
+                                </span>
+                              )}
+                            </span>
+                          ) : (
+                            r.indentNo
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-3 text-[13px] text-[#64748B] whitespace-nowrap">
+                        {formatDate(r.date)}
+                      </TableCell>
+                      <TableCell className="py-3">
+                        {r.firmName ? (
+                          <div
+                            className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 border border-[#E2E8F0] text-[#0F172A] font-semibold text-[12px] truncate max-w-[150px]"
+                            title={r.firmName}
+                          >
+                            {r.firmName}
+                          </div>
+                        ) : (
+                          <span className="text-slate-300">-</span>
                         )}
-                      >
-                        {r.hasBilty}
-                      </span>
-                    </TableCell>
-                    <TableCell className="py-3 text-right">
-                      <span className="font-bold text-[13px] text-[#0F172A]">
-                        {formatCurrency(r.freightAmount)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="py-3 text-center">
-                      <span className="text-[13px] text-[#64748B]">
-                        {r.billingQty ?? "-"}
-                      </span>
-                    </TableCell>
-                    <TableCell className="py-3">
-                      <span className="text-[13px] text-[#64748B] whitespace-nowrap">
-                        {r.typeOfRate}
-                      </span>
-                    </TableCell>
-                    <TableCell className="py-3 text-right">
-                      <span className="text-[13px] text-[#64748B]">
-                        {r.transportingPerMtRate ?? "-"}
-                      </span>
-                    </TableCell>
-                    <TableCell className="py-3 text-center">
-                      <span className="text-[13px] text-[#64748B]">
-                        {r.totalTruckBillingQty ?? "-"}
-                      </span>
-                    </TableCell>
-                    <TableCell className="py-3 text-right">
-                      <span className="text-[13px] text-[#64748B]">
-                        {r.materialRate ?? "-"}
-                      </span>
-                    </TableCell>
-                    <TableCell className="py-3">
-                      <span className="text-[13px] text-[#64748B] whitespace-nowrap">
-                        {r.areaLifting}
-                      </span>
-                    </TableCell>
-                    <TableCell className="py-3 text-center">
-                      <span className="text-[13px] text-[#64748B]">
-                        {r.leadTimeDays ?? "-"}
-                      </span>
-                    </TableCell>
-                    <TableCell className="py-3">
-                      <span className="font-mono text-[13px] text-[#64748B]">
-                        {r.driverNo}
-                      </span>
-                    </TableCell>
-                    <TableCell className="py-3">
-                      <span className="font-mono text-[13px] text-[#64748B]">
-                        {r.billNo}
-                      </span>
-                    </TableCell>
-                    <TableCell className="py-3">
-                      {r.billImage ? (
-                        <a
-                          href={r.billImage}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-2 py-1 text-[12px] font-semibold text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap"
+                      </TableCell>
+                      <TableCell className="py-3">
+                        {r.systemName ? (
+                          <div className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-700 font-semibold text-[12px] whitespace-nowrap">
+                            {r.systemName}
+                          </div>
+                        ) : (
+                          <span className="text-slate-300">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="py-3">
+                        <div
+                          className="text-[13px] font-medium text-[#0F172A] truncate max-w-[160px]"
+                          title={r.partyName}
                         >
-                          <FileText className="w-3.5 h-3.5" />
-                          View
-                        </a>
-                      ) : (
-                        <span className="text-slate-300 text-[12px]">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="py-3">
-                      {r.biltyImage ? (
-                        <a
-                          href={r.biltyImage}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-2 py-1 text-[12px] font-semibold text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap"
+                          {r.partyName || "-"}
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-3">
+                        <div
+                          className="text-[13px] text-[#64748B] truncate max-w-[180px]"
+                          title={r.productName}
                         >
-                          <FileText className="w-3.5 h-3.5" />
-                          View
-                        </a>
-                      ) : (
-                        <span className="text-slate-300 text-[12px]">-</span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                          {r.productName || "-"}
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-3 text-center">
+                        <span className="text-[13px] text-[#64748B]">
+                          {r.poQty ?? "-"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="py-3">
+                        <div
+                          className="text-[13px] text-[#64748B] truncate max-w-[150px] flex items-center gap-1.5"
+                          title={r.transporterName}
+                        >
+                          <span>{r.transporterName}</span>
+                          {group.isGrouped && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-50 border border-blue-100 text-blue-700 font-semibold text-[10px]" title={`${group.children.length} items grouped`}>
+                              ({group.children.length})
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-3">
+                        <div
+                          className="font-mono text-[13px] text-[#64748B] truncate max-w-[150px]"
+                          title={r.vehicleNumber}
+                        >
+                          {group.isGrouped ? (
+                            <span>
+                              {group.children[0].vehicleNumber || "-"}{" "}
+                              {group.children.length > 1 && (
+                                <span className="text-slate-400 font-normal">
+                                  (+{group.children.length - 1} more)
+                                </span>
+                              )}
+                            </span>
+                          ) : (
+                            r.vehicleNumber
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-3">
+                        <div
+                          className="font-mono text-[13px] text-[#64748B] truncate max-w-[150px]"
+                          title={r.biltyNumber}
+                        >
+                          {group.isGrouped ? (
+                            <span>
+                              {group.children[0].biltyNumber || "-"}{" "}
+                              {group.children.length > 1 && (
+                                <span className="text-slate-400 font-normal">
+                                  (+{group.children.length - 1} more)
+                                </span>
+                              )}
+                            </span>
+                          ) : (
+                            r.biltyNumber
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-3 text-center">
+                        <span
+                          className={cn(
+                            "inline-flex items-center rounded-md px-2 py-0.5 text-[12px] font-bold",
+                            r.hasBilty === "Yes"
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              : "bg-rose-50 text-rose-700 border border-rose-200",
+                          )}
+                        >
+                          {r.hasBilty}
+                        </span>
+                      </TableCell>
+                      <TableCell className="py-3 text-right">
+                        <span className="font-bold text-[13px] text-[#0F172A]">
+                          {formatCurrency(r.freightAmount)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="py-3 text-center">
+                        <span className="text-[13px] text-[#64748B]">
+                          {r.billingQty ?? "-"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="py-3">
+                        <span className="text-[13px] text-[#64748B] whitespace-nowrap">
+                          {r.typeOfRate}
+                        </span>
+                      </TableCell>
+                      <TableCell className="py-3 text-right">
+                        <span className="text-[13px] text-[#64748B]">
+                          {r.transportingPerMtRate ?? "-"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="py-3 text-center">
+                        <span className="text-[13px] text-[#64748B]">
+                          {r.totalTruckBillingQty ?? "-"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="py-3 text-right">
+                        <span className="text-[13px] text-[#64748B]">
+                          {r.materialRate ?? "-"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="py-3">
+                        <span className="text-[13px] text-[#64748B] whitespace-nowrap">
+                          {r.areaLifting}
+                        </span>
+                      </TableCell>
+                      <TableCell className="py-3 text-center">
+                        <span className="text-[13px] text-[#64748B]">
+                          {r.leadTimeDays ?? "-"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="py-3">
+                        <span className="font-mono text-[13px] text-[#64748B]">
+                          {r.driverNo}
+                        </span>
+                      </TableCell>
+                      <TableCell className="py-3">
+                        <div
+                          className="font-mono text-[13px] text-[#64748B] truncate max-w-[150px]"
+                          title={r.billNo}
+                        >
+                          {group.isGrouped ? (
+                            <span>
+                              {group.children[0].billNo || "-"}{" "}
+                              {group.children.length > 1 && (
+                                <span className="text-slate-400 font-normal">
+                                  (+{group.children.length - 1} more)
+                                </span>
+                              )}
+                            </span>
+                          ) : (
+                            r.billNo
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-3">
+                        {r.billImage ? (
+                          <a
+                            href={r.billImage}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-2 py-1 text-[12px] font-semibold text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap"
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            View
+                          </a>
+                        ) : (
+                          <span className="text-slate-300 text-[12px]">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="py-3">
+                        {r.biltyImage ? (
+                          <a
+                            href={r.biltyImage}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-2 py-1 text-[12px] font-semibold text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap"
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            View
+                          </a>
+                        ) : (
+                          <span className="text-slate-300 text-[12px]">-</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
@@ -1176,6 +1379,116 @@ export function FullKittingHistory() {
               <span>Synced from Purchase FMS + Order FMS</span>
             </div>
           </div>
+
+          {/* Group Details Dialog Popup */}
+          <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
+            <DialogContent className="w-[94vw] sm:max-w-[960px] max-h-[85vh] overflow-y-auto bg-white border border-[#E2E8F0] rounded-xl shadow-lg p-6">
+              <DialogHeader className="border-b border-[#E2E8F0] pb-4 mb-4">
+                <DialogTitle className="flex items-center gap-2 text-lg font-bold text-slate-800">
+                  <PackageCheck className="w-5 h-5 text-blue-600" />
+                  Kitting Group Details
+                </DialogTitle>
+              </DialogHeader>
+
+              {selectedGroup && (
+                <div className="space-y-6">
+                  {/* Group Overview Card */}
+                  <div className="bg-gradient-to-r from-blue-50/50 to-indigo-50/50 border border-blue-100/50 rounded-xl p-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Transporter</span>
+                        <p className="text-[13px] font-bold text-slate-800 mt-0.5">{selectedGroup.parent.transporterName}</p>
+                      </div>
+                      <div>
+                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Bilty Number</span>
+                        <p className="text-[13px] font-bold text-slate-800 mt-0.5">{selectedGroup.parent.biltyNumber}</p>
+                      </div>
+                      <div>
+                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Freight Amount</span>
+                        <p className="text-[14px] font-extrabold text-emerald-600 mt-0.5">{formatCurrency(selectedGroup.parent.freightAmount)}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Group's Shipments Table */}
+                  <div>
+                    <h4 className="font-bold text-sm text-slate-700 mb-3 flex items-center gap-1.5">
+                      <FileText className="w-4 h-4 text-blue-600" />
+                      Shipments in Group ({selectedGroup.children.length})
+                    </h4>
+                    <div className="rounded-xl border border-[#E2E8F0] bg-[#FFFFFF] overflow-hidden max-h-[300px] overflow-y-auto scrollbar-thin">
+                      <Table className="min-w-max">
+                        <TableHeader className="bg-slate-50 sticky top-0 z-10">
+                          <TableRow className="border-b border-[#E2E8F0]">
+                            <TableHead className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider">Lift ID</TableHead>
+                            <TableHead className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider">Indent No</TableHead>
+                            <TableHead className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider">Date</TableHead>
+                            <TableHead className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider">Firm</TableHead>
+                            <TableHead className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider">Party / Vendor</TableHead>
+                            <TableHead className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider">Product</TableHead>
+                            <TableHead className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider text-right">Freight Amt</TableHead>
+                            <TableHead className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider text-center">Billing Qty</TableHead>
+                            <TableHead className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider text-center">Has Bilty</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {selectedGroup.children.map((child, cIdx) => (
+                            <TableRow key={`${child.liftId}-${cIdx}`} className="border-b border-[#E2E8F0] hover:bg-slate-50/50">
+                              <TableCell className="py-2.5 font-mono text-[12px] font-bold text-slate-800">{child.liftId}</TableCell>
+                              <TableCell className="py-2.5 font-mono text-[12px] text-[#64748B]">{child.indentNo}</TableCell>
+                              <TableCell className="py-2.5 text-[12px] text-[#64748B]">{formatDate(child.date)}</TableCell>
+                              <TableCell className="py-2.5">
+                                {child.firmName ? (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 border border-[#E2E8F0] text-[#0F172A] font-semibold text-[11px]">
+                                    {child.firmName}
+                                  </span>
+                                ) : "-"}
+                              </TableCell>
+                              <TableCell className="py-2.5 text-[12px] text-[#0F172A] max-w-[150px] truncate" title={child.partyName}>{child.partyName}</TableCell>
+                              <TableCell className="py-2.5 text-[12px] text-[#64748B] max-w-[150px] truncate" title={child.productName}>{child.productName}</TableCell>
+                              <TableCell className="py-2.5 text-right font-bold text-[12px] text-slate-850">{formatCurrency(child.freightAmount)}</TableCell>
+                              <TableCell className="py-2.5 text-center text-[12px] text-[#64748B]">{child.billingQty ?? "-"}</TableCell>
+                              <TableCell className="py-2.5 text-center">
+                                <span className={cn(
+                                  "inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-bold",
+                                  child.hasBilty === "Yes" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-rose-50 text-rose-700 border border-rose-200"
+                                )}>
+                                  {child.hasBilty}
+                                </span>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <DialogFooter className="mt-6 border-t border-[#E2E8F0] pt-4 flex gap-2 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowDetailModal(false);
+                    setSelectedGroup(null);
+                  }}
+                  className="text-xs font-semibold h-9"
+                >
+                  Cancel
+                </Button>
+                {selectedGroup && (
+                  <Button
+                    onClick={() => processGroup(selectedGroup)}
+                    disabled={isProcessingGroup}
+                    className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold h-9 px-4"
+                  >
+                    {isProcessingGroup && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
+                    Submit Group
+                  </Button>
+                )}
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </>
       )}
     </div>

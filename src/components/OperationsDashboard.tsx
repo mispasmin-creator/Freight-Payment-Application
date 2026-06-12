@@ -508,7 +508,7 @@ export function OperationsDashboard({ payments, onNavigate, onRefresh }: Operati
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white dark:bg-slate-900 rounded-2xl max-w-4xl w-full max-h-[85vh] overflow-hidden shadow-2xl"
+              className="landscape-popup bg-white dark:bg-slate-900 rounded-2xl max-w-4xl w-full max-h-[85vh] overflow-hidden shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-white/10">
@@ -528,7 +528,7 @@ export function OperationsDashboard({ payments, onNavigate, onRefresh }: Operati
                 </button>
               </div>
               
-              <div className="p-5 overflow-y-auto max-h-[calc(85vh-80px)]">
+              <div className="landscape-popup-body p-5 overflow-y-auto max-h-[calc(85vh-80px)]">
                 <div className="flex gap-2 mb-6">
                   {(["daily", "weekly", "monthly"] as const).map((period) => (
                     <button
