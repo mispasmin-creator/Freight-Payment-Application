@@ -48,9 +48,12 @@ interface DispatchRow {
   "Type Of Rate"?: string | null;
   "Fixed Amount"?: number | string | null;
   "Transport Rate @Per Matric Ton"?: number | string | null;
+  "Total Transporter Amount"?: number | string | null;
   "Actual Truck Qty"?: number | string | null;
   "Bill Number"?: string | number | null;
   "Bill Copy"?: string | null;
+  "Fullkitting Remarks"?: string | null;
+  "Transporter Bill Image"?: string | null;
   "Fullkitting Actual"?: string | null;
   "Fullkitting Status"?: string | null;
   [key: string]: unknown;
@@ -114,6 +117,8 @@ interface LiftAccountRow {
   Qty?: number | string | null;
   "Truck Qty"?: number | string | null;
   Rate?: number | string | null;
+  "Fullkitting Remarks"?: string | null;
+  "Transporter Bill Image"?: string | null;
   "Bill Image"?: string | null;
   "Lifting Qty"?: number | string | null;
   "Total Bill Quantity"?: number | string | null;
@@ -157,6 +162,8 @@ interface KittingHistoryItem {
   areaLifting: string;
   leadTimeDays: number | null;
   driverNo: string;
+  fullkittingRemarks: string;
+  transporterBillImage: string;
   billImage: string;
   hasBilty: "Yes" | "No";
   systemName: string;
@@ -334,6 +341,8 @@ function buildPurchaseRows(
       areaLifting: str(la["Area lifting"]) || "-",
       leadTimeDays: num(la["Lead Time To Reach Factory (days)"]),
       driverNo: str(la["Driver No."]) || "-",
+      fullkittingRemarks: str(la["Fullkitting Remarks"]) || "-",
+      transporterBillImage: str(la["Transporter Bill Image"]),
       billImage: str(la["Bill Image"]),
       hasBilty: validBilty(biltyNumber) ? "Yes" : "No",
       systemName: "Purchase FMS",
@@ -368,6 +377,11 @@ function buildOrderRows(
       const delivery = deliveryByDsr.get(str(dispatch["D-Sr Number"]));
       const ratePerMt = num(dispatch["Transport Rate @Per Matric Ton"]);
       const actualQty = num(dispatch["Actual Truck Qty"]);
+      const typeOfRate = str(dispatch["Type Of Rate"]).toLowerCase();
+      const freightAmount =
+        typeOfRate === "fixed amount"
+          ? num(dispatch["Fixed Amount"])
+          : num(dispatch["Total Transporter Amount"]);
       const biltyNumber = firstFilled(
         delivery?.["Bilty No."],
         delivery?.["Bilty Number."],
@@ -397,7 +411,7 @@ function buildOrderRows(
         vehicleNumber: str(dispatch["Truck No."]) || "-",
         biltyNumber: biltyNumber || "-",
         biltyImage: str(delivery?.["Bilty Copy"]),
-        freightAmount: num(order?.["Freight Amount"]),
+        freightAmount,
         typeOfRate: str(dispatch["Type Of Rate"]) || "-",
         transportingPerMtRate: ratePerMt,
         totalTruckBillingQty: actualQty,
@@ -407,6 +421,8 @@ function buildOrderRows(
         areaLifting: str(order?.Address) || "-",
         leadTimeDays: num(order?.["Lead Time to Reach Factory"]),
         driverNo: "-",
+        fullkittingRemarks: str(dispatch["Fullkitting Remarks"]) || "-",
+        transporterBillImage: str(dispatch["Transporter Bill Image"]),
         billImage: str(dispatch["Bill Copy"]),
         hasBilty,
         systemName: "Order Management System",
@@ -1079,6 +1095,8 @@ export function FullKittingHistory() {
                     "Lead Days",
                     "Driver No.",
                     "Bill No.",
+                    "Fullkitting Remarks",
+                    "Transporter Bill Image",
                     "Bill Image",
                     "Bilty Image",
                   ].map((h, i) => (
@@ -1323,6 +1341,39 @@ export function FullKittingHistory() {
                             r.billNo
                           )}
                         </div>
+                      </TableCell>
+                      <TableCell className="py-3">
+                        <div
+                          className="font-mono text-[13px] text-[#64748B] truncate max-w-[150px]"
+                          title={r.fullkittingRemarks}
+                        >
+                          {group.isGrouped ? (
+                            <span>
+                              {group.children[0].fullkittingRemarks || "-"}{" "}
+                              {group.children.length > 1 && (
+                                <span className="text-slate-400 font-normal">
+                                </span>
+                              )}
+                            </span>
+                          ) : (
+                            r.fullkittingRemarks
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-3">
+                        {r.transporterBillImage ? (
+                          <a
+                            href={r.transporterBillImage}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-2 py-1 text-[12px] font-semibold text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap"
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            View
+                          </a>
+                        ) : (
+                          <span className="text-[13px] text-[#64748B]">-</span>
+                        )}
                       </TableCell>
                       <TableCell className="py-3">
                         {r.billImage ? (
