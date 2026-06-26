@@ -337,6 +337,64 @@ export function FreightTable({
       });
     }
 
+    if (activeTab === "makepayment") {
+      cols.push({
+        key: "auditImage",
+        label: "Audit Image",
+        width: "120px",
+        align: "center",
+        render: (p) => {
+          const imageUrl = p["Audit Image"];
+          if (!imageUrl) return <span className="text-slate-400 text-xs">—</span>;
+          return (
+            <a
+              href={imageUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition-colors"
+            >
+              <Image className="w-3.5 h-3.5 text-slate-400" />
+              <span>View</span>
+            </a>
+          );
+        }
+      });
+      cols.push({
+        key: "auditRemark",
+        label: "Audit Remark",
+        width: "150px",
+        render: (p) => (
+          <span className="text-xs text-slate-600 truncate block" title={p.Remark_1 || undefined}>
+            {p.Remark_1 || "—"}
+          </span>
+        )
+      });
+    }
+
+    if (activeTab === "checkkitting") {
+      cols.push({
+        key: "transporterBillImage",
+        label: "Transporter Bill Image",
+        width: "140px",
+        align: "center",
+        render: (p) => {
+          const imageUrl = p["Transporter Bill Image"];
+          if (!imageUrl) return <span className="text-slate-400 text-xs">—</span>;
+          return (
+            <a
+              href={imageUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition-colors"
+            >
+              <Image className="w-3.5 h-3.5 text-slate-400" />
+              <span>View</span>
+            </a>
+          );
+        }
+      });
+    }
+
     cols.push(
       { key: "stepStatus", label: `${getStepName()} Status`, width: "130px", render: (p) => <StatusBadge status={getStepField(p, "status") as string} /> },
       { key: "overallStatus", label: "Overall", width: "120px", render: (p) => <StatusBadge status={p.Status} /> }
@@ -444,6 +502,31 @@ export function FreightTable({
                 <span className="truncate" title={payment["Vehicle Number"] || undefined}>{payment["Vehicle Number"] || "—"}</span>
               </div>
 
+              {activeTab === "makepayment" && payment["Audit Image"] && (
+                <div className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 font-medium">
+                  <Image className="w-3.5 h-3.5 text-slate-400" />
+                  <a href={payment["Audit Image"]} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                    View Audit Image
+                  </a>
+                </div>
+              )}
+
+              {activeTab === "checkkitting" && payment["Transporter Bill Image"] && (
+                <div className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 font-medium">
+                  <Image className="w-3.5 h-3.5 text-slate-400" />
+                  <a href={payment["Transporter Bill Image"]} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                    View Transporter Bill Image
+                  </a>
+                </div>
+              )}
+
+              {activeTab === "makepayment" && payment.Remark_1 && (
+                <div className="flex items-start gap-1.5 text-xs text-slate-500 font-medium">
+                  <MessageSquare className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" />
+                  <span className="truncate">Audit Remark: {payment.Remark_1}</span>
+                </div>
+              )}
+
               <div className="flex items-center justify-between">
                 <StatusBadge status={getStepField(payment, "status") as string} />
                 <StatusBadge status={payment.Status} />
@@ -465,7 +548,7 @@ export function FreightTable({
             <TableRow>
               <TableHead className="sticky left-0 bg-slate-50 z-10 w-[70px]">Action</TableHead>
               {columnDefs.map((col) => (
-                <TableHead key={col.key} style={{ width: col.width }} className={cn(col.align === "right" && "text-right")}>
+                <TableHead key={col.key} style={{ width: col.width }} className={cn(col.align === "right" && "text-right", col.align === "center" && "text-center")}>
                   {col.label}
                 </TableHead>
               ))}
@@ -481,7 +564,7 @@ export function FreightTable({
                   </Button>
                 </TableCell>
                 {columnDefs.map((col) => (
-                  <TableCell key={col.key} className={cn("py-3", col.align === "right" && "text-right")}>
+                  <TableCell key={col.key} className={cn("py-3", col.align === "right" && "text-right", col.align === "center" && "text-center")}>
                     {col.key === "transporterName" ? (
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs text-slate-600 truncate block" title={group.parent["Transporter Name"]}>
@@ -573,6 +656,9 @@ export function FreightTable({
                 {selectedPayment.PostingAmount !== undefined && (
                   <DetailItem icon={DollarSign} label="Paid Amount" value={formatCurrency(selectedPayment.PostingAmount)} />
                 )}
+                {activeTab === "makepayment" && (
+                  <DetailItem icon={MessageSquare} label="Audit Remark" value={selectedPayment.Remark_1} />
+                )}
               </div>
 
               {/* Audit Image Display */}
@@ -589,6 +675,24 @@ export function FreightTable({
                     className="text-xs text-blue-600 dark:text-blue-400 font-bold hover:underline"
                   >
                     View Audit Image
+                  </a>
+                </div>
+              )}
+
+              {/* Transporter Bill Image Display */}
+              {selectedPayment["Transporter Bill Image"] && (
+                <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl p-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Image className="w-4 h-4 text-slate-400" />
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Transporter Bill Image</span>
+                  </div>
+                  <a
+                    href={selectedPayment["Transporter Bill Image"]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-blue-600 dark:text-blue-400 font-bold hover:underline"
+                  >
+                    View Transporter Bill Image
                   </a>
                 </div>
               )}
@@ -611,6 +715,9 @@ export function FreightTable({
                           <TableHead className="w-[110px]">Bilty No.</TableHead>
                           <TableHead className="w-[110px]">Vehicle</TableHead>
                           <TableHead className="w-[110px] text-right">Amount</TableHead>
+                          {activeTab === "makepayment" && <TableHead className="w-[120px] text-center">Audit Image</TableHead>}
+                          {activeTab === "makepayment" && <TableHead className="w-[150px]">Audit Remark</TableHead>}
+                          {activeTab === "checkkitting" && <TableHead className="w-[120px] text-center">Transporter Bill Image</TableHead>}
                           <TableHead className="w-[120px]">{getStepName()} Status</TableHead>
                           <TableHead className="w-[120px]">Overall</TableHead>
                         </TableRow>
@@ -641,6 +748,45 @@ export function FreightTable({
                             <TableCell className="font-bold text-xs text-right py-2.5">
                               {formatCurrency(child.Amount)}
                             </TableCell>
+                            {activeTab === "makepayment" && (
+                              <TableCell className="py-2.5 text-center">
+                                {child["Audit Image"] ? (
+                                  <a
+                                    href={child["Audit Image"]}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
+                                  >
+                                    <Image className="w-3.5 h-3.5 text-slate-400" />
+                                    <span>View</span>
+                                  </a>
+                                ) : (
+                                  <span className="text-slate-400 text-xs">—</span>
+                                )}
+                              </TableCell>
+                            )}
+                            {activeTab === "makepayment" && (
+                              <TableCell className="text-xs text-slate-700 py-2.5 max-w-[150px] truncate" title={child.Remark_1 || undefined}>
+                                {child.Remark_1 || "—"}
+                              </TableCell>
+                            )}
+                            {activeTab === "checkkitting" && (
+                              <TableCell className="py-2.5 text-center">
+                                {child["Transporter Bill Image"] ? (
+                                  <a
+                                    href={child["Transporter Bill Image"]}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
+                                  >
+                                    <Image className="w-3.5 h-3.5 text-slate-400" />
+                                    <span>View</span>
+                                  </a>
+                                ) : (
+                                  <span className="text-slate-400 text-xs">—</span>
+                                )}
+                              </TableCell>
+                            )}
                             <TableCell className="py-2.5">
                               <StatusBadge status={getStepField(child, "status") as string} />
                             </TableCell>

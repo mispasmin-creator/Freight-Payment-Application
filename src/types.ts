@@ -40,4 +40,5 @@ export interface FreightPayment {
   Remark2?: string;
   Remark3?: string;
   "Audit Image"?: string;
+  "Transporter Bill Image"?: string;
 }

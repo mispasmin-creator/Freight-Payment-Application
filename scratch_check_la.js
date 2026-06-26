@@ -1,0 +1,22 @@
+const purchaseUrl = "https://jcgmyvxcamstnhuwmemc.supabase.co/rest/v1/";
+const purchaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpjZ215dnhjYW1zdG5odXdtZW1jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwMDgyODAsImV4cCI6MjA4NTU4NDI4MH0.wMKYEcXGOgrRwy7DKBlBz-a_mWhAuZaknG_iXYvKLLo";
+
+async function run() {
+  const laRes = await fetch(`${purchaseUrl}LIFT-ACCOUNTS?select=*`, {
+    headers: {
+      "apikey": purchaseKey,
+      "Authorization": `Bearer ${purchaseKey}`
+    }
+  });
+  const laData = await laRes.json();
+  
+  console.log("Total entries in LIFT-ACCOUNTS:", laData.length);
+  const lf081 = laData.filter(r => 
+    String(r["Lift No"]).includes("081") || 
+    String(r["Indent no."]).includes("081")
+  );
+  console.log("Entries in LIFT-ACCOUNTS with '081' in Lift No or Indent no.:");
+  console.log(JSON.stringify(lf081, null, 2));
+}
+
+run().catch(console.error);

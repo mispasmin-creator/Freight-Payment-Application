@@ -93,6 +93,8 @@ interface FullKittinRow {
   "Transporting Per MT Rate"?: number | string | null;
   "Transporting Rate"?: number | string | null;
   Amount?: number | string | null;
+  "Transporter Bill Image"?: string | null;
+  "Fullkitting Remarks"?: string | null;
   [key: string]: unknown;
 }
 
@@ -251,10 +253,12 @@ const toSystemPayment = (row: KittingHistoryItem): Partial<FreightPayment> => {
     "Rate Type": "External",
     Amount: row.freightAmount ?? 0,
     "Bilty Image": row.biltyImage,
+    "Transporter Bill Image": row.transporterBillImage,
     Timestamp: row.date || new Date().toISOString(),
     "Party Name": row.partyName || undefined,
     "Billing Qty": row.billingQty ?? undefined,
     "Bill Number": row.billNo || undefined,
+    Remark3: row.fullkittingRemarks,
   };
 };
 
@@ -264,18 +268,21 @@ function buildPurchaseRows(
   mismatch: MismatchRow[],
 ): KittingHistoryItem[] {
   const fkByLiftNo = new Map<string, FullKittinRow>();
+  const fkByIndentNo = new Map<string, FullKittinRow>();
   const fkByBilty = new Map<string, FullKittinRow>();
   for (const fk of fullkittin) {
     if (str(fk.Status).toLowerCase() === "no") continue;
 
     const liftNo = str(fk["Lift No"]).toLowerCase();
+    const indentNo = str(fk["Indent No"]).toLowerCase();
     const bilty = str(fk["Bilty Number"]).toLowerCase();
 
     if (liftNo) {
       fkByLiftNo.set(liftNo, fk);
-      continue;
     }
-
+    if (indentNo) {
+      fkByIndentNo.set(indentNo, fk);
+    }
     if (validBilty(bilty) && !fkByBilty.has(bilty)) {
       fkByBilty.set(bilty, fk);
     }
@@ -291,9 +298,11 @@ function buildPurchaseRows(
 
   for (const la of liftAccounts) {
     const liftNum = str(la["Lift No"]).toLowerCase();
+    const indentNum = str(la["Indent no."]).toLowerCase();
     const biltyNo1 = str(la["Bilty No."]).toLowerCase();
     const biltyNo2 = str(la["Bilty No. 2"]).toLowerCase();
     const fk = (liftNum && fkByLiftNo.get(liftNum)) ||
+      (indentNum && fkByIndentNo.get(indentNum)) ||
       (validBilty(biltyNo1) && fkByBilty.get(biltyNo1)) ||
       (validBilty(biltyNo2) && fkByBilty.get(biltyNo2));
 
@@ -309,6 +318,13 @@ function buildPurchaseRows(
       la["Transporter Rate"],
     );
     const timestamp = firstFilled(la.Timestamp, mm?.Timestamp);
+    const transporterName =
+      firstFilled(fk["Transporter Name"], mm?.["Transporter Name"], mm?.Transporter, la["Transporter Name"]) ||
+      "-";
+
+    if (transporterName.trim().toLowerCase() === "for") {
+      continue;
+    }
 
     merged.push({
       liftId: str(la["Lift No"]) || "-",
@@ -318,9 +334,7 @@ function buildPurchaseRows(
       partyName: str(la["Vendor Name"]),
       productName: firstFilled(fk["Material Load Details"], la["Raw Material Name"]) || "-",
       poQty: num(la.Qty),
-      transporterName:
-        firstFilled(fk["Transporter Name"], mm?.["Transporter Name"], mm?.Transporter, la["Transporter Name"]) ||
-        "-",
+      transporterName,
       vehicleNumber:
         firstFilled(fk["Vehicle Number"], mm?.["Truck No."], la["Truck No."]) ||
         "-",
@@ -341,8 +355,8 @@ function buildPurchaseRows(
       areaLifting: str(la["Area lifting"]) || "-",
       leadTimeDays: num(la["Lead Time To Reach Factory (days)"]),
       driverNo: str(la["Driver No."]) || "-",
-      fullkittingRemarks: str(la["Fullkitting Remarks"]) || "-",
-      transporterBillImage: str(la["Transporter Bill Image"]),
+      fullkittingRemarks: str(fk["Fullkitting Remarks"]) || "-",
+      transporterBillImage: str(fk["Transporter Bill Image"]),
       billImage: str(la["Bill Image"]),
       hasBilty: validBilty(biltyNumber) ? "Yes" : "No",
       systemName: "Purchase FMS",
@@ -578,15 +592,24 @@ export function FullKittingHistory() {
     };
   }, []);
 
-  const filtered = useMemo(() => {
+  // Base eligible rows (excl. processed and 'For' transporter)
+  const baseEligibleRows = useMemo(() => {
     return rows.filter((r) => {
-      // Exclude processed records
       const uniqueId = getRowUniqueId(r);
       if (processedIds.has(uniqueId) || processedIds.has(`KIT-${r.liftId}`)) {
         return false;
       }
+      if (String(r.transporterName || "").trim().toLowerCase() === "for") {
+        return false;
+      }
+      return true;
+    });
+  }, [rows, processedIds]);
 
-      const term = searchTerm.trim().toLowerCase();
+  // Apply top-level filters (search term and firm)
+  const baseFilteredRows = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return baseEligibleRows.filter((r) => {
       const searchOk =
         !term ||
         [
@@ -608,9 +631,7 @@ export function FullKittingHistory() {
         ]
           .filter(Boolean)
           .some((value) => value.toLowerCase().includes(term));
-      const transporterOk =
-        !searchTransporter || r.transporterName === searchTransporter;
-      const productOk = !searchProduct || r.productName === searchProduct;
+
       let firmOk = !searchFirm;
       if (searchFirm) {
         const sf = searchFirm.toLowerCase().trim();
@@ -625,31 +646,39 @@ export function FullKittingHistory() {
           firmOk = rf === sf;
         }
       }
-      return searchOk && transporterOk && productOk && firmOk;
+      return searchOk && firmOk;
     });
-  }, [
-    rows,
-    searchTerm,
-    searchTransporter,
-    searchProduct,
-    searchFirm,
-    processedIds,
-  ]);
+  }, [baseEligibleRows, searchTerm, searchFirm]);
 
-  const transporterOptions = useMemo(
-    () =>
-      Array.from(
-        new Set(rows.map((r) => r.transporterName).filter(Boolean)),
-      ).sort(),
-    [rows],
-  );
-  const productOptions = useMemo(
-    () =>
-      Array.from(
-        new Set(rows.map((r) => r.productName).filter(Boolean)),
-      ).sort(),
-    [rows],
-  );
+  // Final filtered list for display
+  const filtered = useMemo(() => {
+    return baseFilteredRows.filter((r) => {
+      const transporterOk =
+        !searchTransporter || r.transporterName === searchTransporter;
+      const productOk = !searchProduct || r.productName === searchProduct;
+      return transporterOk && productOk;
+    });
+  }, [baseFilteredRows, searchTransporter, searchProduct]);
+
+  // Faceted Transporter options
+  const transporterOptions = useMemo(() => {
+    const rowsForTransporters = searchProduct
+      ? baseFilteredRows.filter((r) => r.productName === searchProduct)
+      : baseFilteredRows;
+    return Array.from(
+      new Set(rowsForTransporters.map((r) => r.transporterName).filter(Boolean))
+    ).sort();
+  }, [baseFilteredRows, searchProduct]);
+
+  // Faceted Product options
+  const productOptions = useMemo(() => {
+    const rowsForProducts = searchTransporter
+      ? baseFilteredRows.filter((r) => r.transporterName === searchTransporter)
+      : baseFilteredRows;
+    return Array.from(
+      new Set(rowsForProducts.map((r) => r.productName).filter(Boolean))
+    ).sort();
+  }, [baseFilteredRows, searchTransporter]);
   const firmOptions = ["RKL", "PMMPL", "PURAB"];
 
   const hasFilters =

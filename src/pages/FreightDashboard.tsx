@@ -2,7 +2,7 @@ import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Banknote, FileText, LayoutDashboard, Loader2, Package, Package2, Users, WifiOff } from "lucide-react";
-import { api, LoginUser } from "@/api";
+import { api, LoginUser, purchaseSupabase, orderSupabase } from "@/api";
 import { FreightPayment } from "@/types";
 import { FreightForm } from "@/components/FreightForm";
 import { FreightTable } from "@/components/FreightTable";
@@ -168,6 +168,34 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
     retry: 1,
   });
 
+  const {
+    data: fullkittingRaw = [],
+  } = useQuery({
+    queryKey: ["fullkitting-raw-list"],
+    queryFn: async () => {
+      const { data, error } = await purchaseSupabase
+        .from("fullkittin")
+        .select('"Lift No", "Bilty Number", "Transporter Bill Image", "Fullkitting Remarks"');
+      if (error) throw error;
+      return data || [];
+    },
+    retry: 1,
+  });
+
+  const {
+    data: dispatchRaw = [],
+  } = useQuery({
+    queryKey: ["dispatch-raw-list"],
+    queryFn: async () => {
+      const { data, error } = await orderSupabase
+        .from("DISPATCH")
+        .select('"D-Sr Number", "Bilty No.", "Transporter Bill Image"');
+      if (error) throw error;
+      return data || [];
+    },
+    retry: 1,
+  });
+
   const isLoading = isKittingLoading;
 
   const filteredKittingPayments = useMemo(() => {
@@ -205,6 +233,42 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
       const recordId = freightMatch ? freightMatch.id : (mpMatch ? mpMatch.id : (postingMatch ? postingMatch.id : -kp.id));
       const latestStepMatch = freightMatch || mpMatch || postingMatch;
 
+      let transporterBillImage = kp["Transporter Bill Image"];
+      let remark3 = kp.Remark;
+
+      if (!transporterBillImage || !remark3) {
+        const liftId = kp["Lift ID"]?.trim().toLowerCase();
+        const biltyNo = kp["Bilty Number"]?.trim().toLowerCase();
+
+        // 1. Try Purchase FMS
+        const matchedFk = fullkittingRaw.find((fk: any) => {
+          const fkLift = fk["Lift No"]?.trim().toLowerCase();
+          const fkBilty = fk["Bilty Number"]?.trim().toLowerCase();
+          return (liftId && fkLift === liftId) || (biltyNo && fkBilty === biltyNo);
+        });
+        
+        if (matchedFk) {
+          if (!transporterBillImage && matchedFk["Transporter Bill Image"]) {
+            transporterBillImage = matchedFk["Transporter Bill Image"];
+          }
+          if (!remark3 && matchedFk["Fullkitting Remarks"]) {
+            remark3 = matchedFk["Fullkitting Remarks"];
+          }
+        }
+
+        // 2. Try Order FMS (DISPATCH) if transporterBillImage still empty
+        if (!transporterBillImage) {
+          const matchedDispatch = dispatchRaw.find((d: any) => {
+            const dSr = d["D-Sr Number"]?.toString().trim().toLowerCase();
+            const dBilty = d["Bilty No."]?.toString().trim().toLowerCase();
+            return (liftId && dSr === liftId) || (biltyNo && dBilty === biltyNo);
+          });
+          if (matchedDispatch && matchedDispatch["Transporter Bill Image"]) {
+            transporterBillImage = matchedDispatch["Transporter Bill Image"];
+          }
+        }
+      }
+
       const payment: FreightPayment = {
         id: recordId,
         "Payment Number": kp["Payment Number"] || `KIT-${kp.id}`,
@@ -232,12 +296,13 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
           : kp["Party Name"],
         "Billing Qty": kp["Billing Qty"] !== undefined && kp["Billing Qty"] !== null ? Number(kp["Billing Qty"]) : undefined,
         "Bill Number": kp["Bill Number"],
+        "Transporter Bill Image": transporterBillImage,
 
         Status3: "Completed",
         Actual3: kp.Actual3 || kp.Actual || kp.Timestamp,
         Delay3: kp.Delay3 ?? kp.Delay ?? 0,
         Planned3: kp.Planned3 || kp.Planned || kp.Timestamp,
-        Remark3: kp.Remark,
+        Remark3: remark3,
 
         Status_1: postingMatch ? (postingMatch.Status || "Pending") : "Pending",
         Planned: kp.Planned || kp.Timestamp,
@@ -262,11 +327,14 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
     });
 
     return merged;
-  }, [filteredKittingPayments, postingPayments, makePaymentPayments, freightPaymentPayments]);
+  }, [filteredKittingPayments, postingPayments, makePaymentPayments, freightPaymentPayments, fullkittingRaw, dispatchRaw]);
 
   const payments = useMemo(() => {
     return allPayments.filter((payment) => {
       if (activeTab === "checkkitting") {
+        if (String(payment["Transporter Name"] || "").trim().toLowerCase() === "for") {
+          return false;
+        }
         if (subTab === "history") return payment.Status3 === "Done" || payment.Status3 === "Completed";
         return payment.Status3 !== "Done" && payment.Status3 !== "Completed";
       }
