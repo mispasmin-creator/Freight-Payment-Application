@@ -96,16 +96,13 @@ export const api = {
       if (orderSupabaseUrl !== "https://placeholder.supabase.co") {
         const { data: dispatchData, error: dispatchError } = await orderSupabase
           .from("DISPATCH")
-          .select('"D-Sr Number", "Bilty No.", "Truck No.", "Fullkitting Amount"');
+          .select('"D-Sr Number", "Total Transporter Amount"');
         
         if (!dispatchError && dispatchData) {
           dispatchData.forEach((d) => {
-            const dSr = String(d["D-Sr Number"] || "").trim();
-            const bilty = String(d["Bilty No."] || "").trim();
-            const truck = String(d["Truck No."] || "").trim();
-            const uniqueId = `KIT-${dSr}-${bilty}-${truck}`.replace(/\s+/g, "");
-            if (uniqueId) {
-              dispatchMap.set(uniqueId, d["Fullkitting Amount"]);
+            const dSr = String(d["D-Sr Number"] || "").trim().toLowerCase();
+            if (dSr) {
+              dispatchMap.set(dSr, d["Total Transporter Amount"]);
             }
           });
         }
@@ -115,11 +112,14 @@ export const api = {
     }
 
     const result = (data || []).map((item) => {
-      const uniqueNum = item["Unique Number"];
-      if (uniqueNum && dispatchMap.has(uniqueNum)) {
-        const fkAmount = dispatchMap.get(uniqueNum);
-        if (fkAmount !== undefined && fkAmount !== null) {
-          item.Amount = Number(fkAmount);
+      const fmsName = String(item["Fms Name"] || "").trim();
+      const liftId = String(item["Lift ID"] || "").trim().toLowerCase();
+      if (fmsName === "Order Management System" && liftId) {
+        if (dispatchMap.has(liftId)) {
+          const totalAmount = dispatchMap.get(liftId);
+          if (totalAmount !== undefined && totalAmount !== null) {
+            item.Amount = Number(totalAmount);
+          }
         }
       }
       return item;

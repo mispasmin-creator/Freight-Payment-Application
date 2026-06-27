@@ -7,7 +7,23 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const getPort = (): number => {
+  const portArg = process.argv.find(arg => arg.startsWith("--port="));
+  if (portArg) {
+    const port = parseInt(portArg.split("=")[1], 10);
+    if (!isNaN(port)) return port;
+  }
+
+  const portIndex = process.argv.indexOf("--port") !== -1 ? process.argv.indexOf("--port") : process.argv.indexOf("-p");
+  if (portIndex !== -1 && process.argv[portIndex + 1]) {
+    const port = parseInt(process.argv[portIndex + 1], 10);
+    if (!isNaN(port)) return port;
+  }
+
+  return process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+};
+
+const PORT = getPort();
 
 const supabaseUrl = process.env.SUPABASE_URL || "https://placeholder.supabase.co";
 const supabaseKey = process.env.SUPABASE_ANON_KEY || "";
