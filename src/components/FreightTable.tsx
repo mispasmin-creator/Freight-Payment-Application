@@ -148,7 +148,10 @@ export function FreightTable({
 
   const isAccountCheckingFirm = useCallback((value: unknown) => {
     const normalized = String(value || "").trim().toLowerCase();
-    return ACCOUNT_CHECKING_FIRMS.some(firm => normalized === firm.toLowerCase());
+    return ACCOUNT_CHECKING_FIRMS.some(firm => {
+      const firmKey = firm.toLowerCase();
+      return normalized === firmKey || normalized === `${firmKey} order`;
+    });
   }, []);
 
   const filteredPayments = useMemo(() => {
