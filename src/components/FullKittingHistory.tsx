@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api, orderSupabase, purchaseSupabase } from "../api";
 import { Button } from "@/components/ui/button";
@@ -453,7 +453,13 @@ export interface GroupedKittingHistory {
   children: KittingHistoryItem[];
 }
 
-export function FullKittingHistory() {
+export function FullKittingHistory({
+  refreshTrigger = 0,
+  onRefreshDone,
+}: {
+  refreshTrigger?: number;
+  onRefreshDone?: () => void;
+}) {
   const queryClient = useQueryClient();
   const [rows, setRows] = useState<KittingHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -470,6 +476,7 @@ export function FullKittingHistory() {
   const [selectedGroup, setSelectedGroup] = useState<GroupedKittingHistory | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [isProcessingGroup, setIsProcessingGroup] = useState(false);
+  const isInitialLoad = useRef(true);
 
   const openDetailModal = (group: GroupedKittingHistory) => {
     setSelectedGroup(group);
@@ -510,8 +517,10 @@ export function FullKittingHistory() {
   useEffect(() => {
     let cancelled = false;
 
-    async function load() {
-      setLoading(true);
+    async function load(isSoft = false) {
+      if (!isSoft) {
+        setLoading(true);
+      }
       setError(null);
 
       try {
@@ -578,15 +587,25 @@ export function FullKittingHistory() {
           );
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          if (onRefreshDone) {
+            onRefreshDone();
+          }
+        }
       }
     }
 
-    load();
+    const isSoft = !isInitialLoad.current;
+    if (isInitialLoad.current) {
+      isInitialLoad.current = false;
+    }
+
+    load(isSoft);
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshTrigger, onRefreshDone]);
 
   // Base eligible rows (excl. processed and 'For' transporter)
   const baseEligibleRows = useMemo(() => {
@@ -843,11 +862,11 @@ export function FullKittingHistory() {
 
   if (loading) {
     return (
-      <div className="w-full rounded-xl border border-[#E2E8F0] bg-[#FFFFFF] overflow-hidden">
-        <div className="p-4 border-b border-[#E2E8F0] bg-slate-50/50">
-          <div className="h-5 w-48 bg-slate-200 rounded animate-pulse" />
+      <div className="w-full rounded-xl border border-border bg-card overflow-hidden">
+        <div className="p-4 border-b border-border bg-slate-50/50 dark:bg-white/5">
+          <div className="h-5 w-48 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" />
         </div>
-        <div className="flex items-center justify-center gap-3 py-8 text-[13px] text-slate-400">
+        <div className="flex items-center justify-center gap-3 py-8 text-[13px] text-muted-foreground">
           <Loader2 className="w-4 h-4 animate-spin" />
           Loading fullkitting history...
         </div>
@@ -857,9 +876,9 @@ export function FullKittingHistory() {
 
   if (error) {
     return (
-      <div className="w-full rounded-xl border border-rose-200 bg-rose-50 p-6 text-center">
-        <p className="text-[13px] font-semibold text-rose-700">{error}</p>
-        <p className="text-[12px] text-rose-400 mt-1">
+      <div className="w-full rounded-xl border border-rose-200 bg-rose-50 dark:bg-rose-950/10 p-6 text-center">
+        <p className="text-[13px] font-semibold text-rose-700 dark:text-rose-400">{error}</p>
+        <p className="text-[12px] text-rose-400 dark:text-rose-500 mt-1">
           Check Purchase/ORDER Supabase connection, table names, and RLS
           permissions.
         </p>
@@ -868,8 +887,8 @@ export function FullKittingHistory() {
   }
 
   return (
-    <div className="w-full rounded-xl border border-[#E2E8F0] bg-[#FFFFFF] overflow-hidden shadow-sm">
-      <div className="px-4 py-3 border-b border-[#E2E8F0] bg-slate-50/40 flex flex-wrap gap-3 items-center">
+    <div className="w-full rounded-xl border border-border bg-card overflow-hidden shadow-sm">
+      <div className="px-4 py-3 border-b border-border bg-slate-50/40 dark:bg-white/5 flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-[220px] max-w-sm">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
           <input
@@ -877,14 +896,14 @@ export function FullKittingHistory() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search records..."
-            className="w-full pl-8 pr-7 py-1.5 text-[12px] border border-[#E2E8F0] rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 bg-[#FFFFFF]"
+            className="w-full pl-8 pr-7 py-1.5 text-[12px] border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 bg-card text-foreground placeholder:text-slate-400 dark:placeholder:text-slate-500"
           />
           {searchTerm && (
             <button
               onClick={() => setSearchTerm("")}
               className="absolute right-2 top-1/2 -translate-y-1/2"
             >
-              <X className="w-3 h-3 text-slate-400 hover:text-[#64748B]" />
+              <X className="w-3 h-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300" />
             </button>
           )}
         </div>
@@ -897,7 +916,7 @@ export function FullKittingHistory() {
         <select
           value={searchTransporter}
           onChange={(e) => setSearchTransporter(e.target.value)}
-          className="h-8 min-w-[150px] bg-[#FFFFFF] border border-[#E2E8F0] rounded-lg px-2 text-[12px] text-[#64748B] focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+          className="h-8 min-w-[150px] bg-card border border-border rounded-lg px-2 text-[12px] text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
         >
           <option value="">All transporters</option>
           {transporterOptions.map((transporter) => (
@@ -910,7 +929,7 @@ export function FullKittingHistory() {
         <select
           value={searchProduct}
           onChange={(e) => setSearchProduct(e.target.value)}
-          className="h-8 min-w-[150px] bg-[#FFFFFF] border border-[#E2E8F0] rounded-lg px-2 text-[12px] text-[#64748B] focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+          className="h-8 min-w-[150px] bg-card border border-border rounded-lg px-2 text-[12px] text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
         >
           <option value="">All products</option>
           {productOptions.map((product) => (
@@ -923,7 +942,7 @@ export function FullKittingHistory() {
         <select
           value={searchFirm}
           onChange={(e) => setSearchFirm(e.target.value)}
-          className="h-8 min-w-[130px] bg-[#FFFFFF] border border-[#E2E8F0] rounded-lg px-2 text-[12px] text-[#64748B] focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+          className="h-8 min-w-[130px] bg-card border border-border rounded-lg px-2 text-[12px] text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
         >
           <option value="">All firms</option>
           {firmOptions.map((firm) => (
@@ -941,17 +960,17 @@ export function FullKittingHistory() {
               setSearchProduct("");
               setSearchFirm("");
             }}
-            className="text-[11px] font-semibold text-slate-400 hover:text-rose-500 transition-colors flex items-center gap-1"
+            className="text-[11px] font-semibold text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 transition-colors flex items-center gap-1"
           >
             <X className="w-3 h-3" />
             Clear
           </button>
         )}
 
-        <div className="ml-auto text-[12px] font-medium text-[#64748B]">
+        <div className="ml-auto text-[12px] font-medium text-muted-foreground">
           Showing{" "}
-          <span className="font-bold text-[#0F172A]">{filtered.length}</span> of{" "}
-          <span className="font-bold text-[#0F172A]">{rows.length}</span> kitted
+          <span className="font-bold text-foreground">{filtered.length}</span> of{" "}
+          <span className="font-bold text-foreground">{rows.length}</span> kitted
           records
         </div>
 
@@ -967,20 +986,20 @@ export function FullKittingHistory() {
       </div>
 
       {processMessage && (
-        <div className="px-4 py-2 border-b border-[#E2E8F0] bg-slate-50 text-[12px] font-semibold text-[#64748B]">
+        <div className="px-4 py-2 border-b border-border bg-slate-50 dark:bg-white/5 text-[12px] font-semibold text-muted-foreground">
           {processMessage}
         </div>
       )}
 
       {filtered.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-          <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mb-4">
+          <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-950/20 rounded-full flex items-center justify-center mb-4">
             <PackageCheck className="w-7 h-7 text-emerald-400" />
           </div>
-          <h3 className="text-base font-semibold text-[#0F172A] mb-1">
+          <h3 className="text-base font-semibold text-foreground mb-1">
             No fullkitting history found
           </h3>
-          <p className="text-[13px] text-slate-400 max-w-sm">
+          <p className="text-[13px] text-slate-400 dark:text-slate-500 max-w-sm">
             {hasFilters
               ? "No records match your current filters."
               : "Completed purchase and dispatch records will appear here once data is synced."}
@@ -990,18 +1009,18 @@ export function FullKittingHistory() {
 
       {filtered.length > 0 && (
         <>
-          <div className="md:hidden divide-y divide-slate-100">
+          <div className="md:hidden divide-y divide-slate-100 dark:divide-white/5">
             {groupedHistory.map((group) => {
               const r = group.parent;
               return (
-                <div key={group.key} className="p-4 bg-[#FFFFFF]">
+                <div key={group.key} className="p-4 bg-card">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1 min-w-0 mr-3">
-                      <span className="font-mono font-bold text-[13px] text-slate-800 truncate block max-w-[200px]" title={r.liftId}>
+                      <span className="font-mono font-bold text-[13px] text-slate-800 dark:text-slate-200 truncate block max-w-[200px]" title={r.liftId}>
                         {group.isGrouped ? (
                           <span>
                             {group.children[0].liftId}{" "}
-                            <span className="text-slate-400 font-normal">
+                            <span className="text-slate-400 dark:text-slate-500 font-normal">
                               (+{group.children.length - 1} more)
                             </span>
                           </span>
@@ -1011,26 +1030,26 @@ export function FullKittingHistory() {
                       </span>
                       <div className="flex flex-wrap items-center gap-1.5 mt-1">
                         {r.firmName && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 border border-[#E2E8F0] text-[#0F172A] font-semibold text-[12px]">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 dark:bg-white/5 border border-border text-foreground font-semibold text-[12px]">
                             {r.firmName}
                           </span>
                         )}
                         {r.systemName && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-700 font-semibold text-[12px] whitespace-nowrap">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 font-semibold text-[12px] whitespace-nowrap">
                             {r.systemName}
                           </span>
                         )}
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold text-[10px] uppercase tracking-wide">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 font-bold text-[10px] uppercase tracking-wide">
                           Kitted
                         </span>
                         {group.isGrouped && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 border border-blue-100 text-blue-700 font-semibold text-[12px]">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 text-blue-700 dark:text-blue-300 font-semibold text-[12px]">
                             {group.children.length} rows
                           </span>
                         )}
                       </div>
                     </div>
-                    <span className="font-bold text-base text-[#0F172A] shrink-0">
+                    <span className="font-bold text-base text-foreground shrink-0">
                       {formatCurrency(r.freightAmount)}
                     </span>
                   </div>
@@ -1042,33 +1061,33 @@ export function FullKittingHistory() {
                     Action
                   </Button>
 
-                  <div className="text-[12px] text-[#64748B] space-y-1 mb-3">
+                  <div className="text-[12px] text-muted-foreground space-y-1 mb-3">
                     <div className="flex items-center gap-1.5">
-                      <User className="w-3 h-3 text-slate-400 shrink-0" />
-                      <span>{r.partyName || "-"}</span>
+                      <User className="w-3 h-3 text-slate-400 dark:text-slate-500 shrink-0" />
+                      <span className="text-slate-600 dark:text-slate-300">{r.partyName || "-"}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <Package className="w-3 h-3 text-slate-400 shrink-0" />
-                      <span>{r.productName || "-"}</span>
+                      <Package className="w-3 h-3 text-slate-400 dark:text-slate-500 shrink-0" />
+                      <span className="text-slate-600 dark:text-slate-300">{r.productName || "-"}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <Truck className="w-3 h-3 text-slate-400 shrink-0" />
-                      <span>{r.transporterName}</span>
+                      <Truck className="w-3 h-3 text-slate-400 dark:text-slate-500 shrink-0" />
+                      <span className="text-slate-600 dark:text-slate-300">{r.transporterName}</span>
                       {r.vehicleNumber !== "-" && (
-                        <span className="font-mono text-slate-400">
+                        <span className="font-mono text-slate-400 dark:text-slate-500">
                           - {r.vehicleNumber}
                         </span>
                       )}
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <Hash className="w-3 h-3 text-slate-400 shrink-0" />
-                      <span>Bilty: {r.biltyNumber}</span>
+                      <Hash className="w-3 h-3 text-slate-400 dark:text-slate-500 shrink-0" />
+                      <span className="text-slate-600 dark:text-slate-300">Bilty: {r.biltyNumber}</span>
                       {r.biltyImage && (
                         <a
                           href={r.biltyImage}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 ml-1 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 bg-blue-50 rounded hover:bg-blue-100 transition-colors"
+                          className="inline-flex items-center gap-1 ml-1 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/30 rounded hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors"
                         >
                           <ExternalLink className="w-2.5 h-2.5" />
                           View
@@ -1077,7 +1096,7 @@ export function FullKittingHistory() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 text-[11px] text-slate-400">
+                  <div className="flex items-center gap-3 text-[11px] text-slate-400 dark:text-slate-500">
                     <span>
                       <Calendar className="w-3 h-3 inline mr-1" />
                       {formatDate(r.date)}
@@ -1092,10 +1111,10 @@ export function FullKittingHistory() {
             })}
           </div>
 
-          <div className="hidden md:block overflow-x-auto scrollbar-thin scrollbar-track-slate-100 scrollbar-thumb-slate-300">
+          <div className="hidden md:block overflow-x-auto scrollbar-thin scrollbar-track-slate-100 dark:scrollbar-track-white/5 scrollbar-thumb-slate-300 dark:scrollbar-thumb-white/10">
             <Table className="min-w-max">
               <TableHeader className="sticky top-0 z-30 shadow-sm">
-                <TableRow className="border-b border-[#E2E8F0] bg-[#F1F5F9] hover:bg-[#F1F5F9]">
+                <TableRow className="border-b border-border bg-[#F1F5F9] dark:bg-white/5 hover:bg-[#F1F5F9] dark:hover:bg-white/5">
                   {[
                     "Action",
                     "Lift ID",
@@ -1128,9 +1147,9 @@ export function FullKittingHistory() {
                     <TableHead
                       key={h}
                       className={cn(
-                        "h-12 px-4 text-[12px] font-bold text-[#64748B] uppercase tracking-wider whitespace-nowrap",
+                        "h-12 px-4 text-[12px] font-bold text-muted-foreground uppercase tracking-wider whitespace-nowrap",
                         i === 0 &&
-                          "left-0 bg-[#F1F5F9] z-10 shadow-[4px_0_6px_-4px_rgba(0,0,0,0.05)]",
+                          "left-0 bg-[#F1F5F9] dark:bg-slate-900 z-10 shadow-[4px_0_6px_-4px_rgba(0,0,0,0.05)]",
                         h === "Freight Amt" && "text-right",
                       )}
                     >
@@ -1146,11 +1165,11 @@ export function FullKittingHistory() {
                     <TableRow
                       key={group.key}
                       className={cn(
-                        "border-b border-[#E2E8F0] hover:bg-[#F1F5F9] zebra-row transition-colors duration-150",
-                        idx % 2 === 0 ? "bg-[#FFFFFF]" : "bg-slate-50/30",
+                        "border-b border-border hover:bg-[#F1F5F9] dark:hover:bg-white/5 zebra-row transition-colors duration-150",
+                        idx % 2 === 0 ? "bg-card" : "bg-slate-50/30 dark:bg-white/2",
                       )}
                     >
-                      <TableCell className="py-3 left-0 bg-[#FFFFFF] z-20 shadow-[4px_0_6px_-4px_rgba(0,0,0,0.05)] text-center sticky">
+                      <TableCell className="py-3 left-0 bg-card z-20 shadow-[4px_0_6px_-4px_rgba(0,0,0,0.05)] text-center sticky border-r border-border">
                         <Button
                           onClick={() => openDetailModal(group)}
                           size="sm"
@@ -1161,13 +1180,13 @@ export function FullKittingHistory() {
                       </TableCell>
                       <TableCell className="py-3">
                         <div
-                          className="font-mono font-bold text-[13px] text-slate-800 truncate max-w-[150px]"
+                          className="font-mono font-bold text-[13px] text-slate-800 dark:text-slate-200 truncate max-w-[150px]"
                           title={r.liftId}
                         >
                           {group.isGrouped ? (
                             <span>
                               {group.children[0].liftId}{" "}
-                              <span className="text-slate-400 font-normal">
+                              <span className="text-slate-400 dark:text-slate-500 font-normal">
                                 (+{group.children.length - 1} more)
                               </span>
                             </span>
@@ -1178,14 +1197,14 @@ export function FullKittingHistory() {
                       </TableCell>
                       <TableCell className="py-3">
                         <div
-                          className="font-mono text-[13px] text-[#64748B] truncate max-w-[150px]"
+                          className="font-mono text-[13px] text-muted-foreground truncate max-w-[150px]"
                           title={r.indentNo}
                         >
                           {group.isGrouped ? (
                             <span>
                               {group.children[0].indentNo || "-"}{" "}
                               {group.children.length > 1 && (
-                                <span className="text-slate-400 font-normal">
+                                <span className="text-slate-400 dark:text-slate-500 font-normal">
                                   (+{group.children.length - 1} more)
                                 </span>
                               )}
@@ -1195,13 +1214,13 @@ export function FullKittingHistory() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="py-3 text-[13px] text-[#64748B] whitespace-nowrap">
+                      <TableCell className="py-3 text-[13px] text-muted-foreground whitespace-nowrap">
                         {formatDate(r.date)}
                       </TableCell>
                       <TableCell className="py-3">
                         {r.firmName ? (
                           <div
-                            className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 border border-[#E2E8F0] text-[#0F172A] font-semibold text-[12px] truncate max-w-[150px]"
+                            className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 dark:bg-white/5 border border-border text-foreground font-semibold text-[12px] truncate max-w-[150px]"
                             title={r.firmName}
                           >
                             {r.firmName}
@@ -1212,7 +1231,7 @@ export function FullKittingHistory() {
                       </TableCell>
                       <TableCell className="py-3">
                         {r.systemName ? (
-                          <div className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-700 font-semibold text-[12px] whitespace-nowrap">
+                          <div className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 font-semibold text-[12px] whitespace-nowrap">
                             {r.systemName}
                           </div>
                         ) : (
@@ -1221,7 +1240,7 @@ export function FullKittingHistory() {
                       </TableCell>
                       <TableCell className="py-3">
                         <div
-                          className="text-[13px] font-medium text-[#0F172A] truncate max-w-[160px]"
+                          className="text-[13px] font-medium text-foreground truncate max-w-[160px]"
                           title={r.partyName}
                         >
                           {r.partyName || "-"}
@@ -1229,25 +1248,25 @@ export function FullKittingHistory() {
                       </TableCell>
                       <TableCell className="py-3">
                         <div
-                          className="text-[13px] text-[#64748B] truncate max-w-[180px]"
+                          className="text-[13px] text-muted-foreground truncate max-w-[180px]"
                           title={r.productName}
                         >
                           {r.productName || "-"}
                         </div>
                       </TableCell>
                       <TableCell className="py-3 text-center">
-                        <span className="text-[13px] text-[#64748B]">
+                        <span className="text-[13px] text-muted-foreground">
                           {r.poQty ?? "-"}
                         </span>
                       </TableCell>
                       <TableCell className="py-3">
                         <div
-                          className="text-[13px] text-[#64748B] truncate max-w-[150px] flex items-center gap-1.5"
+                          className="text-[13px] text-muted-foreground truncate max-w-[150px] flex items-center gap-1.5"
                           title={r.transporterName}
                         >
                           <span>{r.transporterName}</span>
                           {group.isGrouped && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-50 border border-blue-100 text-blue-700 font-semibold text-[10px]" title={`${group.children.length} items grouped`}>
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 text-blue-700 dark:text-blue-300 font-semibold text-[10px]" title={`${group.children.length} items grouped`}>
                               ({group.children.length})
                             </span>
                           )}
@@ -1255,14 +1274,14 @@ export function FullKittingHistory() {
                       </TableCell>
                       <TableCell className="py-3">
                         <div
-                          className="font-mono text-[13px] text-[#64748B] truncate max-w-[150px]"
+                          className="font-mono text-[13px] text-muted-foreground truncate max-w-[150px]"
                           title={r.vehicleNumber}
                         >
                           {group.isGrouped ? (
                             <span>
                               {group.children[0].vehicleNumber || "-"}{" "}
                               {group.children.length > 1 && (
-                                <span className="text-slate-400 font-normal">
+                                <span className="text-slate-400 dark:text-slate-500 font-normal">
                                   (+{group.children.length - 1} more)
                                 </span>
                               )}
@@ -1274,14 +1293,14 @@ export function FullKittingHistory() {
                       </TableCell>
                       <TableCell className="py-3">
                         <div
-                          className="font-mono text-[13px] text-[#64748B] truncate max-w-[150px]"
+                          className="font-mono text-[13px] text-muted-foreground truncate max-w-[150px]"
                           title={r.biltyNumber}
                         >
                           {group.isGrouped ? (
                             <span>
                               {group.children[0].biltyNumber || "-"}{" "}
                               {group.children.length > 1 && (
-                                <span className="text-slate-400 font-normal">
+                                <span className="text-slate-400 dark:text-slate-500 font-normal">
                                   (+{group.children.length - 1} more)
                                 </span>
                               )}
@@ -1296,68 +1315,68 @@ export function FullKittingHistory() {
                           className={cn(
                             "inline-flex items-center rounded-md px-2 py-0.5 text-[12px] font-bold",
                             r.hasBilty === "Yes"
-                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                              : "bg-rose-50 text-rose-700 border border-rose-200",
+                              ? "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800"
+                              : "bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800",
                           )}
                         >
                           {r.hasBilty}
                         </span>
                       </TableCell>
                       <TableCell className="py-3 text-right">
-                        <span className="font-bold text-[13px] text-[#0F172A]">
+                        <span className="font-bold text-[13px] text-foreground">
                           {formatCurrency(r.freightAmount)}
                         </span>
                       </TableCell>
                       <TableCell className="py-3 text-center">
-                        <span className="text-[13px] text-[#64748B]">
+                        <span className="text-[13px] text-muted-foreground">
                           {r.billingQty ?? "-"}
                         </span>
                       </TableCell>
                       <TableCell className="py-3">
-                        <span className="text-[13px] text-[#64748B] whitespace-nowrap">
+                        <span className="text-[13px] text-muted-foreground whitespace-nowrap">
                           {r.typeOfRate}
                         </span>
                       </TableCell>
                       <TableCell className="py-3 text-right">
-                        <span className="text-[13px] text-[#64748B]">
+                        <span className="text-[13px] text-muted-foreground">
                           {r.transportingPerMtRate ?? "-"}
                         </span>
                       </TableCell>
                       <TableCell className="py-3 text-center">
-                        <span className="text-[13px] text-[#64748B]">
+                        <span className="text-[13px] text-muted-foreground">
                           {r.totalTruckBillingQty ?? "-"}
                         </span>
                       </TableCell>
                       <TableCell className="py-3 text-right">
-                        <span className="text-[13px] text-[#64748B]">
+                        <span className="text-[13px] text-muted-foreground">
                           {r.materialRate ?? "-"}
                         </span>
                       </TableCell>
                       <TableCell className="py-3">
-                        <span className="text-[13px] text-[#64748B] whitespace-nowrap">
+                        <span className="text-[13px] text-muted-foreground whitespace-nowrap">
                           {r.areaLifting}
                         </span>
                       </TableCell>
                       <TableCell className="py-3 text-center">
-                        <span className="text-[13px] text-[#64748B]">
+                        <span className="text-[13px] text-muted-foreground">
                           {r.leadTimeDays ?? "-"}
                         </span>
                       </TableCell>
                       <TableCell className="py-3">
-                        <span className="font-mono text-[13px] text-[#64748B]">
+                        <span className="font-mono text-[13px] text-muted-foreground">
                           {r.driverNo}
                         </span>
                       </TableCell>
                       <TableCell className="py-3">
                         <div
-                          className="font-mono text-[13px] text-[#64748B] truncate max-w-[150px]"
+                          className="font-mono text-[13px] text-muted-foreground truncate max-w-[150px]"
                           title={r.billNo}
                         >
                           {group.isGrouped ? (
                             <span>
                               {group.children[0].billNo || "-"}{" "}
                               {group.children.length > 1 && (
-                                <span className="text-slate-400 font-normal">
+                                <span className="text-slate-400 dark:text-slate-500 font-normal">
                                   (+{group.children.length - 1} more)
                                 </span>
                               )}
@@ -1369,7 +1388,7 @@ export function FullKittingHistory() {
                       </TableCell>
                       <TableCell className="py-3">
                         <div
-                          className="font-mono text-[13px] text-[#64748B] truncate max-w-[150px]"
+                          className="font-mono text-[13px] text-muted-foreground truncate max-w-[150px]"
                           title={r.fullkittingRemarks}
                         >
                           {group.isGrouped ? (
@@ -1391,13 +1410,13 @@ export function FullKittingHistory() {
                             href={r.transporterBillImage}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 px-2 py-1 text-[12px] font-semibold text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap"
+                            className="inline-flex items-center gap-1.5 px-2 py-1 text-[12px] font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors whitespace-nowrap"
                           >
                             <FileText className="w-3.5 h-3.5" />
                             View
                           </a>
                         ) : (
-                          <span className="text-[13px] text-[#64748B]">-</span>
+                          <span className="text-[13px] text-muted-foreground">-</span>
                         )}
                       </TableCell>
                       <TableCell className="py-3">
@@ -1406,7 +1425,7 @@ export function FullKittingHistory() {
                             href={r.billImage}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 px-2 py-1 text-[12px] font-semibold text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap"
+                            className="inline-flex items-center gap-1.5 px-2 py-1 text-[12px] font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors whitespace-nowrap"
                           >
                             <FileText className="w-3.5 h-3.5" />
                             View
@@ -1421,7 +1440,7 @@ export function FullKittingHistory() {
                             href={r.biltyImage}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 px-2 py-1 text-[12px] font-semibold text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap"
+                            className="inline-flex items-center gap-1.5 px-2 py-1 text-[12px] font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors whitespace-nowrap"
                           >
                             <FileText className="w-3.5 h-3.5" />
                             View
@@ -1437,11 +1456,11 @@ export function FullKittingHistory() {
             </Table>
           </div>
 
-          <div className="px-4 py-2.5 border-t border-[#E2E8F0] bg-slate-50/30 text-[12px] text-[#64748B] flex justify-between items-center">
+          <div className="px-4 py-2.5 border-t border-border bg-slate-50/30 dark:bg-white/2 text-[12px] text-muted-foreground flex justify-between items-center">
             <div className="flex items-center gap-1">
               <IndianRupee className="w-3 h-3" />
               Total Freight:{" "}
-              <span className="font-semibold text-[#0F172A] ml-1">
+              <span className="font-semibold text-foreground ml-1">
                 {formatCurrency(
                   filtered.reduce((s, r) => s + (r.freightAmount ?? 0), 0),
                 )}
@@ -1458,9 +1477,9 @@ export function FullKittingHistory() {
 
           {/* Group Details Dialog Popup */}
           <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
-            <DialogContent className="w-[94vw] sm:max-w-[960px] max-h-[85vh] overflow-y-auto bg-white border border-[#E2E8F0] rounded-xl shadow-lg p-6">
-              <DialogHeader className="border-b border-[#E2E8F0] pb-4 mb-4">
-                <DialogTitle className="flex items-center gap-2 text-lg font-bold text-slate-800">
+            <DialogContent className="w-[94vw] sm:max-w-[960px] max-h-[85vh] overflow-y-auto bg-card border border-border rounded-xl shadow-lg p-6">
+              <DialogHeader className="border-b border-border pb-4 mb-4">
+                <DialogTitle className="flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-slate-200">
                   <PackageCheck className="w-5 h-5 text-blue-600" />
                   Kitting Group Details
                 </DialogTitle>
@@ -1469,65 +1488,65 @@ export function FullKittingHistory() {
               {selectedGroup && (
                 <div className="space-y-6">
                   {/* Group Overview Card */}
-                  <div className="bg-gradient-to-r from-blue-50/50 to-indigo-50/50 border border-blue-100/50 rounded-xl p-4">
+                  <div className="bg-gradient-to-r from-blue-50/50 to-indigo-50/50 dark:from-blue-950/10 dark:to-indigo-950/10 border border-blue-100/50 dark:border-blue-900/30 rounded-xl p-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
-                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Transporter</span>
-                        <p className="text-[13px] font-bold text-slate-800 mt-0.5">{selectedGroup.parent.transporterName}</p>
+                        <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Transporter</span>
+                        <p className="text-[13px] font-bold text-slate-800 dark:text-slate-200 mt-0.5">{selectedGroup.parent.transporterName}</p>
                       </div>
                       <div>
-                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Bilty Number</span>
-                        <p className="text-[13px] font-bold text-slate-800 mt-0.5">{selectedGroup.parent.biltyNumber}</p>
+                        <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Bilty Number</span>
+                        <p className="text-[13px] font-bold text-slate-800 dark:text-slate-200 mt-0.5">{selectedGroup.parent.biltyNumber}</p>
                       </div>
                       <div>
-                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Freight Amount</span>
-                        <p className="text-[14px] font-extrabold text-emerald-600 mt-0.5">{formatCurrency(selectedGroup.parent.freightAmount)}</p>
+                        <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Total Freight Amount</span>
+                        <p className="text-[14px] font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5">{formatCurrency(selectedGroup.parent.freightAmount)}</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Group's Shipments Table */}
                   <div>
-                    <h4 className="font-bold text-sm text-slate-700 mb-3 flex items-center gap-1.5">
+                    <h4 className="font-bold text-sm text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
                       <FileText className="w-4 h-4 text-blue-600" />
                       Shipments in Group ({selectedGroup.children.length})
                     </h4>
-                    <div className="rounded-xl border border-[#E2E8F0] bg-[#FFFFFF] overflow-hidden max-h-[300px] overflow-y-auto scrollbar-thin">
+                    <div className="rounded-xl border border-border bg-card overflow-hidden max-h-[300px] overflow-y-auto scrollbar-thin">
                       <Table className="min-w-max">
-                        <TableHeader className="bg-slate-50 sticky top-0 z-10">
-                          <TableRow className="border-b border-[#E2E8F0]">
-                            <TableHead className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider">Lift ID</TableHead>
-                            <TableHead className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider">Indent No</TableHead>
-                            <TableHead className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider">Date</TableHead>
-                            <TableHead className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider">Firm</TableHead>
-                            <TableHead className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider">Party / Vendor</TableHead>
-                            <TableHead className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider">Product</TableHead>
-                            <TableHead className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider text-right">Freight Amt</TableHead>
-                            <TableHead className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider text-center">Billing Qty</TableHead>
-                            <TableHead className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider text-center">Has Bilty</TableHead>
+                        <TableHeader className="bg-slate-50 dark:bg-white/5 sticky top-0 z-10">
+                          <TableRow className="border-b border-border">
+                            <TableHead className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Lift ID</TableHead>
+                            <TableHead className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Indent No</TableHead>
+                            <TableHead className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Date</TableHead>
+                            <TableHead className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Firm</TableHead>
+                            <TableHead className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Party / Vendor</TableHead>
+                            <TableHead className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Product</TableHead>
+                            <TableHead className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-right">Freight Amt</TableHead>
+                            <TableHead className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-center">Billing Qty</TableHead>
+                            <TableHead className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-center">Has Bilty</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {selectedGroup.children.map((child, cIdx) => (
-                            <TableRow key={`${child.liftId}-${cIdx}`} className="border-b border-[#E2E8F0] hover:bg-slate-50/50">
-                              <TableCell className="py-2.5 font-mono text-[12px] font-bold text-slate-800">{child.liftId}</TableCell>
-                              <TableCell className="py-2.5 font-mono text-[12px] text-[#64748B]">{child.indentNo}</TableCell>
-                              <TableCell className="py-2.5 text-[12px] text-[#64748B]">{formatDate(child.date)}</TableCell>
+                            <TableRow key={`${child.liftId}-${cIdx}`} className="border-b border-border hover:bg-slate-50/50 dark:hover:bg-white/5">
+                              <TableCell className="py-2.5 font-mono text-[12px] font-bold text-slate-800 dark:text-slate-200">{child.liftId}</TableCell>
+                              <TableCell className="py-2.5 font-mono text-[12px] text-muted-foreground">{child.indentNo}</TableCell>
+                              <TableCell className="py-2.5 text-[12px] text-muted-foreground">{formatDate(child.date)}</TableCell>
                               <TableCell className="py-2.5">
                                 {child.firmName ? (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 border border-[#E2E8F0] text-[#0F172A] font-semibold text-[11px]">
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 dark:bg-white/5 border border-border text-foreground font-semibold text-[11px]">
                                     {child.firmName}
                                   </span>
                                 ) : "-"}
                               </TableCell>
-                              <TableCell className="py-2.5 text-[12px] text-[#0F172A] max-w-[150px] truncate" title={child.partyName}>{child.partyName}</TableCell>
-                              <TableCell className="py-2.5 text-[12px] text-[#64748B] max-w-[150px] truncate" title={child.productName}>{child.productName}</TableCell>
-                              <TableCell className="py-2.5 text-right font-bold text-[12px] text-slate-850">{formatCurrency(child.freightAmount)}</TableCell>
-                              <TableCell className="py-2.5 text-center text-[12px] text-[#64748B]">{child.billingQty ?? "-"}</TableCell>
+                              <TableCell className="py-2.5 text-[12px] text-foreground max-w-[150px] truncate" title={child.partyName}>{child.partyName}</TableCell>
+                              <TableCell className="py-2.5 text-[12px] text-muted-foreground max-w-[150px] truncate" title={child.productName}>{child.productName}</TableCell>
+                              <TableCell className="py-2.5 text-right font-bold text-[12px] text-slate-800 dark:text-slate-200">{formatCurrency(child.freightAmount)}</TableCell>
+                              <TableCell className="py-2.5 text-center text-[12px] text-muted-foreground">{child.billingQty ?? "-"}</TableCell>
                               <TableCell className="py-2.5 text-center">
                                 <span className={cn(
                                   "inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-bold",
-                                  child.hasBilty === "Yes" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-rose-50 text-rose-700 border border-rose-200"
+                                  child.hasBilty === "Yes" ? "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800" : "bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800"
                                 )}>
                                   {child.hasBilty}
                                 </span>
@@ -1541,7 +1560,7 @@ export function FullKittingHistory() {
                 </div>
               )}
 
-              <DialogFooter className="mt-6 border-t border-[#E2E8F0] pt-4 flex gap-2 justify-end">
+              <DialogFooter className="mt-6 border-t border-border pt-4 flex gap-2 justify-end">
                 <Button
                   variant="outline"
                   onClick={() => {

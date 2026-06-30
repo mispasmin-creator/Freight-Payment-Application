@@ -6,7 +6,7 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
     <div
       data-slot="table-container"
-      className="sticky top-0 z-10 max-h-[calc(100vh-220px)] w-full overflow-auto bg-white"
+      className="sticky top-0 z-10 max-h-[calc(100vh-220px)] w-full overflow-auto bg-card"
     >
       <table
         data-slot="table"
@@ -21,7 +21,7 @@ function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
   return (
     <thead
       data-slot="table-header"
-      className={cn("sticky top-0 z-20 bg-slate-50/95 backdrop-blur [&_tr]:border-b [&_tr]:border-slate-200", className)}
+      className={cn("sticky top-0 z-20 bg-slate-50/95 dark:bg-white/5 backdrop-blur [&_tr]:border-b [&_tr]:border-slate-200 dark:[&_tr]:border-white/10", className)}
       {...props}
     />
   )
@@ -55,7 +55,7 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
     <tr
       data-slot="table-row"
       className={cn(
-        "border-b border-slate-100 transition-colors hover:bg-slate-50/80 has-aria-expanded:bg-slate-50 data-[state=selected]:bg-slate-50",
+        "border-b border-slate-100 dark:border-white/5 transition-colors hover:bg-slate-50/80 dark:hover:bg-white/5 has-aria-expanded:bg-slate-50 dark:has-aria-expanded:bg-slate-900/50 data-[state=selected]:bg-slate-50 dark:data-[state=selected]:bg-slate-900/50",
         className
       )}
       {...props}
@@ -81,7 +81,7 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
     <td
       data-slot="table-cell"
       className={cn(
-        "p-2 align-middle whitespace-nowrap text-slate-700 [&:has([role=checkbox])]:pr-0",
+        "p-2 align-middle whitespace-nowrap text-slate-700 dark:text-slate-300 [&:has([role=checkbox])]:pr-0",
         className
       )}
       {...props}

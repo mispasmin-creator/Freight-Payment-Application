@@ -408,14 +408,14 @@ export function FreightTable({
 
   if (isLoading) {
     return (
-      <div className="rounded-xl border bg-white overflow-hidden">
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
         <div className="p-6 space-y-4">
           {[...Array(5)].map((_, i) => (
             <div key={i} className="flex gap-4 animate-pulse">
-              <div className="h-4 w-20 bg-slate-200 rounded" />
-              <div className="h-4 w-32 bg-slate-200 rounded" />
-              <div className="h-4 w-28 bg-slate-200 rounded" />
-              <div className="h-4 w-24 bg-slate-200 rounded ml-auto" />
+              <div className="h-4 w-20 bg-slate-200 dark:bg-slate-800 rounded" />
+              <div className="h-4 w-32 bg-slate-200 dark:bg-slate-800 rounded" />
+              <div className="h-4 w-28 bg-slate-200 dark:bg-slate-800 rounded" />
+              <div className="h-4 w-24 bg-slate-200 dark:bg-slate-800 rounded ml-auto" />
             </div>
           ))}
         </div>
@@ -424,9 +424,9 @@ export function FreightTable({
   }
 
   return (
-    <div className="w-full rounded-xl border bg-white overflow-hidden shadow-sm">
+    <div className="w-full rounded-xl border border-border bg-card overflow-hidden shadow-sm">
       {/* Header Toolbar */}
-      <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b bg-slate-50/50">
+      <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-border bg-slate-50/50 dark:bg-white/5">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
@@ -434,17 +434,17 @@ export function FreightTable({
             placeholder="Search shipments..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-8 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
+            className="w-full pl-9 pr-8 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-card text-foreground placeholder:text-slate-400 dark:placeholder:text-slate-500"
           />
           {searchTerm && (
             <button onClick={() => setSearchTerm("")} className="absolute right-2 top-1/2 -translate-y-1/2">
-              <X className="w-4 h-4 text-slate-400 hover:text-slate-600" />
+              <X className="w-4 h-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300" />
             </button>
           )}
         </div>
 
         <Select value={firmFilter} onValueChange={(value) => setFirmFilter(value ?? "all")}>
-          <SelectTrigger className="h-9 w-[140px] bg-white">
+          <SelectTrigger className="h-9 w-[140px] bg-card border-border text-foreground">
             <Building2 className="w-4 h-4 mr-2 text-slate-400" />
             <SelectValue placeholder="All firms" />
           </SelectTrigger>
@@ -457,7 +457,7 @@ export function FreightTable({
         </Select>
 
         <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value ?? "all")}>
-          <SelectTrigger className="h-9 w-[140px] bg-white">
+          <SelectTrigger className="h-9 w-[140px] bg-card border-border text-foreground">
             <Filter className="w-4 h-4 mr-2 text-slate-400" />
             <SelectValue placeholder="All status" />
           </SelectTrigger>
@@ -470,15 +470,15 @@ export function FreightTable({
         </Select>
 
         {(searchTerm || firmFilter !== "all" || statusFilter !== "all") && (
-          <Button variant="ghost" size="sm" onClick={() => { setSearchTerm(""); setFirmFilter("all"); setStatusFilter("all"); }} className="h-9 text-slate-500">
+          <Button variant="ghost" size="sm" onClick={() => { setSearchTerm(""); setFirmFilter("all"); setStatusFilter("all"); }} className="h-9 text-slate-500 dark:text-slate-400">
             <RotateCcw className="w-3.5 h-3.5 mr-1" />
             Clear
           </Button>
         )}
 
-        <div className="ml-auto text-sm text-slate-500">
-          <span className="font-semibold text-slate-700">{filteredPayments.length}</span> of{" "}
-          <span className="font-semibold text-slate-700">{payments.length}</span> shipments
+        <div className="ml-auto text-sm text-muted-foreground">
+          <span className="font-semibold text-foreground">{filteredPayments.length}</span> of{" "}
+          <span className="font-semibold text-foreground">{payments.length}</span> shipments
         </div>
       </div>
 
@@ -547,9 +547,9 @@ export function FreightTable({
       {/* Desktop Table */}
       <div className="hidden md:block overflow-x-auto">
         <Table>
-          <TableHeader className="bg-slate-50 sticky top-0">
-            <TableRow>
-              <TableHead className="sticky left-0 bg-slate-50 z-10 w-[70px]">Action</TableHead>
+          <TableHeader className="bg-slate-50 dark:bg-white/5 sticky top-0">
+            <TableRow className="border-b border-border bg-[#F1F5F9] dark:bg-slate-900 hover:bg-[#F1F5F9] dark:hover:bg-slate-900">
+              <TableHead className="sticky left-0 bg-slate-50 dark:bg-slate-900 z-10 w-[70px]">Action</TableHead>
               {columnDefs.map((col) => (
                 <TableHead key={col.key} style={{ width: col.width }} className={cn(col.align === "right" && "text-right", col.align === "center" && "text-center")}>
                   {col.label}
@@ -559,8 +559,8 @@ export function FreightTable({
           </TableHeader>
           <TableBody>
             {groupedPayments.map((group, idx) => (
-              <TableRow key={group.key} className={cn("hover:bg-slate-50/80", idx % 2 === 0 ? "bg-white" : "bg-slate-50/30")}>
-                <TableCell className="sticky left-0 bg-inherit">
+              <TableRow key={group.key} className={cn("hover:bg-slate-50/80 dark:hover:bg-white/5", idx % 2 === 0 ? "bg-card" : "bg-slate-50/30 dark:bg-white/2")}>
+                <TableCell className="sticky left-0 bg-inherit border-r border-border">
                   <Button onClick={() => openDetailModal(group)} size="sm" className="h-8 px-3 bg-blue-600 hover:bg-blue-700 text-white text-xs">
                     {subTab === "history" ? <Eye className="w-3.5 h-3.5 mr-1" /> : <Check className="w-3.5 h-3.5 mr-1" />}
                     {subTab === "history" ? "View" : "Update"}
@@ -570,11 +570,11 @@ export function FreightTable({
                   <TableCell key={col.key} className={cn("py-3", col.align === "right" && "text-right", col.align === "center" && "text-center")}>
                     {col.key === "transporterName" ? (
                       <div className="flex items-center gap-1.5">
-                        <span className="text-xs text-slate-600 truncate block" title={group.parent["Transporter Name"]}>
+                        <span className="text-xs text-slate-600 dark:text-slate-300 truncate block" title={group.parent["Transporter Name"]}>
                           {group.parent["Transporter Name"] || "—"}
                         </span>
                         {group.isGrouped && (
-                          <span className="px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold shrink-0">
+                          <span className="px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 text-[10px] font-bold shrink-0">
                             {group.children.length}
                           </span>
                         )}
@@ -589,14 +589,14 @@ export function FreightTable({
       </div>
 
       {/* Footer */}
-      <div className="px-4 py-3 border-t bg-slate-50/50 flex justify-between items-center text-sm">
-        <span className="text-slate-500">Total Amount: <strong className="text-slate-700">{formatCurrency(filteredPayments.reduce((sum, p) => sum + (p.Amount || 0), 0))}</strong></span>
-        <span className="text-slate-400 text-xs">Updated: {new Date().toLocaleDateString("en-IN")}</span>
+      <div className="px-4 py-3 border-t border-border bg-slate-50/50 dark:bg-white/5 flex justify-between items-center text-sm">
+        <span className="text-muted-foreground">Total Amount: <strong className="text-foreground">{formatCurrency(filteredPayments.reduce((sum, p) => sum + (p.Amount || 0), 0))}</strong></span>
+        <span className="text-slate-400 dark:text-slate-500 text-xs">Updated: {new Date().toLocaleDateString("en-IN")}</span>
       </div>
 
       {/* Detail Modal */}
       <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
-        <DialogContent className="w-[94vw] sm:max-w-[920px] max-h-[85vh] overflow-y-auto">
+        <DialogContent className="w-[94vw] sm:max-w-[920px] max-h-[85vh] overflow-y-auto bg-card border border-border">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="w-5 h-5 text-blue-600" />
@@ -607,41 +607,41 @@ export function FreightTable({
           {selectedPayment && (
             <div className="space-y-5">
               {/* Header Card */}
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4">
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/15 dark:to-indigo-950/15 border border-blue-100/50 dark:border-blue-900/30 rounded-xl p-4">
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="text-xs text-slate-500 uppercase tracking-wide">
                       {selectedGroup?.isGrouped ? "Group Unique ID (First)" : "Unique ID"}
                     </p>
-                    <p className="font-mono font-bold text-lg">{selectedPayment["Unique Number"] || `#${selectedPayment.id}`}</p>
+                    <p className="font-mono font-bold text-lg text-slate-800 dark:text-slate-200">{selectedPayment["Unique Number"] || `#${selectedPayment.id}`}</p>
                   </div>
                   <div className="flex flex-col items-end gap-1.5">
                     <StatusBadge status={selectedPayment.Status} />
                     {selectedGroup?.isGrouped && (
-                      <span className="px-2 py-0.5 text-[10px] font-bold bg-blue-100 text-blue-700 rounded-md">
+                      <span className="px-2 py-0.5 text-[10px] font-bold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-md">
                         {selectedGroup.children.length} Shipments Merged
                       </span>
                     )}
                   </div>
                 </div>
                 <div className={cn(
-                  "grid gap-4 mt-3 pt-3 border-t border-blue-100/50",
+                  "grid gap-4 mt-3 pt-3 border-t border-blue-100/50 dark:border-blue-900/30",
                   selectedPayment.PostingAmount !== undefined ? "grid-cols-3" : "grid-cols-2"
                 )}>
                   <div>
                     <p className="text-xs text-slate-500">Firm</p>
-                    <p className="font-semibold">{selectedPayment["Firm Name"] || "—"}</p>
+                    <p className="font-semibold text-slate-700 dark:text-slate-200">{selectedPayment["Firm Name"] || "—"}</p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-500">
                       {selectedGroup?.isGrouped ? "Total Amount" : "Amount"}
                     </p>
-                    <p className="font-bold text-lg text-emerald-600">{formatCurrency(selectedPayment.Amount)}</p>
+                    <p className="font-bold text-lg text-emerald-600 dark:text-emerald-400">{formatCurrency(selectedPayment.Amount)}</p>
                   </div>
                   {selectedPayment.PostingAmount !== undefined && (
                     <div>
                       <p className="text-xs text-slate-500">Paid Amount</p>
-                      <p className="font-bold text-lg text-blue-600">{formatCurrency(selectedPayment.PostingAmount)}</p>
+                      <p className="font-bold text-lg text-blue-600 dark:text-blue-400">{formatCurrency(selectedPayment.PostingAmount)}</p>
                     </div>
                   )}
                 </div>
@@ -702,15 +702,15 @@ export function FreightTable({
 
               {/* Group's Shipments Table (Only shown for grouped rows) */}
               {selectedGroup?.isGrouped && (
-                <div className="border-t pt-4">
-                  <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                <div className="border-t border-border pt-4">
+                  <h4 className="font-semibold text-sm mb-3 flex items-center gap-2 text-slate-800 dark:text-slate-200">
                     <FileText className="w-4 h-4 text-blue-600" />
                     Merged Shipments ({selectedGroup.children.length})
                   </h4>
-                  <div className="rounded-xl border border-slate-200 bg-white overflow-hidden max-h-[300px] overflow-y-auto">
+                  <div className="rounded-xl border border-border bg-card overflow-hidden max-h-[300px] overflow-y-auto">
                     <Table>
-                      <TableHeader className="bg-slate-50 sticky top-0">
-                        <TableRow>
+                      <TableHeader className="bg-slate-50 dark:bg-white/5 sticky top-0">
+                        <TableRow className="border-b border-border">
                           <TableHead className="w-[120px]">ID</TableHead>
                           <TableHead className="w-[100px]">Firm</TableHead>
                           <TableHead>Party Name</TableHead>
@@ -727,19 +727,19 @@ export function FreightTable({
                       </TableHeader>
                       <TableBody>
                         {selectedGroup.children.map((child: FreightPayment, childIdx: number) => (
-                          <TableRow key={child.id || childIdx} className="hover:bg-slate-50/50">
+                          <TableRow key={child.id || childIdx} className="hover:bg-slate-50/50 dark:hover:bg-white/5">
                             <TableCell className="font-mono text-xs text-slate-500 py-2.5">
                               {child["Unique Number"] || "—"}
                             </TableCell>
                             <TableCell className="py-2.5">
-                              <span className="px-2 py-0.5 rounded-md bg-slate-100 text-[11px] font-semibold">
+                              <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-white/5 border border-border text-[11px] font-semibold text-foreground">
                                 {child["Firm Name"] || "—"}
                               </span>
                             </TableCell>
-                            <TableCell className="text-xs text-slate-700 py-2.5 max-w-[120px] truncate" title={child["Party Name"] || undefined}>
+                            <TableCell className="text-xs text-slate-700 dark:text-slate-300 py-2.5 max-w-[120px] truncate" title={child["Party Name"] || undefined}>
                               {child["Party Name"] || "—"}
                             </TableCell>
-                            <TableCell className="text-xs text-slate-700 py-2.5 max-w-[150px] truncate" title={child["Material Load Details"] || undefined}>
+                            <TableCell className="text-xs text-slate-700 dark:text-slate-300 py-2.5 max-w-[150px] truncate" title={child["Material Load Details"] || undefined}>
                               {child["Material Load Details"] || "—"}
                             </TableCell>
                             <TableCell className="font-mono text-xs py-2.5">
@@ -769,7 +769,7 @@ export function FreightTable({
                               </TableCell>
                             )}
                             {activeTab === "makepayment" && (
-                              <TableCell className="text-xs text-slate-700 py-2.5 max-w-[150px] truncate" title={child.Remark_1 || undefined}>
+                              <TableCell className="text-xs text-slate-700 dark:text-slate-300 py-2.5 max-w-[150px] truncate" title={child.Remark_1 || undefined}>
                                 {child.Remark_1 || "—"}
                               </TableCell>
                             )}
@@ -806,8 +806,8 @@ export function FreightTable({
 
               {/* Update Section for pending tab */}
               {subTab !== "history" && onQuickUpdate && (
-                <div className="border-t pt-4 mt-2">
-                  <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                <div className="border-t border-border pt-4 mt-2">
+                  <h4 className="font-semibold text-sm mb-3 flex items-center gap-2 text-slate-800 dark:text-slate-200">
                     <Check className="w-4 h-4 text-green-600" />
                     Update {getStepName()}
                   </h4>
@@ -816,9 +816,9 @@ export function FreightTable({
                     activeTab === "posting" ? "sm:grid-cols-[160px_160px_1fr]" : "sm:grid-cols-[160px_1fr]"
                   )}>
                     <div>
-                      <Label className="text-xs text-slate-500">Status</Label>
+                      <Label className="text-xs text-slate-500 dark:text-slate-400">Status</Label>
                       <Select value={updateStatus} onValueChange={(value) => setUpdateStatus(value ?? "")}> 
-                        <SelectTrigger className="mt-1">
+                        <SelectTrigger className="mt-1 bg-card border border-border text-foreground">
                           <SelectValue placeholder="Select status" />
                         </SelectTrigger>
                         <SelectContent>
@@ -829,18 +829,18 @@ export function FreightTable({
                     </div>
                     {activeTab === "posting" && (
                       <div>
-                        <Label className="text-xs text-slate-500">Amount (₹)</Label>
+                        <Label className="text-xs text-slate-500 dark:text-slate-400">Amount (₹)</Label>
                         <Input
                           type="number"
                           value={updateAmount}
                           onChange={(e) => setUpdateAmount(e.target.value === "" ? "" : Number(e.target.value))}
                           placeholder="Enter amount..."
-                          className="mt-1"
+                          className="mt-1 bg-card border border-border text-foreground"
                         />
                       </div>
                     )}
                     <div>
-                      <Label className="text-xs text-slate-500 flex items-center gap-1">
+                      <Label className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
                         <MessageSquare className="w-3.5 h-3.5" />
                         Remark
                       </Label>
@@ -848,19 +848,19 @@ export function FreightTable({
                         value={updateRemark}
                         onChange={(e) => setUpdateRemark(e.target.value)}
                         placeholder="Add a remark..."
-                        className="mt-1"
+                        className="mt-1 bg-card border border-border text-foreground"
                       />
                     </div>
                   </div>
 
                   {activeTab === "posting" && (
                     <div className="space-y-1.5 mt-4">
-                      <Label className="text-xs text-slate-500 flex items-center gap-1">
+                      <Label className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
                         <Image className="w-3.5 h-3.5" />
                         Audit Image
                       </Label>
                       {updateAuditImage ? (
-                        <div className="flex items-center gap-3 h-9 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg px-3">
+                        <div className="flex items-center gap-3 h-9 bg-white dark:bg-slate-900 border border-border rounded-lg px-3">
                           <a
                             href={updateAuditImage}
                             target="_blank"
@@ -881,7 +881,7 @@ export function FreightTable({
                         <div className="relative">
                           <label
                             className={cn(
-                              "flex items-center justify-center gap-2 h-9 bg-white dark:bg-slate-900 border border-dashed border-slate-300 dark:border-white/20 rounded-lg text-[12px] font-medium text-slate-600 dark:text-slate-300 cursor-pointer hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors",
+                              "flex items-center justify-center gap-2 h-9 bg-white dark:bg-slate-900 border border-dashed border-border rounded-lg text-[12px] font-medium text-slate-600 dark:text-slate-300 cursor-pointer hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors",
                               isUploading && "opacity-50 pointer-events-none"
                             )}
                           >
@@ -916,7 +916,7 @@ export function FreightTable({
             </div>
           )}
 
-          <DialogFooter className="mt-4">
+          <DialogFooter className="mt-4 border-t border-border pt-4">
             <Button variant="outline" onClick={() => setShowDetailModal(false)}>Cancel</Button>
             {subTab !== "history" && onQuickUpdate && (
               <Button onClick={handleUpdate} disabled={!updateStatus} className="bg-blue-600 hover:bg-blue-700">
@@ -934,11 +934,11 @@ export function FreightTable({
 // Helper Component
 function DetailItem({ icon: Icon, label, value }: { icon: any; label: string; value?: string | null }) {
   return (
-    <div className="flex items-start gap-2 p-2 rounded-lg bg-slate-50/50">
-      <Icon className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+    <div className="flex items-start gap-2 p-2 rounded-lg bg-slate-50/50 dark:bg-white/5 border border-border/20">
+      <Icon className="w-4 h-4 text-slate-400 dark:text-slate-500 mt-0.5 shrink-0" />
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{label}</p>
-        <p className="text-sm font-medium text-slate-700 truncate" title={value || "—"}>{value || "—"}</p>
+        <p className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">{label}</p>
+        <p className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate" title={value || "—"}>{value || "—"}</p>
       </div>
     </div>
   );

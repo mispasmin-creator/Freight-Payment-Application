@@ -1,7 +1,7 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Banknote, FileText, LayoutDashboard, Loader2, Package, Package2, Users, WifiOff } from "lucide-react";
+import { Banknote, FileText, LayoutDashboard, Loader2, Package, Package2, RefreshCw, Users, WifiOff } from "lucide-react";
 import { api, LoginUser, purchaseSupabase, orderSupabase } from "@/api";
 import { FreightPayment } from "@/types";
 import { FreightForm } from "@/components/FreightForm";
@@ -62,6 +62,12 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
   });
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [formStep, setFormStep] = useState<string>("posting");
+  const [isSoftRefreshing, setIsSoftRefreshing] = useState(false);
+  const [kittingRefreshTrigger, setKittingRefreshTrigger] = useState(0);
+
+  const handleKittingRefreshDone = useCallback(() => {
+    setIsSoftRefreshing(false);
+  }, []);
 
   // Dark mode state — persisted in localStorage
   const [darkMode, setDarkMode] = useState(() => {
@@ -656,27 +662,62 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
                       </TabsTrigger>
                     </TabsList>
 
-                    <div className="flex items-center gap-2 text-[9.5px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-wider">
-                      {error ? (
-                        <>
-                          <WifiOff className="w-3 h-3 text-rose-500" />
-                          <span className="text-rose-500">Offline mode</span>
-                        </>
-                      ) : (
-                        <>
-                          <span className="relative flex h-1.5 w-1.5">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
-                          </span>
-                          <span>Live sync</span>
-                        </>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 text-[9.5px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-wider">
+                        {error ? (
+                          <>
+                            <WifiOff className="w-3 h-3 text-rose-500" />
+                            <span className="text-rose-500">Offline mode</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="relative flex h-1.5 w-1.5">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                            </span>
+                            <span>Live sync</span>
+                          </>
+                        )}
+                      </div>
+
+                      {activeTab === "checkkitting" && (
+                        <button
+                          onClick={async () => {
+                            if (!isSoftRefreshing) {
+                              setIsSoftRefreshing(true);
+                              setKittingRefreshTrigger((prev) => prev + 1);
+                              try {
+                                await refetch();
+                              } catch (e) {
+                                console.error(e);
+                              } finally {
+                                if (subTab === "history") {
+                                  setIsSoftRefreshing(false);
+                                }
+                              }
+                            }
+                          }}
+                          disabled={isSoftRefreshing}
+                          className="flex items-center justify-center p-1 rounded-md text-slate-400 dark:text-slate-600 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 active:scale-95 transition-all disabled:opacity-50"
+                          title="Soft Refresh"
+                        >
+                          <RefreshCw
+                            className={cn(
+                              "w-3.5 h-3.5",
+                              isSoftRefreshing && "animate-spin text-brand-500"
+                            )}
+                          />
+                        </button>
                       )}
                     </div>
                   </div>
 
                   <TabsContent value="pending" className="mt-0">
                     {activeTab === "checkkitting" ? (
-                      <FullKittingHistory />
+                      <FullKittingHistory
+                        refreshTrigger={kittingRefreshTrigger}
+                        onRefreshDone={handleKittingRefreshDone}
+                      />
                     ) : (
                       <FreightTable
                         payments={payments}
