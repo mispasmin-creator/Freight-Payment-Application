@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { StatusBadge } from "./StatusBadge";
 import { Button } from "@/components/ui/button";
 import { formatDelayDuration } from "@/lib/delay";
@@ -100,6 +101,7 @@ export function FreightTable({
   const [selectedGroup, setSelectedGroup] = useState<any | null>(null);
   const [updateAuditImage, setUpdateAuditImage] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedModalItems, setSelectedModalItems] = useState<Set<number>>(new Set());
 
   const getStepField = useCallback((payment: FreightPayment, field: string) => {
     const stepMap: Record<string, any> = {
@@ -198,9 +200,30 @@ export function FreightTable({
     const groups = new Map<string, FreightPayment[]>();
     filteredPayments.forEach((payment) => {
       const transporter = normalizeGroupValue(payment["Transporter Name"]);
-      const key = transporter
-        ? `transporter:${transporter}`
-        : `single:${payment.id}`;
+      
+      let datePart = "";
+      const rawDate = payment.Timestamp || payment.created_at || payment.Actual || payment.Actual2 || payment.Actual3 || payment.Actual4 || "";
+      if (rawDate) {
+        try {
+          const d = new Date(rawDate);
+          if (!isNaN(d.getTime())) {
+            datePart = d.toISOString().split('T')[0];
+          } else {
+            datePart = String(rawDate).split(' ')[0] || String(rawDate).split('T')[0];
+          }
+        } catch {
+          datePart = String(rawDate);
+        }
+      }
+
+      let key = "";
+      if (payment["Batch Number"]) {
+        key = `batch:${payment["Batch Number"]}`;
+      } else {
+        key = transporter
+          ? (datePart ? `transporter:${transporter}_${datePart}` : `transporter:${transporter}`)
+          : `single:${payment.id}`;
+      }
       const existing = groups.get(key) || [];
       existing.push(payment);
       groups.set(key, existing);
@@ -251,22 +274,28 @@ export function FreightTable({
       const amt = updateAmount === "" ? undefined : Number(updateAmount);
       
       if (selectedGroup && selectedGroup.isGrouped) {
+        const selectedChildren = selectedGroup.children.filter((c: FreightPayment) => selectedModalItems.has(c.id));
+        if (selectedChildren.length === 0) {
+          setShowDetailModal(false);
+          return;
+        }
+        
         const totalAmountInPaise = amt !== undefined ? Math.round(amt * 100) : undefined;
-        const currentTotal = selectedGroup.children.reduce((sum: number, child: FreightPayment) => sum + (child.Amount || 0), 0);
+        const currentTotal = selectedChildren.reduce((sum: number, child: FreightPayment) => sum + (child.Amount || 0), 0);
         
         const childAmounts: number[] = [];
-        selectedGroup.children.forEach((child: FreightPayment) => {
+        selectedChildren.forEach((child: FreightPayment) => {
           let childAmount = child.Amount;
           if (totalAmountInPaise !== undefined) {
-            if (selectedGroup.children.length === 1) {
+            if (selectedChildren.length === 1) {
               childAmount = amt;
             } else {
-              const isLastChild = child === selectedGroup.children[selectedGroup.children.length - 1];
+              const isLastChild = child === selectedChildren[selectedChildren.length - 1];
               if (currentTotal === 0) {
                 childAmount = isLastChild ? amt : 0;
               } else {
                 if (isLastChild) {
-                  const sumOfOthers = selectedGroup.children.slice(0, -1).reduce((sum: number, c: FreightPayment) => {
+                  const sumOfOthers = selectedChildren.slice(0, -1).reduce((sum: number, c: FreightPayment) => {
                     const share = Math.round(totalAmountInPaise * (c.Amount || 0) / currentTotal);
                     return sum + Number((share / 100).toFixed(2));
                   }, 0);
@@ -280,9 +309,23 @@ export function FreightTable({
           }
           childAmounts.push(childAmount);
         });
-        onQuickUpdate(selectedGroup.children, activeTab, "yes", undefined, updateStatus, updateRemark, childAmounts, activeTab === "posting" ? updateAuditImage : undefined);
+        
+        const batchId = `BATCH-${Date.now()}`;
+        // Map the selected items and add the batch ID directly here or pass it if onQuickUpdate accepts it
+        // Wait, onQuickUpdate receives the whole payment object. We can just attach Batch Number to it.
+        const itemsToSubmit = selectedChildren.map((child: FreightPayment) => ({
+          ...child,
+          "Batch Number": batchId
+        }));
+        
+        onQuickUpdate(itemsToSubmit, activeTab, "yes", undefined, updateStatus, updateRemark, childAmounts, activeTab === "posting" ? updateAuditImage : undefined);
       } else {
-        onQuickUpdate(selectedPayment, activeTab, "yes", undefined, updateStatus, updateRemark, amt, activeTab === "posting" ? updateAuditImage : undefined);
+        const batchId = `BATCH-${Date.now()}`;
+        const itemToSubmit = {
+          ...selectedPayment,
+          "Batch Number": batchId
+        };
+        onQuickUpdate(itemToSubmit, activeTab, "yes", undefined, updateStatus, updateRemark, amt, activeTab === "posting" ? updateAuditImage : undefined);
       }
       
       setShowDetailModal(false);
@@ -292,13 +335,19 @@ export function FreightTable({
       setUpdateRemark("");
       setUpdateAmount("");
       setUpdateAuditImage("");
+      setSelectedModalItems(new Set());
     }
-  }, [selectedPayment, selectedGroup, updateStatus, updateRemark, updateAmount, updateAuditImage, onQuickUpdate, activeTab]);
+  }, [selectedPayment, selectedGroup, updateStatus, updateRemark, updateAmount, updateAuditImage, onQuickUpdate, activeTab, selectedModalItems]);
 
   const openDetailModal = useCallback((group: any) => {
     const payment = group.parent;
     setSelectedPayment(payment);
     setSelectedGroup(group);
+    if (group.isGrouped) {
+      setSelectedModalItems(new Set(group.children.map((c: FreightPayment) => c.id)));
+    } else {
+      setSelectedModalItems(new Set([payment.id]));
+    }
     setUpdateStatus(String(getStepField(payment, "status") || ""));
     setUpdateRemark(String(getStepField(payment, "remark") || ""));
     setUpdateAmount(payment.Amount !== undefined && payment.Amount !== null ? payment.Amount : "");
@@ -711,6 +760,13 @@ export function FreightTable({
                     <Table>
                       <TableHeader className="bg-slate-50 dark:bg-white/5 sticky top-0">
                         <TableRow className="border-b border-border">
+                          <TableHead className="w-10 text-center"><Checkbox checked={selectedModalItems.size === selectedGroup.children.length && selectedGroup.children.length > 0} onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedModalItems(new Set(selectedGroup.children.map((c: FreightPayment) => c.id)));
+                              } else {
+                                setSelectedModalItems(new Set());
+                              }
+                            }} /></TableHead>
                           <TableHead className="w-[120px]">ID</TableHead>
                           <TableHead className="w-[100px]">Firm</TableHead>
                           <TableHead>Party Name</TableHead>
@@ -727,7 +783,7 @@ export function FreightTable({
                       </TableHeader>
                       <TableBody>
                         {selectedGroup.children.map((child: FreightPayment, childIdx: number) => (
-                          <TableRow key={child.id || childIdx} className="hover:bg-slate-50/50 dark:hover:bg-white/5">
+                          <TableRow key={child.id || childIdx} className="hover:bg-slate-50/50">
                             <TableCell className="font-mono text-xs text-slate-500 py-2.5">
                               {child["Unique Number"] || "—"}
                             </TableCell>

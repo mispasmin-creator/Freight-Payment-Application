@@ -17,6 +17,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Calendar,
   ExternalLink,
@@ -237,7 +238,7 @@ const getRowUniqueId = (row: KittingHistoryItem): string => {
   );
 };
 
-const toSystemPayment = (row: KittingHistoryItem): Partial<FreightPayment> => {
+const toSystemPayment = (row: KittingHistoryItem, batchId?: string): Partial<FreightPayment> => {
   const uniqueId = getRowUniqueId(row);
   return {
     "Payment Number": uniqueId,
@@ -259,6 +260,7 @@ const toSystemPayment = (row: KittingHistoryItem): Partial<FreightPayment> => {
     "Billing Qty": row.billingQty ?? undefined,
     "Bill Number": row.billNo || undefined,
     Remark3: row.fullkittingRemarks,
+    "Batch Number": batchId,
   };
 };
 
@@ -476,10 +478,11 @@ export function FullKittingHistory({
   const [selectedGroup, setSelectedGroup] = useState<GroupedKittingHistory | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [isProcessingGroup, setIsProcessingGroup] = useState(false);
-  const isInitialLoad = useRef(true);
+  const [selectedModalItems, setSelectedModalItems] = useState<Set<string>>(new Set());
 
   const openDetailModal = (group: GroupedKittingHistory) => {
     setSelectedGroup(group);
+    setSelectedModalItems(new Set(group.children.map(getRowUniqueId)));
     setShowDetailModal(true);
   };
 
@@ -487,11 +490,13 @@ export function FullKittingHistory({
     setIsProcessingGroup(group.children.length > 0);
     setProcessMessage(null);
     let successCount = 0;
+    const batchId = `BATCH-${Date.now()}`;
     try {
       for (const row of group.children) {
         const uniqueId = getRowUniqueId(row);
+        if (!selectedModalItems.has(uniqueId)) continue;
         setProcessingId(uniqueId);
-        await api.processKittingPayment(toSystemPayment(row));
+        await api.processKittingPayment(toSystemPayment(row, batchId));
         setProcessedIds((prev) => {
           const next = new Set(prev);
           next.add(uniqueId);
@@ -1513,46 +1518,69 @@ export function FullKittingHistory({
                     </h4>
                     <div className="rounded-xl border border-border bg-card overflow-hidden max-h-[300px] overflow-y-auto scrollbar-thin">
                       <Table className="min-w-max">
-                        <TableHeader className="bg-slate-50 dark:bg-white/5 sticky top-0 z-10">
-                          <TableRow className="border-b border-border">
-                            <TableHead className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Lift ID</TableHead>
-                            <TableHead className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Indent No</TableHead>
-                            <TableHead className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Date</TableHead>
-                            <TableHead className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Firm</TableHead>
-                            <TableHead className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Party / Vendor</TableHead>
-                            <TableHead className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Product</TableHead>
-                            <TableHead className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-right">Freight Amt</TableHead>
-                            <TableHead className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-center">Billing Qty</TableHead>
-                            <TableHead className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-center">Has Bilty</TableHead>
+                        <TableHeader className="bg-slate-50 sticky top-0 z-10">
+                          <TableRow className="border-b border-[#E2E8F0]">
+                            <TableHead className="w-10 text-center"><Checkbox checked={selectedModalItems.size === selectedGroup.children.length && selectedGroup.children.length > 0} onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedModalItems(new Set(selectedGroup.children.map(getRowUniqueId)));
+                              } else {
+                                setSelectedModalItems(new Set());
+                              }
+                            }} /></TableHead>
+                            <TableHead className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider">Lift ID</TableHead>
+                            <TableHead className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider">Indent No</TableHead>
+                            <TableHead className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider">Date</TableHead>
+                            <TableHead className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider">Firm</TableHead>
+                            <TableHead className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider">Party / Vendor</TableHead>
+                            <TableHead className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider">Product</TableHead>
+                            <TableHead className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider text-right">Freight Amt</TableHead>
+                            <TableHead className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider text-center">Billing Qty</TableHead>
+                            <TableHead className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider text-center">Has Bilty</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {selectedGroup.children.map((child, cIdx) => (
-                            <TableRow key={`${child.liftId}-${cIdx}`} className="border-b border-border hover:bg-slate-50/50 dark:hover:bg-white/5">
-                              <TableCell className="py-2.5 font-mono text-[12px] font-bold text-slate-800 dark:text-slate-200">{child.liftId}</TableCell>
-                              <TableCell className="py-2.5 font-mono text-[12px] text-muted-foreground">{child.indentNo}</TableCell>
-                              <TableCell className="py-2.5 text-[12px] text-muted-foreground">{formatDate(child.date)}</TableCell>
-                              <TableCell className="py-2.5">
-                                {child.firmName ? (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 dark:bg-white/5 border border-border text-foreground font-semibold text-[11px]">
-                                    {child.firmName}
+                          {selectedGroup.children.map((child, cIdx) => {
+                            const uId = getRowUniqueId(child);
+                            return (
+                              <TableRow key={`${child.liftId}-${cIdx}`} className="border-b border-[#E2E8F0] hover:bg-slate-50/50">
+                                <TableCell className="text-center py-2.5">
+                                  <Checkbox 
+                                    checked={selectedModalItems.has(uId)} 
+                                    onCheckedChange={(checked) => {
+                                      setSelectedModalItems(prev => {
+                                        const next = new Set(prev);
+                                        if (checked) next.add(uId);
+                                        else next.delete(uId);
+                                        return next;
+                                      });
+                                    }} 
+                                  />
+                                </TableCell>
+                                <TableCell className="py-2.5 font-mono text-[12px] font-bold text-slate-800">{child.liftId}</TableCell>
+                                <TableCell className="py-2.5 font-mono text-[12px] text-[#64748B]">{child.indentNo}</TableCell>
+                                <TableCell className="py-2.5 text-[12px] text-[#64748B]">{formatDate(child.date)}</TableCell>
+                                <TableCell className="py-2.5">
+                                  {child.firmName ? (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 dark:bg-white/5 border border-border text-foreground font-semibold text-[11px]">
+                                      {child.firmName}
+                                    </span>
+                                  ) : "-"}
+                                </TableCell>
+                                <TableCell className="py-2.5 text-[12px] text-foreground max-w-[150px] truncate" title={child.partyName}>{child.partyName}</TableCell>
+                                <TableCell className="py-2.5 text-[12px] text-muted-foreground max-w-[150px] truncate" title={child.productName}>{child.productName}</TableCell>
+                                <TableCell className="py-2.5 text-right font-bold text-[12px] text-slate-800 dark:text-slate-200">{formatCurrency(child.freightAmount)}</TableCell>
+                                <TableCell className="py-2.5 text-center text-[12px] text-muted-foreground">{child.billingQty ?? "-"}</TableCell>
+                                <TableCell className="py-2.5 text-center">
+                                  <span className={cn(
+                                    "inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-bold",
+                                    child.hasBilty === "Yes" ? "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800" : "bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800"
+                                  )}>
+                                    {child.hasBilty}
                                   </span>
-                                ) : "-"}
-                              </TableCell>
-                              <TableCell className="py-2.5 text-[12px] text-foreground max-w-[150px] truncate" title={child.partyName}>{child.partyName}</TableCell>
-                              <TableCell className="py-2.5 text-[12px] text-muted-foreground max-w-[150px] truncate" title={child.productName}>{child.productName}</TableCell>
-                              <TableCell className="py-2.5 text-right font-bold text-[12px] text-slate-800 dark:text-slate-200">{formatCurrency(child.freightAmount)}</TableCell>
-                              <TableCell className="py-2.5 text-center text-[12px] text-muted-foreground">{child.billingQty ?? "-"}</TableCell>
-                              <TableCell className="py-2.5 text-center">
-                                <span className={cn(
-                                  "inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-bold",
-                                  child.hasBilty === "Yes" ? "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800" : "bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800"
-                                )}>
-                                  {child.hasBilty}
-                                </span>
-                              </TableCell>
-                            </TableRow>
-                          ))}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
                         </TableBody>
                       </Table>
                     </div>
