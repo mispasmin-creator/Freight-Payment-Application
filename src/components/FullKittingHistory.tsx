@@ -463,6 +463,7 @@ export function FullKittingHistory({
   onRefreshDone?: () => void;
 }) {
   const queryClient = useQueryClient();
+  const isInitialLoad = useRef(true);
   const [rows, setRows] = useState<KittingHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
