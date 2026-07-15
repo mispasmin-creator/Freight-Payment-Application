@@ -217,7 +217,7 @@ export function FreightTable({
       }
 
       let key = "";
-      if (payment["Batch Number"]) {
+      if (payment["Batch Number"] && activeTab !== "makepayment" && activeTab !== "freight") {
         key = `batch:${payment["Batch Number"]}`;
       } else {
         key = transporter
@@ -310,21 +310,30 @@ export function FreightTable({
           childAmounts.push(childAmount);
         });
         
-        const batchId = `BATCH-${Date.now()}`;
+        const batchId = activeTab !== "makepayment" && activeTab !== "freight" ? `BATCH-${Date.now()}` : undefined;
         // Map the selected items and add the batch ID directly here or pass it if onQuickUpdate accepts it
         // Wait, onQuickUpdate receives the whole payment object. We can just attach Batch Number to it.
-        const itemsToSubmit = selectedChildren.map((child: FreightPayment) => ({
-          ...child,
-          "Batch Number": batchId
-        }));
+        const itemsToSubmit = selectedChildren.map((child: FreightPayment) => {
+          const item: any = { ...child };
+          if (batchId) {
+            item["Batch Number"] = batchId;
+          } else {
+            delete item["Batch Number"];
+          }
+          return item;
+        });
         
         onQuickUpdate(itemsToSubmit, activeTab, "yes", undefined, updateStatus, updateRemark, childAmounts, activeTab === "posting" ? updateAuditImage : undefined);
       } else {
-        const batchId = `BATCH-${Date.now()}`;
-        const itemToSubmit = {
-          ...selectedPayment,
-          "Batch Number": batchId
+        const batchId = activeTab !== "makepayment" && activeTab !== "freight" ? `BATCH-${Date.now()}` : undefined;
+        const itemToSubmit: any = {
+          ...selectedPayment
         };
+        if (batchId) {
+          itemToSubmit["Batch Number"] = batchId;
+        } else {
+          delete itemToSubmit["Batch Number"];
+        }
         onQuickUpdate(itemToSubmit, activeTab, "yes", undefined, updateStatus, updateRemark, amt, activeTab === "posting" ? updateAuditImage : undefined);
       }
       
@@ -784,6 +793,20 @@ export function FreightTable({
                       <TableBody>
                         {selectedGroup.children.map((child: FreightPayment, childIdx: number) => (
                           <TableRow key={child.id || childIdx} className="hover:bg-slate-50/50">
+                            <TableCell className="w-10 text-center py-2.5">
+                              <Checkbox
+                                checked={selectedModalItems.has(child.id)}
+                                onCheckedChange={(checked) => {
+                                  const newSelected = new Set(selectedModalItems);
+                                  if (checked) {
+                                    newSelected.add(child.id);
+                                  } else {
+                                    newSelected.delete(child.id);
+                                  }
+                                  setSelectedModalItems(newSelected);
+                                }}
+                              />
+                            </TableCell>
                             <TableCell className="font-mono text-xs text-slate-500 py-2.5">
                               {child["Unique Number"] || "—"}
                             </TableCell>
