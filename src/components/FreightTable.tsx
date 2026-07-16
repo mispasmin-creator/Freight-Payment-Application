@@ -67,7 +67,7 @@ interface ColumnDef {
   label: string;
   width?: string;
   align?: "left" | "right" | "center";
-  render?: (payment: FreightPayment) => React.ReactNode;
+  render?: (payment: FreightPayment, group?: any) => React.ReactNode;
 }
 
 interface FreightTableProps {
@@ -232,7 +232,20 @@ export function FreightTable({
       const transporter = normalizeGroupValue(payment["Transporter Name"]);
       
       let datePart = "";
-      const rawDate = payment.Timestamp || payment.created_at || payment.Actual || payment.Actual2 || payment.Actual3 || payment.Actual4 || "";
+      let rawDate = "";
+      if (activeTab === "makepayment") {
+        // Posting tab: Group by Account Audit completion date
+        rawDate = payment.Actual || payment.Timestamp || "";
+      } else if (activeTab === "freight") {
+        // Freight Payment tab: Group by Posting completion date
+        rawDate = payment.Actual2 || payment.Actual || payment.Timestamp || "";
+      } else if (activeTab === "posting") {
+        // Account Audit tab: Group by Account Checking completion date
+        rawDate = payment.Actual3 || payment.Timestamp || "";
+      } else {
+        rawDate = payment.Timestamp || payment.created_at || payment.Actual || payment.Actual2 || payment.Actual3 || payment.Actual4 || "";
+      }
+
       if (rawDate) {
         try {
           const d = new Date(rawDate);
@@ -404,13 +417,24 @@ export function FreightTable({
       { key: "partyName", label: "Party Name", width: "150px", render: (p) => <span className="text-xs text-slate-600 truncate block" title={p["Party Name"]}>{p["Party Name"] || "—"}</span> },
       { key: "biltyNumber", label: "Bilty No.", width: "120px", render: (p) => <span className="font-mono text-xs truncate block" title={p["Bilty Number"] || undefined}>{p["Bilty Number"] || "—"}</span> },
       { key: "vehicleNumber", label: "Vehicle", width: "110px", render: (p) => <span className="font-mono text-xs">{p["Vehicle Number"] || "—"}</span> },
-      { key: "route", label: "Route", width: "140px", render: (p) => (
-        <div className="flex items-center gap-1 text-xs">
-          <span>{p.From || "—"}</span>
-          <ChevronRight className="w-3 h-3 text-slate-300" />
-          <span>{p.To || "—"}</span>
-        </div>
-      )},
+      { key: "date", label: "Date", width: "135px", render: (p, g) => {
+        let dateVal = "";
+        if (activeTab === "makepayment") dateVal = p.Actual;
+        else if (activeTab === "freight") dateVal = p.Actual2;
+        else if (activeTab === "posting") dateVal = p.Actual3;
+        else dateVal = p.Timestamp || p.created_at;
+
+        return (
+          <div className="flex items-center gap-1.5 text-xs">
+            <span>{formatDate(dateVal)}</span>
+            {g?.isGrouped && (
+              <span className="px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 text-[10px] font-bold shrink-0">
+                {g.children.length}
+              </span>
+            )}
+          </div>
+        );
+      }},
       { key: "amount", label: "Amount", width: "110px", align: "right", render: (p) => <span className="font-bold text-sm">{formatCurrency(p.Amount)}</span> }
     ];
 
@@ -725,7 +749,7 @@ export function FreightTable({
                           </span>
                         )}
                       </div>
-                    ) : col.render ? col.render(group.parent) : "—"}
+                    ) : col.render ? col.render(group.parent, group) : "—"}
                   </TableCell>
                 ))}
               </TableRow>
