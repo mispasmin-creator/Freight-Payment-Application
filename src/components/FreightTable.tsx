@@ -25,6 +25,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { StatusBadge } from "./StatusBadge";
 import { Button } from "@/components/ui/button";
 import { formatDelayDuration } from "@/lib/delay";
@@ -91,7 +96,7 @@ export function FreightTable({
   subTab = "pending",
 }: FreightTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [firmFilter, setFirmFilter] = useState("all");
+  const [firmFilter, setFirmFilter] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedPayment, setSelectedPayment] = useState<FreightPayment | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -161,7 +166,19 @@ export function FreightTable({
     return payments.filter((payment) => {
       if (activeTab === "checkkitting" && !isAccountCheckingFirm(payment["Firm Name"])) return false;
       
-      const firmOk = firmFilter === "all" || String(payment["Firm Name"] || "").toLowerCase() === firmFilter.toLowerCase();
+      const firmOk = firmFilter.length === 0 || firmFilter.some((firm) => {
+        const sf = firm.toLowerCase().trim();
+        const rf = String(payment["Firm Name"] || "").toLowerCase().trim();
+        if (sf === "rkl" || sf === "rkl order") {
+          return rf === "rkl" || rf === "rkl order";
+        } else if (sf === "pmmpl" || sf === "pmmpl order") {
+          return rf === "pmmpl" || rf === "pmmpl order";
+        } else if (sf === "purab" || sf === "purab order") {
+          return rf === "purab" || rf === "purab order";
+        } else {
+          return rf === sf;
+        }
+      });
       const stepStatus = String(getStepField(payment, "status") || "").trim();
       const statusOk = statusFilter === "all" || stepStatus === statusFilter;
       const searchOk = !term || [
@@ -174,7 +191,20 @@ export function FreightTable({
   }, [payments, searchTerm, firmFilter, statusFilter, activeTab, getStepField, isAccountCheckingFirm]);
 
   const firmOptions = useMemo(() => {
-    const firms = new Set(payments.map(p => p["Firm Name"]).filter(Boolean));
+    const firms = new Set(
+      payments
+        .map((p) => {
+          const f = String(p["Firm Name"] || "").trim();
+          const lower = f.toLowerCase();
+          if (lower === "rkl" || lower === "rkl order") return "RKL";
+          if (lower === "pmmpl" || lower === "pmmpl order") return "PMMPL";
+          if (lower === "purab" || lower === "purab order") return "PURAB";
+          if (lower === "refrasynth") return "Refrasynth";
+          if (lower === "refratech") return "Refratech";
+          return f;
+        })
+        .filter(Boolean)
+    );
     return Array.from(firms).sort();
   }, [payments]);
 
@@ -501,18 +531,76 @@ export function FreightTable({
           )}
         </div>
 
-        <Select value={firmFilter} onValueChange={(value) => setFirmFilter(value ?? "all")}>
-          <SelectTrigger className="h-9 w-[140px] bg-card border-border text-foreground">
-            <Building2 className="w-4 h-4 mr-2 text-slate-400" />
-            <SelectValue placeholder="All firms" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All firms</SelectItem>
-            {firmOptions.map((firm) => (
-              <SelectItem key={firm} value={firm}>{firm}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Popover>
+          <PopoverTrigger
+            render={
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 min-w-[140px] max-w-[200px] justify-between bg-card border-border text-foreground hover:bg-slate-50 dark:hover:bg-white/5 text-xs"
+              />
+            }
+          >
+            <span className="flex items-center truncate">
+              <Building2 className="w-4 h-4 mr-2 text-slate-400 shrink-0" />
+              <span className="truncate">
+                {firmFilter.length === 0
+                  ? "All firms"
+                  : firmFilter.length === 1
+                  ? firmFilter[0]
+                  : `${firmFilter.length} Selected`}
+              </span>
+            </span>
+            <ChevronRight className="w-4 h-4 ml-2 text-slate-400 shrink-0 rotate-90" />
+          </PopoverTrigger>
+          <PopoverContent className="w-[200px] p-2 bg-card border border-border text-foreground rounded-lg shadow-md" align="start">
+            <div className="space-y-1">
+              <div
+                className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-100 dark:hover:bg-white/5 rounded-md cursor-pointer select-none"
+                onClick={() => {
+                  if (firmFilter.length === firmOptions.length) {
+                    setFirmFilter([]);
+                  } else {
+                    setFirmFilter([...firmOptions]);
+                  }
+                }}
+              >
+                <Checkbox
+                  checked={firmFilter.length === firmOptions.length}
+                  className="pointer-events-none"
+                />
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                  Select All
+                </span>
+              </div>
+              <div className="h-px bg-border my-1" />
+              {firmOptions.map((firm) => {
+                const isChecked = firmFilter.includes(firm);
+                return (
+                  <div
+                    key={firm}
+                    className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-100 dark:hover:bg-white/5 rounded-md cursor-pointer select-none"
+                    onClick={() => {
+                      if (isChecked) {
+                        setFirmFilter(firmFilter.filter((f) => f !== firm));
+                      } else {
+                        setFirmFilter([...firmFilter, firm]);
+                      }
+                    }}
+                  >
+                    <Checkbox
+                      checked={isChecked}
+                      className="pointer-events-none"
+                    />
+                    <span className="text-xs text-slate-600 dark:text-slate-300">
+                      {firm}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </PopoverContent>
+        </Popover>
 
         <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value ?? "all")}>
           <SelectTrigger className="h-9 w-[140px] bg-card border-border text-foreground">
@@ -527,8 +615,8 @@ export function FreightTable({
           </SelectContent>
         </Select>
 
-        {(searchTerm || firmFilter !== "all" || statusFilter !== "all") && (
-          <Button variant="ghost" size="sm" onClick={() => { setSearchTerm(""); setFirmFilter("all"); setStatusFilter("all"); }} className="h-9 text-slate-500 dark:text-slate-400">
+        {(searchTerm || firmFilter.length > 0 || statusFilter !== "all") && (
+          <Button variant="ghost" size="sm" onClick={() => { setSearchTerm(""); setFirmFilter([]); setStatusFilter("all"); }} className="h-9 text-slate-500 dark:text-slate-400">
             <RotateCcw className="w-3.5 h-3.5 mr-1" />
             Clear
           </Button>

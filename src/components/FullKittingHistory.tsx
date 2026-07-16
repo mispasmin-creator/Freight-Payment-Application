@@ -33,7 +33,10 @@ import {
   User,
   X,
   Check,
+  ChevronRight,
+  Building2,
 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { FreightPayment } from "@/types";
 
@@ -470,7 +473,7 @@ export function FullKittingHistory({
   const [searchTerm, setSearchTerm] = useState("");
   const [searchTransporter, setSearchTransporter] = useState("");
   const [searchProduct, setSearchProduct] = useState("");
-  const [searchFirm, setSearchFirm] = useState("");
+  const [searchFirms, setSearchFirms] = useState<string[]>([]);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [isBatchProcessing, setIsBatchProcessing] = useState(false);
   const [processedIds, setProcessedIds] = useState<Set<string>>(new Set());
@@ -653,23 +656,25 @@ export function FullKittingHistory({
           .filter(Boolean)
           .some((value) => value.toLowerCase().includes(term));
 
-      let firmOk = !searchFirm;
-      if (searchFirm) {
-        const sf = searchFirm.toLowerCase().trim();
+      let firmOk = searchFirms.length === 0;
+      if (searchFirms.length > 0) {
         const rf = r.firmName ? r.firmName.toLowerCase().trim() : "";
-        if (sf === "rkl" || sf === "rkl order") {
-          firmOk = rf === "rkl" || rf === "rkl order";
-        } else if (sf === "pmmpl" || sf === "pmmpl order") {
-          firmOk = rf === "pmmpl" || rf === "pmmpl order";
-        } else if (sf === "purab" || sf === "purab order") {
-          firmOk = rf === "purab" || rf === "purab order";
-        } else {
-          firmOk = rf === sf;
-        }
+        firmOk = searchFirms.some((firm) => {
+          const sf = firm.toLowerCase().trim();
+          if (sf === "rkl" || sf === "rkl order") {
+            return rf === "rkl" || rf === "rkl order";
+          } else if (sf === "pmmpl" || sf === "pmmpl order") {
+            return rf === "pmmpl" || rf === "pmmpl order";
+          } else if (sf === "purab" || sf === "purab order") {
+            return rf === "purab" || rf === "purab order";
+          } else {
+            return rf === sf;
+          }
+        });
       }
       return searchOk && firmOk;
     });
-  }, [baseEligibleRows, searchTerm, searchFirm]);
+  }, [baseEligibleRows, searchTerm, searchFirms]);
 
   // Final filtered list for display
   const filtered = useMemo(() => {
@@ -703,7 +708,7 @@ export function FullKittingHistory({
   const firmOptions = ["RKL", "PMMPL", "PURAB"];
 
   const hasFilters =
-    searchTerm || searchTransporter || searchProduct || searchFirm;
+    searchTerm || searchTransporter || searchProduct || searchFirms.length > 0;
 
   const selectableFilteredIds = useMemo(
     () =>
@@ -945,18 +950,76 @@ export function FullKittingHistory({
           ))}
         </select>
 
-        <select
-          value={searchFirm}
-          onChange={(e) => setSearchFirm(e.target.value)}
-          className="h-8 min-w-[130px] bg-card border border-border rounded-lg px-2 text-[12px] text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
-        >
-          <option value="">All firms</option>
-          {firmOptions.map((firm) => (
-            <option key={firm} value={firm}>
-              {firm}
-            </option>
-          ))}
-        </select>
+        <Popover>
+          <PopoverTrigger
+            render={
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 min-w-[130px] max-w-[200px] justify-between bg-card border border-border text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5 text-[12px] px-2 rounded-lg"
+              />
+            }
+          >
+            <span className="flex items-center truncate">
+              <Building2 className="w-3.5 h-3.5 mr-2 text-slate-400 shrink-0" />
+              <span className="truncate text-muted-foreground">
+                {searchFirms.length === 0
+                  ? "All firms"
+                  : searchFirms.length === 1
+                  ? searchFirms[0]
+                  : `${searchFirms.length} Selected`}
+              </span>
+            </span>
+            <ChevronRight className="w-3.5 h-3.5 ml-2 text-slate-400 shrink-0 rotate-90" />
+          </PopoverTrigger>
+          <PopoverContent className="w-[180px] p-2 bg-card border border-border text-foreground rounded-lg shadow-md" align="start">
+            <div className="space-y-1">
+              <div
+                className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-100 dark:hover:bg-white/5 rounded-md cursor-pointer select-none"
+                onClick={() => {
+                  if (searchFirms.length === firmOptions.length) {
+                    setSearchFirms([]);
+                  } else {
+                    setSearchFirms([...firmOptions]);
+                  }
+                }}
+              >
+                <Checkbox
+                  checked={searchFirms.length === firmOptions.length}
+                  className="pointer-events-none"
+                />
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                  Select All
+                </span>
+              </div>
+              <div className="h-px bg-border my-1" />
+              {firmOptions.map((firm) => {
+                const isChecked = searchFirms.includes(firm);
+                return (
+                  <div
+                    key={firm}
+                    className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-100 dark:hover:bg-white/5 rounded-md cursor-pointer select-none"
+                    onClick={() => {
+                      if (isChecked) {
+                        setSearchFirms(searchFirms.filter((f) => f !== firm));
+                      } else {
+                        setSearchFirms([...searchFirms, firm]);
+                      }
+                    }}
+                  >
+                    <Checkbox
+                      checked={isChecked}
+                      className="pointer-events-none"
+                    />
+                    <span className="text-xs text-slate-600 dark:text-slate-300">
+                      {firm}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </PopoverContent>
+        </Popover>
 
         {hasFilters && (
           <button
@@ -964,7 +1027,7 @@ export function FullKittingHistory({
               setSearchTerm("");
               setSearchTransporter("");
               setSearchProduct("");
-              setSearchFirm("");
+              setSearchFirms([]);
             }}
             className="text-[11px] font-semibold text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 transition-colors flex items-center gap-1"
           >
