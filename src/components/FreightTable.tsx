@@ -213,7 +213,7 @@ export function FreightTable({
     return Array.from(statuses).sort();
   }, [filteredPayments, getStepField]);
 
-  const shouldGroupRows = activeTab === "posting" || activeTab === "makepayment" || activeTab === "freight";
+  const shouldGroupRows = activeTab === "posting" || activeTab === "makepayment" || activeTab === "freight" || activeTab === "checkkitting";
 
   const normalizeGroupValue = useCallback((value?: string) => String(value || "").trim().toLowerCase(), []);
 
@@ -263,9 +263,18 @@ export function FreightTable({
       if (payment["Batch Number"] && activeTab !== "makepayment" && activeTab !== "freight") {
         key = `batch:${payment["Batch Number"]}`;
       } else {
-        key = transporter
-          ? (datePart ? `transporter:${transporter}_${datePart}` : `transporter:${transporter}`)
-          : `single:${payment.id}`;
+        const isBiltyGroupedTab = activeTab === "posting" || activeTab === "checkkitting";
+        if (isBiltyGroupedTab) {
+          const bilty = String(payment["Bilty Number"] || "").trim().toLowerCase();
+          const isValidBilty = bilty !== "" && bilty !== "000000" && bilty !== "0" && bilty !== "-";
+          key = (transporter && isValidBilty)
+            ? `transporter:${transporter}_bilty:${bilty}`
+            : `single:${payment.id}`;
+        } else {
+          key = transporter
+            ? (datePart ? `transporter:${transporter}_${datePart}` : `transporter:${transporter}`)
+            : `single:${payment.id}`;
+        }
       }
       const existing = groups.get(key) || [];
       existing.push(payment);
@@ -416,27 +425,42 @@ export function FreightTable({
       { key: "transporterName", label: "Transporter", width: "150px", render: (p) => <span className="text-xs text-slate-600 truncate block" title={p["Transporter Name"]}>{p["Transporter Name"] || "—"}</span> },
       { key: "partyName", label: "Party Name", width: "150px", render: (p) => <span className="text-xs text-slate-600 truncate block" title={p["Party Name"]}>{p["Party Name"] || "—"}</span> },
       { key: "biltyNumber", label: "Bilty No.", width: "120px", render: (p) => <span className="font-mono text-xs truncate block" title={p["Bilty Number"] || undefined}>{p["Bilty Number"] || "—"}</span> },
-      { key: "vehicleNumber", label: "Vehicle", width: "110px", render: (p) => <span className="font-mono text-xs">{p["Vehicle Number"] || "—"}</span> },
-      { key: "date", label: "Date", width: "135px", render: (p, g) => {
-        let dateVal = "";
-        if (activeTab === "makepayment") dateVal = p.Actual;
-        else if (activeTab === "freight") dateVal = p.Actual2;
-        else if (activeTab === "posting") dateVal = p.Actual3;
-        else dateVal = p.Timestamp || p.created_at;
-
-        return (
-          <div className="flex items-center gap-1.5 text-xs">
-            <span>{formatDate(dateVal)}</span>
-            {g?.isGrouped && (
-              <span className="px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 text-[10px] font-bold shrink-0">
-                {g.children.length}
-              </span>
-            )}
-          </div>
-        );
-      }},
-      { key: "amount", label: "Amount", width: "110px", align: "right", render: (p) => <span className="font-bold text-sm">{formatCurrency(p.Amount)}</span> }
+      { key: "vehicleNumber", label: "Vehicle", width: "110px", render: (p) => <span className="font-mono text-xs">{p["Vehicle Number"] || "—"}</span> }
     ];
+
+    if (activeTab !== "posting") {
+      cols.push({
+        key: "date",
+        label: "Date",
+        width: "135px",
+        render: (p, g) => {
+          let dateVal = "";
+          if (activeTab === "makepayment") dateVal = p.Actual;
+          else if (activeTab === "freight") dateVal = p.Actual2;
+          else if (activeTab === "posting") dateVal = p.Actual3;
+          else dateVal = p.Timestamp || p.created_at;
+
+          return (
+            <div className="flex items-center gap-1.5 text-xs">
+              <span>{formatDate(dateVal)}</span>
+              {g?.isGrouped && (
+                <span className="px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 text-[10px] font-bold shrink-0">
+                  {g.children.length}
+                </span>
+              )}
+            </div>
+          );
+        }
+      });
+    }
+
+    cols.push({
+      key: "amount",
+      label: "Amount",
+      width: "110px",
+      align: "right",
+      render: (p) => <span className="font-bold text-sm">{formatCurrency(p.Amount)}</span>
+    });
 
     if (showPaidAmount) {
       cols.push({

@@ -306,10 +306,37 @@ function buildPurchaseRows(
     const indentNum = str(la["Indent no."]).toLowerCase();
     const biltyNo1 = str(la["Bilty No."]).toLowerCase();
     const biltyNo2 = str(la["Bilty No. 2"]).toLowerCase();
-    const fk = (liftNum && fkByLiftNo.get(liftNum)) ||
-      (indentNum && fkByIndentNo.get(indentNum)) ||
-      (validBilty(biltyNo1) && fkByBilty.get(biltyNo1)) ||
-      (validBilty(biltyNo2) && fkByBilty.get(biltyNo2));
+    let fk = liftNum ? fkByLiftNo.get(liftNum) : undefined;
+    
+    if (!fk && indentNum) {
+      const candidate = fkByIndentNo.get(indentNum);
+      if (candidate) {
+        const candidateLift = str(candidate["Lift No"]).toLowerCase();
+        if (!candidateLift || candidateLift === liftNum) {
+          fk = candidate;
+        }
+      }
+    }
+    
+    if (!fk && validBilty(biltyNo1)) {
+      const candidate = fkByBilty.get(biltyNo1);
+      if (candidate) {
+        const candidateLift = str(candidate["Lift No"]).toLowerCase();
+        if (!candidateLift || candidateLift === liftNum) {
+          fk = candidate;
+        }
+      }
+    }
+
+    if (!fk && validBilty(biltyNo2)) {
+      const candidate = fkByBilty.get(biltyNo2);
+      if (candidate) {
+        const candidateLift = str(candidate["Lift No"]).toLowerCase();
+        if (!candidateLift || candidateLift === liftNum) {
+          fk = candidate;
+        }
+      }
+    }
 
     if (!fk) continue;
 
