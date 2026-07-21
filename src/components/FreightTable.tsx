@@ -729,10 +729,37 @@ export function FreightTable({
                 <StatusBadge status={payment.Status} />
               </div>
 
-              <Button onClick={() => openDetailModal(group)} className="w-full bg-blue-600 hover:bg-blue-700 text-white">
-                <Eye className="w-4 h-4 mr-2" />
-                {subTab === "history" ? "View Details" : "Update Status"}
-              </Button>
+              <div className="flex gap-2">
+                <Button onClick={() => openDetailModal(group)} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white">
+                  <Eye className="w-4 h-4 mr-2" />
+                  {subTab === "history" ? "View Details" : "Update Status"}
+                </Button>
+                {activeTab === "makepayment" && ["pmmpl", "pmmpl order", "rkl", "rkl order", "purab", "purab order"].includes(payment["Firm Name"]?.toLowerCase() || "") && (
+                  <Button
+                    variant="outline"
+                    className="px-3 border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                    title="Fill Google Form"
+                    onClick={(e) => {
+                       e.stopPropagation();
+                       const firmName = payment["Firm Name"]?.toLowerCase() || "";
+                       let formId = "";
+                       if (firmName === "pmmpl" || firmName === "pmmpl order") formId = "1FAIpQLScn8tHEUldlOM_8DKpHUfHHiRImDVjkpkhhfduaZUIxpxlJrA";
+                       else if (firmName === "rkl" || firmName === "rkl order") formId = "1FAIpQLScJJFvh6zchRosSzX0mU-u7-oeMaQW6iv1osE70hRDoE-uVrg";
+                       else if (firmName === "purab" || firmName === "purab order") formId = "1FAIpQLSdLWKfGPNXK62Orndb137GPKadFiRQZS8W_MM0c11HvdR4KkA";
+                       if (!formId) return;
+
+                       const baseUrl = `https://docs.google.com/forms/d/e/${formId}/viewform?usp=pp_url`;
+                       const uniqueNumber = encodeURIComponent(payment["Unique Number"] || "");
+                       const transporter = encodeURIComponent(payment["Transporter Name"] || "");
+                       const amount = encodeURIComponent(payment.Amount?.toString() || "");
+                       const link = `${baseUrl}&entry.1200639812=${uniqueNumber}&entry.604194301=New+Freight+Payment+Application&entry.1358288895=Yes&entry.1091308719=${transporter}&entry.1486176123=${amount}&entry.2102057582=ok`;
+                       window.open(link, "_blank");
+                    }}
+                  >
+                    <FileText className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
             </div>
           );
         })}
@@ -743,7 +770,7 @@ export function FreightTable({
         <Table>
           <TableHeader className="bg-slate-50 dark:bg-white/5 sticky top-0">
             <TableRow className="border-b border-border bg-[#F1F5F9] dark:bg-slate-900 hover:bg-[#F1F5F9] dark:hover:bg-slate-900">
-              <TableHead className="sticky left-0 bg-slate-50 dark:bg-slate-900 z-10 w-[70px]">Action</TableHead>
+              <TableHead className="sticky left-0 bg-slate-50 dark:bg-slate-900 z-10 w-[90px]">Action</TableHead>
               {columnDefs.map((col) => (
                 <TableHead key={col.key} style={{ width: col.width }} className={cn(col.align === "right" && "text-right", col.align === "center" && "text-center")}>
                   {col.label}
@@ -755,10 +782,38 @@ export function FreightTable({
             {groupedPayments.map((group, idx) => (
               <TableRow key={group.key} className={cn("hover:bg-slate-50/80 dark:hover:bg-white/5", idx % 2 === 0 ? "bg-card" : "bg-slate-50/30 dark:bg-white/2")}>
                 <TableCell className="sticky left-0 bg-inherit border-r border-border">
-                  <Button onClick={() => openDetailModal(group)} size="sm" className="h-8 px-3 bg-blue-600 hover:bg-blue-700 text-white text-xs">
-                    {subTab === "history" ? <Eye className="w-3.5 h-3.5 mr-1" /> : <Check className="w-3.5 h-3.5 mr-1" />}
-                    {subTab === "history" ? "View" : "Update"}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button onClick={() => openDetailModal(group)} size="sm" className="h-8 px-3 bg-blue-600 hover:bg-blue-700 text-white text-xs">
+                      {subTab === "history" ? <Eye className="w-3.5 h-3.5 mr-1" /> : <Check className="w-3.5 h-3.5 mr-1" />}
+                      {subTab === "history" ? "View" : "Update"}
+                    </Button>
+                    {activeTab === "makepayment" && ["pmmpl", "pmmpl order", "rkl", "rkl order", "purab", "purab order"].includes(group.parent["Firm Name"]?.toLowerCase() || "") && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 px-2 border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                        title="Fill Google Form"
+                        onClick={(e) => {
+                           e.stopPropagation();
+                           const firmName = group.parent["Firm Name"]?.toLowerCase() || "";
+                           let formId = "";
+                           if (firmName === "pmmpl" || firmName === "pmmpl order") formId = "1FAIpQLScn8tHEUldlOM_8DKpHUfHHiRImDVjkpkhhfduaZUIxpxlJrA";
+                           else if (firmName === "rkl" || firmName === "rkl order") formId = "1FAIpQLScJJFvh6zchRosSzX0mU-u7-oeMaQW6iv1osE70hRDoE-uVrg";
+                           else if (firmName === "purab" || firmName === "purab order") formId = "1FAIpQLSdLWKfGPNXK62Orndb137GPKadFiRQZS8W_MM0c11HvdR4KkA";
+                           if (!formId) return;
+
+                           const baseUrl = `https://docs.google.com/forms/d/e/${formId}/viewform?usp=pp_url`;
+                           const uniqueNumber = encodeURIComponent(group.parent["Unique Number"] || "");
+                           const transporter = encodeURIComponent(group.parent["Transporter Name"] || "");
+                           const amount = encodeURIComponent(group.parent.Amount?.toString() || "");
+                           const link = `${baseUrl}&entry.1200639812=${uniqueNumber}&entry.604194301=New+Freight+Payment+Application&entry.1358288895=Yes&entry.1091308719=${transporter}&entry.1486176123=${amount}&entry.2102057582=ok`;
+                           window.open(link, "_blank");
+                        }}
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                  </div>
                 </TableCell>
                 {columnDefs.map((col) => (
                   <TableCell key={col.key} className={cn("py-3", col.align === "right" && "text-right", col.align === "center" && "text-center")}>

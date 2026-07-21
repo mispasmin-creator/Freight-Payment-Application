@@ -26,7 +26,7 @@ const getPort = (): number => {
 const PORT = getPort();
 
 const supabaseUrl = process.env.SUPABASE_URL || "https://placeholder.supabase.co";
-const supabaseKey = process.env.SUPABASE_ANON_KEY || "";
+const supabaseKey = process.env.SUPABASE_ANON_KEY || "placeholder_key";
 
 if (!process.env.SUPABASE_URL || !supabaseKey) {
   console.warn("WARNING: Supabase credentials are missing. API calls will fail.");

@@ -436,8 +436,35 @@ export function FreightForm({
                   <TabsContent value="posting" className="mt-0">
                     <StepCard title="Account Audit" status={formData.Status_1} onStatusChange={(v) => updateField("Status_1", v)} statusOptions={["Done", "Not Done"]} color="blue" remark={formData.Remark_1} onRemarkChange={(v) => updateField("Remark_1", v)} />
                   </TabsContent>
-                  <TabsContent value="makepayment" className="mt-0">
+                  <TabsContent value="makepayment" className="mt-0 space-y-4">
                     <StepCard title="Posting" status={formData.Status2} onStatusChange={(v) => updateField("Status2", v)} statusOptions={["Done", "Not Done"]} color="amber" remark={formData.Remark2} onRemarkChange={(v) => updateField("Remark2", v)} />
+                    {["pmmpl", "pmmpl order", "rkl", "rkl order", "purab", "purab order"].includes(formData["Firm Name"]?.toLowerCase() || "") && (
+                      <div className="flex justify-end">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-9 border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-800 text-[12px] font-bold"
+                          onClick={() => {
+                            const firmName = formData["Firm Name"]?.toLowerCase() || "";
+                            let formId = "";
+                            if (firmName === "pmmpl" || firmName === "pmmpl order") formId = "1FAIpQLScn8tHEUldlOM_8DKpHUfHHiRImDVjkpkhhfduaZUIxpxlJrA";
+                            else if (firmName === "rkl" || firmName === "rkl order") formId = "1FAIpQLScJJFvh6zchRosSzX0mU-u7-oeMaQW6iv1osE70hRDoE-uVrg";
+                            else if (firmName === "purab" || firmName === "purab order") formId = "1FAIpQLSdLWKfGPNXK62Orndb137GPKadFiRQZS8W_MM0c11HvdR4KkA";
+                            if (!formId) return;
+
+                            const baseUrl = `https://docs.google.com/forms/d/e/${formId}/viewform?usp=pp_url`;
+                            const uniqueNumber = encodeURIComponent(formData["Unique Number"] || "");
+                            const transporter = encodeURIComponent(formData["Transporter Name"] || "");
+                            const amount = encodeURIComponent(formData.Amount?.toString() || "");
+                            const link = `${baseUrl}&entry.1200639812=${uniqueNumber}&entry.604194301=New+Freight+Payment+Application&entry.1358288895=Yes&entry.1091308719=${transporter}&entry.1486176123=${amount}&entry.2102057582=ok`;
+                            window.open(link, "_blank");
+                          }}
+                        >
+                          <FileText className="w-3.5 h-3.5 mr-1.5" />
+                          Fill Google Form
+                        </Button>
+                      </div>
+                    )}
                   </TabsContent>
                 </Tabs>
 
