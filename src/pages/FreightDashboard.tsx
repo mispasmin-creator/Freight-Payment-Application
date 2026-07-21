@@ -335,37 +335,41 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
     return merged;
   }, [filteredKittingPayments, postingPayments, makePaymentPayments, freightPaymentPayments, fullkittingRaw, dispatchRaw]);
 
+  const isDone = useCallback((s?: string | null) => {
+    const n = String(s || "").trim().toLowerCase();
+    return n === "done" || n === "completed";
+  }, []);
+
   const payments = useMemo(() => {
     return allPayments.filter((payment) => {
       if (activeTab === "checkkitting") {
         if (String(payment["Transporter Name"] || "").trim().toLowerCase() === "for") {
           return false;
         }
-        if (subTab === "history") return payment.Status3 === "Done" || payment.Status3 === "Completed";
-        return payment.Status3 !== "Done" && payment.Status3 !== "Completed";
+        if (subTab === "history") return isDone(payment.Status3);
+        return !isDone(payment.Status3);
       }
       if (activeTab === "posting") {
-        if (subTab === "history") return payment.Status_1 === "Done" || payment.Status_1 === "Completed";
-        const isKittingDone = payment.Status3 === "Done" || payment.Status3 === "Completed";
-        return isKittingDone && payment.Status_1 !== "Done" && payment.Status_1 !== "Completed";
+        if (subTab === "history") return isDone(payment.Status_1);
+        const isKittingDone = isDone(payment.Status3);
+        return isKittingDone && !isDone(payment.Status_1);
       }
       if (activeTab === "makepayment") {
-        if (subTab === "history") return payment.Status2 === "Completed" || payment.Status2 === "Done";
-        const isPostingDone = payment.Status_1 === "Done" || payment.Status_1 === "Completed";
-        const isMakePaymentDone = payment.Status2 === "Done" || payment.Status2 === "Completed";
+        if (subTab === "history") return isDone(payment.Status2);
+        const isPostingDone = isDone(payment.Status_1);
+        const isMakePaymentDone = isDone(payment.Status2);
         return isPostingDone && !isMakePaymentDone;
       }
       if (activeTab === "freight") {
-        if (subTab === "history") return payment.Status === "Completed" || payment.Status === "Done";
-        const isMakePaymentDone = payment.Status2 === "Done" || payment.Status2 === "Completed";
-        return isMakePaymentDone && payment.Status !== "Completed" && payment.Status !== "Done";
+        if (subTab === "history") return isDone(payment.Status);
+        const isMakePaymentDone = isDone(payment.Status2);
+        return isMakePaymentDone && !isDone(payment.Status);
       }
       return true;
     });
-  }, [allPayments, activeTab, subTab]);
+  }, [allPayments, activeTab, subTab, isDone]);
 
   // Computed pending counts for sidebar badges
-  const isDone = (s?: string | null) => { const n = String(s || "").trim().toLowerCase(); return n === "done" || n === "completed"; };
   const pendingPosting = allPayments.filter((p) => isDone(p.Status3) && !isDone(p.Status_1)).length;
   const pendingMakePayment = allPayments.filter((p) => isDone(p.Status_1) && !isDone(p.Status2)).length;
   const pendingFreight = allPayments.filter((p) => isDone(p.Status2) && !isDone(p.Status)).length;
