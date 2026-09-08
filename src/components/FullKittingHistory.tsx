@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { api, orderSupabase, purchaseSupabase } from "../api";
+import { api, orderSupabase, purchaseSupabase, fetchAll } from "../api";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -561,40 +561,29 @@ export function FullKittingHistory({
 
       try {
         const [
-          fkRes,
-          laRes,
-          mmRes,
-          dispatchRes,
-          orderRes,
-          deliveryRes,
+          fullkittin,
+          liftAccounts,
+          mismatch,
+          dispatchRows,
+          orderRows,
+          deliveryRows,
           processedRes,
         ] = await Promise.all([
-          purchaseSupabase.from("fullkittin").select("*"),
-          purchaseSupabase.from("LIFT-ACCOUNTS").select("*"),
-          purchaseSupabase.from("Mismatch").select("*"),
-          orderSupabase
-            .from("DISPATCH")
-            .select("*")
-            .not("Fullkitting Actual", "is", null)
-            .order("Fullkitting Actual", { ascending: false }),
-          orderSupabase.from("ORDER RECEIPT").select("*"),
-          orderSupabase.from("DELIVERY").select("*"),
+          fetchAll<FullKittinRow>((from, to) => purchaseSupabase.from("fullkittin").select("*").range(from, to)),
+          fetchAll<LiftAccountRow>((from, to) => purchaseSupabase.from("LIFT-ACCOUNTS").select("*").range(from, to)),
+          fetchAll<MismatchRow>((from, to) => purchaseSupabase.from("Mismatch").select("*").range(from, to)),
+          fetchAll<DispatchRow>((from, to) =>
+            orderSupabase
+              .from("DISPATCH")
+              .select("*")
+              .not("Fullkitting Actual", "is", null)
+              .order("Fullkitting Actual", { ascending: false })
+              .range(from, to)
+          ),
+          fetchAll<OrderReceiptRow>((from, to) => orderSupabase.from("ORDER RECEIPT").select("*").range(from, to)),
+          fetchAll<DeliveryRow>((from, to) => orderSupabase.from("DELIVERY").select("*").range(from, to)),
           api.getCheckKittingPayments(),
         ]);
-
-        if (fkRes.error) throw fkRes.error;
-        if (laRes.error) throw laRes.error;
-        if (mmRes.error) throw mmRes.error;
-        if (dispatchRes.error) throw dispatchRes.error;
-        if (orderRes.error) throw orderRes.error;
-        if (deliveryRes.error) throw deliveryRes.error;
-
-        const fullkittin: FullKittinRow[] = fkRes.data || [];
-        const liftAccounts: LiftAccountRow[] = laRes.data || [];
-        const mismatch: MismatchRow[] = mmRes.data || [];
-        const dispatchRows: DispatchRow[] = dispatchRes.data || [];
-        const orderRows: OrderReceiptRow[] = orderRes.data || [];
-        const deliveryRows: DeliveryRow[] = deliveryRes.data || [];
 
         const merged = [
           ...buildPurchaseRows(fullkittin, liftAccounts, mismatch),
@@ -777,26 +766,40 @@ export function FullKittingHistory({
         };
       }
 
+      const groupTransporterBill = children.map(c => c.transporterBillImage).find(Boolean) || "";
+      const groupBillImage = children.map(c => c.billImage).find(Boolean) || "";
+      const groupBiltyImage = children.map(c => c.biltyImage).find(Boolean) || "";
+
+      const resolvedChildren = children.map(c => ({
+        ...c,
+        transporterBillImage: c.transporterBillImage || groupTransporterBill,
+        billImage: c.billImage || groupBillImage,
+        biltyImage: c.biltyImage || groupBiltyImage,
+      }));
+
       const parent: KittingHistoryItem = {
-        ...children[0],
-        freightAmount: children.reduce((sum, item) => sum + (item.freightAmount || 0), 0),
-        billingQty: children.reduce((sum, item) => sum + (item.billingQty || 0), 0),
-        poQty: children.reduce((sum, item) => sum + (item.poQty || 0), 0),
-        totalTruckBillingQty: children.reduce((sum, item) => sum + (item.totalTruckBillingQty || 0), 0),
-        liftId: Array.from(new Set(children.map(c => c.liftId))).join(", "),
-        indentNo: Array.from(new Set(children.map(c => c.indentNo).filter(Boolean))).join(", "),
-        vehicleNumber: Array.from(new Set(children.map(c => c.vehicleNumber).filter(Boolean))).join(", "),
-        firmName: Array.from(new Set(children.map(c => c.firmName).filter(Boolean))).join(", "),
-        partyName: Array.from(new Set(children.map(c => c.partyName).filter(Boolean))).join(", "),
-        productName: Array.from(new Set(children.map(c => c.productName).filter(Boolean))).join(", "),
-        billNo: Array.from(new Set(children.map(c => c.billNo).filter(Boolean))).join(", "),
+        ...resolvedChildren[0],
+        freightAmount: resolvedChildren.reduce((sum, item) => sum + (item.freightAmount || 0), 0),
+        billingQty: resolvedChildren.reduce((sum, item) => sum + (item.billingQty || 0), 0),
+        poQty: resolvedChildren.reduce((sum, item) => sum + (item.poQty || 0), 0),
+        totalTruckBillingQty: resolvedChildren.reduce((sum, item) => sum + (item.totalTruckBillingQty || 0), 0),
+        liftId: Array.from(new Set(resolvedChildren.map(c => c.liftId))).join(", "),
+        indentNo: Array.from(new Set(resolvedChildren.map(c => c.indentNo).filter(Boolean))).join(", "),
+        vehicleNumber: Array.from(new Set(resolvedChildren.map(c => c.vehicleNumber).filter(Boolean))).join(", "),
+        firmName: Array.from(new Set(resolvedChildren.map(c => c.firmName).filter(Boolean))).join(", "),
+        partyName: Array.from(new Set(resolvedChildren.map(c => c.partyName).filter(Boolean))).join(", "),
+        productName: Array.from(new Set(resolvedChildren.map(c => c.productName).filter(Boolean))).join(", "),
+        billNo: Array.from(new Set(resolvedChildren.map(c => c.billNo).filter(Boolean))).join(", "),
+        transporterBillImage: groupTransporterBill,
+        billImage: groupBillImage,
+        biltyImage: groupBiltyImage,
       };
 
       return {
         key,
         isGrouped: true,
         parent,
-        children,
+        children: resolvedChildren,
       };
     });
   }, [filtered]);
@@ -1585,7 +1588,7 @@ export function FullKittingHistory({
                 <div className="space-y-6">
                   {/* Group Overview Card */}
                   <div className="bg-gradient-to-r from-blue-50/50 to-indigo-50/50 dark:from-blue-950/10 dark:to-indigo-950/10 border border-blue-100/50 dark:border-blue-900/30 rounded-xl p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
                       <div>
                         <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Transporter</span>
                         <p className="text-[13px] font-bold text-slate-800 dark:text-slate-200 mt-0.5">{selectedGroup.parent.transporterName}</p>
@@ -1597,6 +1600,24 @@ export function FullKittingHistory({
                       <div>
                         <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Total Freight Amount</span>
                         <p className="text-[14px] font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5">{formatCurrency(selectedGroup.parent.freightAmount)}</p>
+                      </div>
+                      <div>
+                        <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Transporter Bill Image</span>
+                        <div className="mt-0.5">
+                          {selectedGroup.parent.transporterBillImage ? (
+                            <a
+                              href={selectedGroup.parent.transporterBillImage}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[12px] font-semibold text-blue-700 dark:text-blue-300 bg-blue-100/80 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-200/80 transition-colors whitespace-nowrap"
+                            >
+                              <FileText className="w-3.5 h-3.5" />
+                              View Bill
+                            </a>
+                          ) : (
+                            <span className="text-[13px] text-muted-foreground">-</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1627,6 +1648,7 @@ export function FullKittingHistory({
                             <TableHead className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider text-right">Freight Amt</TableHead>
                             <TableHead className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider text-center">Billing Qty</TableHead>
                             <TableHead className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider text-center">Has Bilty</TableHead>
+                            <TableHead className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider text-center">Transporter Bill</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -1668,6 +1690,21 @@ export function FullKittingHistory({
                                   )}>
                                     {child.hasBilty}
                                   </span>
+                                </TableCell>
+                                <TableCell className="py-2.5 text-center">
+                                  {child.transporterBillImage ? (
+                                    <a
+                                      href={child.transporterBillImage}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/30 rounded hover:bg-blue-100 dark:hover:bg-blue-900 border border-blue-200 dark:border-blue-800 transition-colors whitespace-nowrap"
+                                    >
+                                      <FileText className="w-3 h-3" />
+                                      View
+                                    </a>
+                                  ) : (
+                                    <span className="text-slate-300 text-[12px]">-</span>
+                                  )}
                                 </TableCell>
                               </TableRow>
                             );

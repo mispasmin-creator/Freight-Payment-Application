@@ -37,7 +37,7 @@ if (orderSupabaseUrl.endsWith("/rest/v1/")) {
 
 export const orderSupabase = createClient(orderSupabaseUrl, orderSupabaseKey);
 
-const TABLE_NAME = "freightpayemnt";
+const TABLE_NAME = "FreightPayment";
 const ACCOUNT_CHECKING_TABLE_NAME = "AccountChecking";
 const ACCOUNT_AUDIT_TABLE_NAME = "AccountAudit";
 const POSTING_TABLE_NAME = "Posting";
@@ -58,6 +58,24 @@ const formatToTimestamptz = (dateStr?: string) => {
   return `${dateStr}T00:00:00.000Z`;
 };
 
+export async function fetchAll<T = any>(
+  fetchPage: (from: number, to: number) => PromiseLike<{ data: any | null; error: any }>
+): Promise<T[]> {
+  let all: T[] = [];
+  let from = 0;
+  const pageSize = 1000;
+  while (true) {
+    const res = await fetchPage(from, from + pageSize - 1);
+    const { data, error } = res;
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    all = all.concat(data);
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  return all;
+}
+
 export const api = {
   getFreightPayments: async (): Promise<FreightPayment[]> => {
     if (supabaseUrl === "https://placeholder.supabase.co") {
@@ -65,15 +83,10 @@ export const api = {
       return [];
     }
     try {
-      const { data, error } = await supabase.from(TABLE_NAME).select("*").order("id", { ascending: false });
-      if (error) {
-        if (error.code === "42P01") {
-          console.warn(`Table ${TABLE_NAME} does not exist. Returning empty array.`);
-          return [];
-        }
-        throw error;
-      }
-      return data || [];
+      const data = await fetchAll<FreightPayment>((from, to) =>
+        supabase.from(TABLE_NAME).select("*").order("id", { ascending: false }).range(from, to)
+      );
+      return data;
     } catch (err: any) {
       if (err?.code === "42P01" || err?.status === 404) {
         console.warn(`Table ${TABLE_NAME} does not exist. Returning empty array.`);
@@ -88,17 +101,21 @@ export const api = {
       console.warn("Supabase credentials missing, returning empty array.");
       return [];
     }
-    const { data, error } = await supabase.from(ACCOUNT_CHECKING_TABLE_NAME).select("*").order("id", { ascending: false });
-    if (error) throw error;
+    const data = await fetchAll<FreightPayment>((from, to) =>
+      supabase.from(ACCOUNT_CHECKING_TABLE_NAME).select("*").order("id", { ascending: false }).range(from, to)
+    );
     
     let dispatchMap = new Map();
     try {
       if (orderSupabaseUrl !== "https://placeholder.supabase.co") {
-        const { data: dispatchData, error: dispatchError } = await orderSupabase
-          .from("DISPATCH")
-          .select('"D-Sr Number", "Total Transporter Amount"');
+        const dispatchData = await fetchAll<any>((from, to) =>
+          orderSupabase
+            .from("DISPATCH")
+            .select('"D-Sr Number", "Total Transporter Amount"')
+            .range(from, to)
+        );
         
-        if (!dispatchError && dispatchData) {
+        if (dispatchData) {
           dispatchData.forEach((d) => {
             const dSr = String(d["D-Sr Number"] || "").trim().toLowerCase();
             if (dSr) {
@@ -273,15 +290,10 @@ export const api = {
       return [];
     }
     try {
-      const { data, error } = await supabase.from(ACCOUNT_AUDIT_TABLE_NAME).select("*").order("id", { ascending: false });
-      if (error) {
-        if (error.code === "42P01") {
-          console.warn(`${ACCOUNT_AUDIT_TABLE_NAME} table does not exist. Returning empty array.`);
-          return [];
-        }
-        throw error;
-      }
-      return data || [];
+      const data = await fetchAll((from, to) =>
+        supabase.from(ACCOUNT_AUDIT_TABLE_NAME).select("*").order("id", { ascending: false }).range(from, to)
+      );
+      return data;
     } catch (err: any) {
       if (err?.code === "42P01" || err?.status === 404) {
         console.warn(`${ACCOUNT_AUDIT_TABLE_NAME} table does not exist. Returning empty array.`);
@@ -346,15 +358,10 @@ export const api = {
       return [];
     }
     try {
-      const { data, error } = await supabase.from(POSTING_TABLE_NAME).select("*").order("id", { ascending: false });
-      if (error) {
-        if (error.code === "42P01") {
-          console.warn(`${POSTING_TABLE_NAME} table does not exist. Returning empty array.`);
-          return [];
-        }
-        throw error;
-      }
-      return data || [];
+      const data = await fetchAll((from, to) =>
+        supabase.from(POSTING_TABLE_NAME).select("*").order("id", { ascending: false }).range(from, to)
+      );
+      return data;
     } catch (err: any) {
       if (err?.code === "42P01" || err?.status === 404) {
         console.warn(`${POSTING_TABLE_NAME} table does not exist. Returning empty array.`);
@@ -411,15 +418,10 @@ export const api = {
       return [];
     }
     try {
-      const { data, error } = await supabase.from("FreightPayment").select("*").order("id", { ascending: false });
-      if (error) {
-        if (error.code === "42P01") {
-          console.warn("FreightPayment table does not exist. Returning empty array.");
-          return [];
-        }
-        throw error;
-      }
-      return data || [];
+      const data = await fetchAll((from, to) =>
+        supabase.from("FreightPayment").select("*").order("id", { ascending: false }).range(from, to)
+      );
+      return data;
     } catch (err: any) {
       if (err?.code === "42P01" || err?.status === 404) {
         console.warn("FreightPayment table does not exist. Returning empty array.");

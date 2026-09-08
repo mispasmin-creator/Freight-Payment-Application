@@ -2,7 +2,7 @@ import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Banknote, FileText, LayoutDashboard, Loader2, Package, Package2, RefreshCw, Users, WifiOff } from "lucide-react";
-import { api, LoginUser, purchaseSupabase, orderSupabase } from "@/api";
+import { api, LoginUser, purchaseSupabase, orderSupabase, fetchAll } from "@/api";
 import { FreightPayment } from "@/types";
 import { FreightForm } from "@/components/FreightForm";
 import { FreightTable } from "@/components/FreightTable";
@@ -179,11 +179,12 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
   } = useQuery({
     queryKey: ["fullkitting-raw-list"],
     queryFn: async () => {
-      const { data, error } = await purchaseSupabase
-        .from("fullkittin")
-        .select('"Lift No", "Bilty Number", "Transporter Bill Image", "Fullkitting Remarks"');
-      if (error) throw error;
-      return data || [];
+      return fetchAll((from, to) =>
+        purchaseSupabase
+          .from("fullkittin")
+          .select('"Lift No", "Bilty Number", "Transporter Bill Image", "Fullkitting Remarks"')
+          .range(from, to)
+      );
     },
     retry: 1,
   });
@@ -193,11 +194,12 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
   } = useQuery({
     queryKey: ["dispatch-raw-list"],
     queryFn: async () => {
-      const { data, error } = await orderSupabase
-        .from("DISPATCH")
-        .select('"D-Sr Number", "Bilty No.", "Transporter Bill Image"');
-      if (error) throw error;
-      return data || [];
+      return fetchAll((from, to) =>
+        orderSupabase
+          .from("DISPATCH")
+          .select('"D-Sr Number", "Bilty No.", "Transporter Bill Image"')
+          .range(from, to)
+      );
     },
     retry: 1,
   });

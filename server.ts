@@ -25,7 +25,8 @@ const getPort = (): number => {
 
 const PORT = getPort();
 
-const supabaseUrl = process.env.SUPABASE_URL || "https://placeholder.supabase.co";
+const rawSupabaseUrl = process.env.SUPABASE_URL || "https://placeholder.supabase.co";
+const supabaseUrl = rawSupabaseUrl.replace(/\/rest\/v1\/?$/, "");
 const supabaseKey = process.env.SUPABASE_ANON_KEY || "placeholder_key";
 
 if (!process.env.SUPABASE_URL || !supabaseKey) {
@@ -40,7 +41,7 @@ app.use(express.json());
 app.get("/api/freight", async (req, res) => {
   try {
     const { data, error } = await supabase
-      .from("freightpayemnt")
+      .from("FreightPayment")
       .select("*")
       .order("created_at", { ascending: false });
 
@@ -54,7 +55,7 @@ app.get("/api/freight", async (req, res) => {
 app.post("/api/freight", async (req, res) => {
   try {
     const { data, error } = await supabase
-      .from("freightpayemnt")
+      .from("FreightPayment")
       .insert([req.body])
       .select();
 
@@ -69,7 +70,7 @@ app.patch("/api/freight/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const { data, error } = await supabase
-      .from("freightpayemnt")
+      .from("FreightPayment")
       .update(req.body)
       .eq("id", id)
       .select();
