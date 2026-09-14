@@ -423,7 +423,12 @@ function buildOrderRows(
       const delivery = deliveryByDsr.get(str(dispatch["D-Sr Number"]));
       const ratePerMt = num(dispatch["Transport Rate @Per Matric Ton"]);
       const actualQty = num(dispatch["Actual Truck Qty"]);
-      const freightAmount = num(dispatch["Total Transporter Amount"]);
+      const freightAmount = firstNumber(
+        dispatch["Total Transporter Amount"],
+        dispatch["Fixed Amount"],
+        order?.["Freight Amount"],
+        ratePerMt !== null && actualQty !== null ? ratePerMt * actualQty : undefined,
+      );
       const biltyNumber = firstFilled(
         delivery?.["Bilty No."],
         delivery?.["Bilty Number."],
