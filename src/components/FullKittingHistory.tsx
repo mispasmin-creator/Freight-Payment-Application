@@ -1581,8 +1581,8 @@ export function FullKittingHistory({
 
           {/* Group Details Dialog Popup */}
           <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
-            <DialogContent className="w-[94vw] sm:max-w-[960px] max-h-[85vh] overflow-y-auto bg-card border border-border rounded-xl shadow-lg p-6">
-              <DialogHeader className="border-b border-border pb-4 mb-4">
+            <DialogContent className="w-[94vw] sm:max-w-[960px] max-h-[90vh] h-[88vh] flex flex-col p-0 overflow-hidden bg-card border border-border rounded-2xl shadow-2xl">
+              <DialogHeader className="px-6 py-4 border-b border-border shrink-0 bg-card">
                 <DialogTitle className="flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-slate-200">
                   <PackageCheck className="w-5 h-5 text-blue-600" />
                   Kitting Group Details
@@ -1590,7 +1590,7 @@ export function FullKittingHistory({
               </DialogHeader>
 
               {selectedGroup && (
-                <div className="space-y-6">
+                <div className="flex-1 overflow-y-auto min-h-0 px-6 py-5 space-y-6 custom-scrollbar">
                   {/* Group Overview Card */}
                   <div className="bg-gradient-to-r from-blue-50/50 to-indigo-50/50 dark:from-blue-950/10 dark:to-indigo-950/10 border border-blue-100/50 dark:border-blue-900/30 rounded-xl p-4">
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
@@ -1721,7 +1721,7 @@ export function FullKittingHistory({
                 </div>
               )}
 
-              <DialogFooter className="mt-6 border-t border-border pt-4 flex gap-2 justify-end">
+              <DialogFooter className="px-6 py-3.5 border-t border-border bg-slate-50/80 dark:bg-white/5 shrink-0 flex items-center justify-end gap-2.5 m-0 rounded-b-2xl">
                 <Button
                   variant="outline"
                   onClick={() => {
@@ -1736,7 +1736,7 @@ export function FullKittingHistory({
                   <Button
                     onClick={() => processGroup(selectedGroup)}
                     disabled={isProcessingGroup}
-                    className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold h-9 px-4"
+                    className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold h-9 px-4 shadow-xs"
                   >
                     {isProcessingGroup && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
                     Submit Group

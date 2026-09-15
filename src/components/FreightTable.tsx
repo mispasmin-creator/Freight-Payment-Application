@@ -845,8 +845,8 @@ export function FreightTable({
 
       {/* Detail Modal */}
       <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
-        <DialogContent className="w-[94vw] sm:max-w-[920px] max-h-[85vh] overflow-y-auto bg-card border border-border">
-          <DialogHeader>
+        <DialogContent className="w-[94vw] sm:max-w-[920px] max-h-[90vh] h-[88vh] flex flex-col p-0 overflow-hidden bg-card border border-border rounded-2xl shadow-2xl">
+          <DialogHeader className="px-6 py-4 border-b border-border shrink-0 bg-card">
             <DialogTitle className="flex items-center gap-2">
               <FileText className="w-5 h-5 text-blue-600" />
               Shipment Details {selectedGroup?.isGrouped && "• Grouped"}
@@ -854,7 +854,7 @@ export function FreightTable({
           </DialogHeader>
 
           {selectedPayment && (
-            <div className="space-y-5">
+            <div className="flex-1 overflow-y-auto min-h-0 px-6 py-5 space-y-5 custom-scrollbar">
               {/* Header Card */}
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/15 dark:to-indigo-950/15 border border-blue-100/50 dark:border-blue-900/30 rounded-xl p-4">
                 <div className="flex justify-between items-start">
@@ -974,6 +974,7 @@ export function FreightTable({
                           <TableHead className="w-[110px]">Bilty No.</TableHead>
                           <TableHead className="w-[110px]">Vehicle</TableHead>
                           <TableHead className="w-[110px] text-right">Amount</TableHead>
+                          <TableHead className="w-[110px] text-right">Paid Amount</TableHead>
                           {activeTab === "makepayment" && <TableHead className="w-[120px] text-center">Audit Image</TableHead>}
                           {activeTab === "makepayment" && <TableHead className="w-[150px]">Audit Remark</TableHead>}
                           {activeTab === "checkkitting" && <TableHead className="w-[120px] text-center">Transporter Bill Image</TableHead>}
@@ -1020,6 +1021,9 @@ export function FreightTable({
                             </TableCell>
                             <TableCell className="font-bold text-xs text-right py-2.5">
                               {formatCurrency(child.Amount)}
+                            </TableCell>
+                            <TableCell className="font-bold text-xs text-right py-2.5 text-emerald-700">
+                              {child.PostingAmount !== undefined && child.PostingAmount !== null ? formatCurrency(child.PostingAmount) : "—"}
                             </TableCell>
                             {activeTab === "makepayment" && (
                               <TableCell className="py-2.5 text-center">
@@ -1099,7 +1103,7 @@ export function FreightTable({
                     </div>
                     {activeTab === "posting" && (
                       <div>
-                        <Label className="text-xs text-slate-500 dark:text-slate-400">Amount (₹)</Label>
+                        <Label className="text-xs text-slate-500 dark:text-slate-400">Paid Amount (₹)</Label>
                         <Input
                           type="number"
                           value={updateAmount}
@@ -1186,10 +1190,10 @@ export function FreightTable({
             </div>
           )}
 
-          <DialogFooter className="mt-4 border-t border-border pt-4">
+          <DialogFooter className="px-6 py-3.5 border-t border-border bg-slate-50/80 dark:bg-white/5 shrink-0 flex items-center justify-end gap-2.5 m-0 rounded-b-2xl">
             <Button variant="outline" onClick={() => setShowDetailModal(false)}>Cancel</Button>
             {subTab !== "history" && onQuickUpdate && (
-              <Button onClick={handleUpdate} disabled={!updateStatus} className="bg-blue-600 hover:bg-blue-700">
+              <Button onClick={handleUpdate} disabled={!updateStatus} className="bg-blue-600 hover:bg-blue-700 font-semibold shadow-xs">
                 <Check className="w-4 h-4 mr-2" />
                 Update Status
               </Button>

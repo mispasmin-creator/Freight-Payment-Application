@@ -53,7 +53,7 @@ function DialogContent({
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl border border-white/50 bg-white/97 p-4 text-sm text-slate-900 shadow-2xl shadow-slate-950/25 duration-200 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "fixed top-1/2 left-1/2 z-50 flex flex-col w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 max-h-[90vh] rounded-2xl border border-white/50 bg-white/97 p-0 text-sm text-slate-900 shadow-2xl shadow-slate-950/25 duration-200 outline-none overflow-hidden sm:max-w-lg dark:border-white/10 dark:bg-slate-900 dark:text-slate-100 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           className
         )}
         {...props}
@@ -63,15 +63,14 @@ function DialogContent({
           <DialogPrimitive.Close
             data-slot="dialog-close"
             render={
-              <Button
-                variant="ghost"
-                className="absolute top-3 right-3 text-slate-400 hover:bg-brand-50 hover:text-brand-700 rounded-lg transition-colors"
-                size="icon-sm"
+              <button
+                type="button"
+                className="absolute top-3.5 right-3.5 z-50 inline-flex size-8 items-center justify-center rounded-full border border-slate-200/80 bg-white/90 text-slate-500 shadow-xs hover:bg-slate-100 hover:text-slate-900 hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50 dark:border-white/10 dark:bg-slate-800/90 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white transition-all cursor-pointer"
+                aria-label="Close"
               />
             }
           >
-            <XIcon
-            />
+            <XIcon className="size-4" />
             <span className="sr-only">Close</span>
           </DialogPrimitive.Close>
         )}
@@ -84,7 +83,17 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      className={cn("flex flex-col gap-2", className)}
+      className={cn("flex flex-col gap-2 shrink-0", className)}
+      {...props}
+    />
+  )
+}
+
+function DialogBody({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="dialog-body"
+      className={cn("flex-1 overflow-y-auto min-h-0 px-6 py-5 custom-scrollbar", className)}
       {...props}
     />
   )
@@ -102,7 +111,7 @@ function DialogFooter({
     <div
       data-slot="dialog-footer"
       className={cn(
-        "-mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-2xl border-t border-slate-100 bg-slate-50/80 p-4 sm:flex-row sm:justify-end",
+        "flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 px-6 py-3.5 border-t border-slate-100 bg-slate-50/80 dark:border-white/10 dark:bg-slate-900/80 shrink-0",
         className
       )}
       {...props}
@@ -149,6 +158,7 @@ function DialogDescription({
 
 export {
   Dialog,
+  DialogBody,
   DialogClose,
   DialogContent,
   DialogDescription,

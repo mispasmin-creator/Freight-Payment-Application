@@ -271,17 +271,21 @@
 @media (orientation: landscape) and (max-height: 640px) {
   [data-slot="dialog-content"] {
     max-height: calc(100dvh - 1rem) !important;
-    overflow-y: auto;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
     border-radius: 14px;
   }
 
   [data-slot="dialog-header"] {
     gap: 0.35rem;
+    flex-shrink: 0;
   }
 
   [data-slot="dialog-footer"] {
-    padding-top: 0.75rem;
-    padding-bottom: 0.75rem;
+    padding-top: 0.6rem;
+    padding-bottom: 0.6rem;
+    flex-shrink: 0;
   }
 
   .landscape-popup {

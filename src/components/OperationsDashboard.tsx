@@ -24,6 +24,7 @@ import {
   ChevronRight,
   Flag,
   Loader2,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -508,10 +509,10 @@ export function OperationsDashboard({ payments, onNavigate, onRefresh }: Operati
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="landscape-popup bg-white dark:bg-slate-900 rounded-2xl max-w-4xl w-full max-h-[85vh] overflow-hidden shadow-2xl"
+              className="landscape-popup bg-white dark:bg-slate-900 rounded-2xl max-w-4xl w-full max-h-[88vh] overflow-hidden shadow-2xl flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-white/10">
+              <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-white/10 shrink-0">
                 <div className="flex items-center gap-2">
                   <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl">
                     <BarChart2 className="w-5 h-5 text-indigo-600" />
@@ -521,14 +522,17 @@ export function OperationsDashboard({ payments, onNavigate, onRefresh }: Operati
                     <p className="text-[11px] text-slate-400">Detailed performance analytics</p>
                   </div>
                 </div>
-                <button onClick={() => setShowReportModal(false)} className="p-2 rounded-lg hover:bg-slate-100">
-                  <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                <button
+                  type="button"
+                  onClick={() => setShowReportModal(false)}
+                  className="inline-flex size-8 items-center justify-center rounded-full border border-slate-200/80 bg-white/90 text-slate-500 shadow-xs hover:bg-slate-100 hover:text-slate-900 hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50 dark:border-white/10 dark:bg-slate-800/90 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white transition-all cursor-pointer"
+                  aria-label="Close"
+                >
+                  <X className="size-4" />
                 </button>
               </div>
               
-              <div className="landscape-popup-body p-5 overflow-y-auto max-h-[calc(85vh-80px)]">
+              <div className="landscape-popup-body p-5 overflow-y-auto flex-1 min-h-0 custom-scrollbar">
                 <div className="flex gap-2 mb-6">
                   {(["daily", "weekly", "monthly"] as const).map((period) => (
                     <button
@@ -564,6 +568,16 @@ export function OperationsDashboard({ payments, onNavigate, onRefresh }: Operati
                     <p className="text-xl font-bold text-purple-700">{formatCurrency(reportData.reduce((sum, d) => sum + d.totalAmount, 0))}</p>
                   </div>
                 </div>
+              </div>
+
+              <div className="px-5 py-3 border-t border-slate-100 dark:border-white/10 bg-slate-50/80 dark:bg-white/5 shrink-0 flex items-center justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowReportModal(false)}
+                  className="rounded-xl text-xs h-9 px-5 border-slate-200"
+                >
+                  Close
+                </Button>
               </div>
             </motion.div>
           </motion.div>

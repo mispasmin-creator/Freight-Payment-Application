@@ -411,15 +411,15 @@ export function UserManagement() {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteConfirm !== null} onOpenChange={() => setDeleteConfirm(null)}>
-        <DialogContent className="max-w-sm rounded-2xl p-0 overflow-hidden border border-white shadow-2xl shadow-slate-950/20">
-          <DialogHeader className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
-            <DialogTitle className="text-base font-bold text-slate-900">Delete User</DialogTitle>
+        <DialogContent className="max-w-sm rounded-2xl p-0 overflow-hidden border border-slate-200/80 dark:border-white/10 shadow-2xl shadow-slate-950/20 flex flex-col max-h-[90vh]">
+          <DialogHeader className="px-6 py-5 border-b border-slate-100 dark:border-white/10 bg-slate-50/50 dark:bg-white/5 shrink-0">
+            <DialogTitle className="text-base font-bold text-slate-900 dark:text-slate-100">Delete User</DialogTitle>
             <DialogDescription className="text-xs text-slate-500 mt-0.5">
-              Are you sure you want to delete <span className="font-bold text-slate-700">{deleteConfirm?.Username}</span>?
+              Are you sure you want to delete <span className="font-bold text-slate-700 dark:text-slate-300">{deleteConfirm?.Username}</span>?
               This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          <div className="px-6 py-4">
+          <div className="px-6 py-4 flex-1 overflow-y-auto min-h-0">
             <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200/60 rounded-xl">
               <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
               <span className="text-[11px] text-amber-700">
@@ -427,7 +427,7 @@ export function UserManagement() {
               </span>
             </div>
           </div>
-          <DialogFooter className="px-6 py-4 border-t border-slate-100 bg-slate-50/30 flex gap-2">
+          <DialogFooter className="px-6 py-3.5 border-t border-slate-100 dark:border-white/10 bg-slate-50/80 dark:bg-white/5 flex gap-2 shrink-0 m-0 rounded-b-2xl">
             <Button
               variant="outline"
               className="rounded-lg text-xs h-9 flex-1 border-slate-200"
@@ -561,9 +561,9 @@ function UserFormDialog({ open, onOpenChange, user, onSuccess }: UserFormDialogP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg sm:max-w-lg w-[92vw] bg-white text-slate-900 border border-white shadow-2xl shadow-slate-950/20 p-0 overflow-hidden rounded-2xl">
-        <DialogHeader className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
-          <DialogTitle className="text-base font-bold text-slate-900 tracking-tight">
+      <DialogContent className="max-w-lg sm:max-w-lg w-[92vw] max-h-[90vh] h-auto flex flex-col p-0 overflow-hidden rounded-2xl bg-white text-slate-900 border border-slate-200/80 shadow-2xl shadow-slate-950/20 dark:bg-slate-900 dark:text-slate-100 dark:border-white/10">
+        <DialogHeader className="px-6 py-5 border-b border-slate-100 dark:border-white/10 bg-slate-50/50 dark:bg-white/5 shrink-0">
+          <DialogTitle className="text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight">
             {user ? "Edit User" : "Add New User"}
           </DialogTitle>
           <DialogDescription className="text-slate-400 font-medium text-xs mt-0.5">
@@ -573,8 +573,8 @@ function UserFormDialog({ open, onOpenChange, user, onSuccess }: UserFormDialogP
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit}>
-          <div className="px-6 py-5 space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <div className="px-6 py-5 space-y-4 flex-1 overflow-y-auto min-h-0 custom-scrollbar">
             {errors.submit && (
               <div className="flex items-center gap-2.5 px-4 py-3 bg-rose-50 border border-rose-200/60 rounded-xl">
                 <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
@@ -747,7 +747,7 @@ function UserFormDialog({ open, onOpenChange, user, onSuccess }: UserFormDialogP
             </div>
           </div>
 
-          <DialogFooter className="px-6 py-4 border-t border-slate-100 bg-slate-50/30 flex items-center justify-between">
+          <DialogFooter className="px-6 py-3.5 border-t border-slate-100 dark:border-white/10 bg-slate-50/80 dark:bg-white/5 shrink-0 flex items-center justify-between m-0 rounded-b-2xl">
             <Button
               type="button"
               variant="outline"

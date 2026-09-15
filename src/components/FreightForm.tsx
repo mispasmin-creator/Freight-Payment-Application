@@ -176,7 +176,7 @@ export function FreightForm({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-4xl sm:max-w-4xl w-[94vw] h-[88vh] flex flex-col p-0 overflow-hidden rounded-2xl border border-slate-200/90 shadow-2xl shadow-slate-950/25 ring-1 ring-slate-900/5"
+        className="max-w-4xl sm:max-w-4xl w-[94vw] max-h-[90vh] h-[88vh] flex flex-col p-0 overflow-hidden rounded-2xl border border-slate-200/90 shadow-2xl shadow-slate-950/25 ring-1 ring-slate-900/5 dark:border-white/10"
         style={{ background: "rgba(255,255,255,0.97)", backdropFilter: "blur(20px)" }}
       >
         {/* ─── Header ─── */}
@@ -210,7 +210,7 @@ export function FreightForm({
             </div>
 
             {payment && (
-              <div className="hidden sm:flex flex-col items-end gap-0.5 mr-8">
+              <div className="hidden sm:flex flex-col items-end gap-0.5 mr-12">
                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Shipment ID</span>
                 <span className="text-[12px] font-mono font-bold text-slate-700">#{payment.id}</span>
               </div>
@@ -219,7 +219,7 @@ export function FreightForm({
         </DialogHeader>
 
         {/* ─── Form Body ─── */}
-        <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden min-h-0">
           <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-5 space-y-6">
 
             {/* Submit Error */}
@@ -501,7 +501,7 @@ export function FreightForm({
           </div>
 
           {/* ─── Footer ─── */}
-          <DialogFooter className="mx-0 mb-0 px-6 py-4 border-t border-slate-100 bg-slate-50/60 flex flex-col-reverse sm:flex-row gap-2 sm:items-center sm:justify-between shrink-0">
+          <DialogFooter className="px-6 py-3.5 border-t border-slate-100 dark:border-white/10 bg-slate-50/80 dark:bg-white/5 flex flex-col-reverse sm:flex-row gap-2 sm:items-center sm:justify-between shrink-0 m-0 rounded-b-2xl">
             <Button
               type="button"
               variant="outline"
