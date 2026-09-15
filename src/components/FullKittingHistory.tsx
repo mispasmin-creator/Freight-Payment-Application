@@ -234,6 +234,9 @@ const formatCurrency = (amount?: number | null) => {
   }).format(amount);
 };
 
+// Purely a local tracking key (selection/dedup Sets in this component) — content-derived
+// from the source row, so it stays stable across renders without being saved anywhere.
+// The actual "Unique Number" saved to the database now comes from api.getNextKitNumber().
 const getRowUniqueId = (row: KittingHistoryItem): string => {
   return `KIT-${row.liftId}-${row.biltyNumber || ""}-${row.vehicleNumber || ""}`.replace(
     /\s+/g,
@@ -241,11 +244,18 @@ const getRowUniqueId = (row: KittingHistoryItem): string => {
   );
 };
 
-const toSystemPayment = (row: KittingHistoryItem, batchId?: string): Partial<FreightPayment> => {
-  const uniqueId = getRowUniqueId(row);
+const isRowProcessed = (row: KittingHistoryItem, processedIds: Set<string>): boolean => {
+  return (
+    processedIds.has(getRowUniqueId(row)) ||
+    processedIds.has(`KIT-${row.liftId}`)
+  );
+};
+
+const toSystemPayment = async (row: KittingHistoryItem, batchId?: string): Promise<Partial<FreightPayment>> => {
+  const kitNumber = await api.getNextKitNumber();
   return {
-    "Payment Number": uniqueId,
-    "Unique Number": uniqueId,
+    "Payment Number": kitNumber,
+    "Unique Number": kitNumber,
     "Lift ID": row.liftId,
     "Firm Name": row.firmName,
     "Fms Name": row.systemName || "Account Checking",
@@ -532,7 +542,7 @@ export function FullKittingHistory({
         const uniqueId = getRowUniqueId(row);
         if (!selectedModalItems.has(uniqueId)) continue;
         setProcessingId(uniqueId);
-        await api.processKittingPayment(toSystemPayment(row, batchId));
+        await api.processKittingPayment(await toSystemPayment(row, batchId));
         setProcessedIds((prev) => {
           const next = new Set(prev);
           next.add(uniqueId);
@@ -597,10 +607,16 @@ export function FullKittingHistory({
 
         const pIds = new Set<string>();
         for (const p of processedRes || []) {
-          const uNum =
-            p["Unique Number"] || (p["Lift ID"] ? `KIT-${p["Lift ID"]}` : "");
-          if (uNum) {
-            pIds.add(uNum);
+          if (p["Unique Number"]) {
+            pIds.add(p["Unique Number"]);
+          }
+          if (p["Lift ID"]) {
+            // Reconstruct the content-based key (Lift+Bilty+Vehicle) so dedup still
+            // works now that "Unique Number" is a sequential KIT-000001 style value.
+            pIds.add(
+              `KIT-${p["Lift ID"]}-${p["Bilty Number"] || ""}-${p["Vehicle Number"] || ""}`.replace(/\s+/g, ""),
+            );
+            pIds.add(`KIT-${p["Lift ID"]}`);
           }
         }
 
@@ -640,8 +656,7 @@ export function FullKittingHistory({
   // Base eligible rows (excl. processed and 'For' transporter)
   const baseEligibleRows = useMemo(() => {
     return rows.filter((r) => {
-      const uniqueId = getRowUniqueId(r);
-      if (processedIds.has(uniqueId) || processedIds.has(`KIT-${r.liftId}`)) {
+      if (isRowProcessed(r, processedIds)) {
         return false;
       }
       if (String(r.transporterName || "").trim().toLowerCase() === "for") {
@@ -811,7 +826,7 @@ export function FullKittingHistory({
 
   const toggleRowSelection = (row: KittingHistoryItem) => {
     const uniqueId = getRowUniqueId(row);
-    if (processedIds.has(uniqueId) || processedIds.has(`KIT-${row.liftId}`)) {
+    if (isRowProcessed(row, processedIds)) {
       return;
     }
     setSelectedIds((prev) => {
@@ -833,7 +848,7 @@ export function FullKittingHistory({
       const next = new Set(prev);
       group.children.forEach((c) => {
         const uniqueId = getRowUniqueId(c);
-        if (processedIds.has(uniqueId) || processedIds.has(`KIT-${c.liftId}`)) {
+        if (isRowProcessed(c, processedIds)) {
           return;
         }
         if (allSelected) {
@@ -864,7 +879,7 @@ export function FullKittingHistory({
     setProcessMessage(null);
 
     try {
-      await api.processKittingPayment(toSystemPayment(row));
+      await api.processKittingPayment(await toSystemPayment(row));
       setProcessedIds((prev) => new Set(prev).add(uniqueId));
       setProcessMessage(`Processed ${row.liftId} successfully`);
       queryClient.invalidateQueries({ queryKey: ["check-kitting-payments"] });
@@ -888,7 +903,7 @@ export function FullKittingHistory({
       for (const row of selectedRows) {
         const uniqueId = getRowUniqueId(row);
         setProcessingId(uniqueId);
-        await api.processKittingPayment(toSystemPayment(row));
+        await api.processKittingPayment(await toSystemPayment(row));
         setProcessedIds((prev) => new Set(prev).add(uniqueId));
         successCount += 1;
       }

@@ -96,6 +96,12 @@ export const api = {
     }
   },
 
+  getNextKitNumber: async (): Promise<string> => {
+    const { data, error } = await supabase.rpc("increment_kit_counter");
+    if (error) throw error;
+    return `KIT-${String(data).padStart(6, "0")}`;
+  },
+
   getCheckKittingPayments: async (): Promise<FreightPayment[]> => {
     if (supabaseUrl === "https://placeholder.supabase.co") {
       console.warn("Supabase credentials missing, returning empty array.");
