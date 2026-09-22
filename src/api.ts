@@ -52,6 +52,28 @@ export interface LoginUser {
   Page: string;
 }
 
+// Real per-trip transportation rate data — Purchase side (see getLiftAccountRates).
+export interface LiftAccountRateRow {
+  "Lift No"?: string | null;
+  "Bilty No."?: string | null;
+  "Type Of Transporting Rate"?: string | null;
+  "Transporting Rate"?: number | null;
+  "Transporter Rate"?: number | null;
+  "Lifting Qty"?: number | null;
+}
+
+// Real per-trip transportation rate data — Order Management side (see getDispatchRates).
+export interface DispatchRateRow {
+  "D-Sr Number"?: string | null;
+  "Bilty No."?: string | null;
+  "Type Of Rate"?: string | null;
+  "Transport Rate @Per Matric Ton"?: number | null;
+  "Fixed Amount"?: number | null;
+  "Total Transporter Amount"?: number | null;
+  "Qty To Be Dispatched"?: number | null;
+  "Actual Truck Qty"?: number | null;
+}
+
 const formatToTimestamptz = (dateStr?: string) => {
   if (!dateStr) return null;
   if (dateStr.includes("T")) return dateStr;
@@ -149,6 +171,43 @@ export const api = {
     });
 
     return result;
+  },
+
+  // Purchase side's real per-trip transportation rate & its billing basis
+  // ("Per MT" vs "Fixed") — this is the source of truth for Purchase FMS
+  // lifts; the merged FreightPayment/AccountChecking data does not carry
+  // this distinction (its "Rate Type" is always "External").
+  getLiftAccountRates: async (): Promise<LiftAccountRateRow[]> => {
+    if (purchaseSupabaseUrl === "https://placeholder.supabase.co") return [];
+    try {
+      return await fetchAll<LiftAccountRateRow>((from, to) =>
+        purchaseSupabase
+          .from("LIFT-ACCOUNTS")
+          .select('"Lift No","Bilty No.","Type Of Transporting Rate","Transporting Rate","Transporter Rate","Lifting Qty"')
+          .range(from, to)
+      );
+    } catch (e) {
+      console.error("Failed to fetch LIFT-ACCOUNTS from purchaseSupabase", e);
+      return [];
+    }
+  },
+
+  // Order Management side's real per-dispatch transportation rate & its
+  // billing basis ("Per Matric Ton rate" vs "Fixed Amount" / "Ex Factory
+  // Transporter") — the source of truth for Order Management System lifts.
+  getDispatchRates: async (): Promise<DispatchRateRow[]> => {
+    if (orderSupabaseUrl === "https://placeholder.supabase.co") return [];
+    try {
+      return await fetchAll<DispatchRateRow>((from, to) =>
+        orderSupabase
+          .from("DISPATCH")
+          .select('"D-Sr Number","Bilty No.","Type Of Rate","Transport Rate @Per Matric Ton","Fixed Amount","Total Transporter Amount","Qty To Be Dispatched","Actual Truck Qty"')
+          .range(from, to)
+      );
+    } catch (e) {
+      console.error("Failed to fetch DISPATCH rates from orderSupabase", e);
+      return [];
+    }
   },
 
   createFreightPayment: async (payment: Partial<FreightPayment>): Promise<FreightPayment> => {

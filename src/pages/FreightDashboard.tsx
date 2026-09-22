@@ -1,13 +1,14 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Banknote, FileText, LayoutDashboard, Loader2, Package, Package2, RefreshCw, Users, WifiOff } from "lucide-react";
+import { Banknote, FileText, LayoutDashboard, Loader2, Package, Package2, RefreshCw, Route, Users, WifiOff } from "lucide-react";
 import { api, LoginUser, purchaseSupabase, orderSupabase, fetchAll } from "@/api";
 import { FreightPayment } from "@/types";
 import { FreightForm } from "@/components/FreightForm";
 import { FreightTable } from "@/components/FreightTable";
 import { FullKittingHistory } from "@/components/FullKittingHistory";
 import { OperationsDashboard } from "@/components/OperationsDashboard";
+import { RouteRates } from "@/components/RouteRates";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -384,6 +385,7 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
       case "checkkitting": return "Account Checking";
       case "dashboard": return "Dashboard";
       case "users": return "User Management";
+      case "routerates": return "Route Rates";
       default: return "Freight Payments";
     }
   }, [activeTab]);
@@ -396,6 +398,7 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
       case "checkkitting": return `Verify account checking status • ${firmLabel}`;
       case "dashboard": return `Overview of freight operations • ${firmLabel}`;
       case "users": return "Manage users, roles, and page access";
+      case "routerates": return `Transportation rate per MT by route, month-wise • ${firmLabel}`;
       default: return `${payments.length} active records • ${firmLabel}`;
     }
   }, [activeTab, isAdmin, userFirm, payments.length]);
@@ -639,6 +642,8 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
           <div className="p-3 md:p-4 max-w-[1600px] mx-auto space-y-3 md:space-y-4 animate-fade-in">
             {activeTab === "dashboard" ? (
               <OperationsDashboard payments={allPayments} onNavigate={handleNavigate} onRefresh={() => refetch()} />
+            ) : activeTab === "routerates" ? (
+              <RouteRates payments={allPayments} />
             ) : activeTab === "users" ? (
               <Suspense
                 fallback={
@@ -762,6 +767,7 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
               posting: { icon: FileText, label: "Audit" },
               makepayment: { icon: Banknote, label: "Post" },
               freight: { icon: Package2, label: "Freight" },
+              routerates: { icon: Route, label: "Rates" },
               users: { icon: Users, label: "Users" },
             };
             const config = tabConfig[tab] || { icon: LayoutDashboard, label: tab };

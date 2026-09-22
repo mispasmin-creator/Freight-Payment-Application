@@ -50,6 +50,7 @@ const ALL_PAGES = [
   { key: "Account Audit", label: "Account Audit", icon: "📄" },
   { key: "Posting", label: "Posting", icon: "💰" },
   { key: "Freight", label: "Freight Payments", icon: "🚚" },
+  { key: "Route Rates", label: "Route Rates", icon: "📈" },
   { key: "Users", label: "User Management", icon: "👥" },
 ];
 
@@ -541,13 +542,18 @@ function UserFormDialog({ open, onOpenChange, user, onSuccess }: UserFormDialogP
     }
   };
 
+  // Admins get full access everywhere, so Firm Name / Page Access don't
+  // apply to them — neither is asked for, and neither is sent.
+  const isAdminRole = (formData.Role || "").trim().toLowerCase() === "admin";
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
 
     const submitData: Partial<LoginUser> = {
       ...formData,
-      Page: selectedPages.join(","),
+      "Firm Name": isAdminRole ? "" : formData["Firm Name"],
+      Page: isAdminRole ? "" : selectedPages.join(","),
     };
 
     if (user) {
@@ -664,87 +670,94 @@ function UserFormDialog({ open, onOpenChange, user, onSuccess }: UserFormDialogP
                 </SelectContent>
               </Select>
               {errors.role && <p className="text-[10px] font-medium text-rose-500 mt-0.5">{errors.role}</p>}
+              {isAdminRole && (
+                <p className="text-[10px] text-slate-400 italic">Admin ko sabhi firms aur pages ka access apne aap mil jaata hai.</p>
+              )}
             </div>
 
-            {/* Firm Name */}
-            <div className="space-y-1.5">
-              <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                Firm Name
-              </Label>
-              <Select
-                value={formData["Firm Name"] || "none"}
-                onValueChange={(v) => {
-                  const firm = String(v);
-                  setFormData({ ...formData, "Firm Name": firm === "none" ? "" : firm });
-                }}
-              >
-                <SelectTrigger className="h-10 bg-white border-slate-200 rounded-lg text-sm">
-                  <SelectValue placeholder="Select firm (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {FIRM_OPTIONS.map((f) => (
-                    <SelectItem key={f} value={f}>
-                      {f}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {!isAdminRole && (
+              <>
+                {/* Firm Name */}
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Firm Name
+                  </Label>
+                  <Select
+                    value={formData["Firm Name"] || "none"}
+                    onValueChange={(v) => {
+                      const firm = String(v);
+                      setFormData({ ...formData, "Firm Name": firm === "none" ? "" : firm });
+                    }}
+                  >
+                    <SelectTrigger className="h-10 bg-white border-slate-200 rounded-lg text-sm">
+                      <SelectValue placeholder="Select firm (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {FIRM_OPTIONS.map((f) => (
+                        <SelectItem key={f} value={f}>
+                          {f}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            {/* Page Access */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Page Access
-                </Label>
-                <button
-                  type="button"
-                  onClick={selectAllPages}
-                  className="text-[10px] font-bold text-blue-600 hover:text-blue-700 uppercase tracking-wider"
-                >
-                  {selectedPages.length === ALL_PAGES.length ? "Deselect All" : "Select All"}
-                </button>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {ALL_PAGES.map((page) => {
-                  const isSelected = selectedPages.includes(page.key);
-                  return (
+                {/* Page Access */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      Page Access
+                    </Label>
                     <button
-                      key={page.key}
                       type="button"
-                      onClick={() => togglePage(page.key)}
-                      className={cn(
-                        "flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border text-xs font-semibold transition-all",
-                        isSelected
-                          ? "bg-blue-50 border-blue-200 text-blue-700 shadow-sm"
-                          : "bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50"
-                      )}
+                      onClick={selectAllPages}
+                      className="text-[10px] font-bold text-blue-600 hover:text-blue-700 uppercase tracking-wider"
                     >
-                      <div
-                        className={cn(
-                          "w-4 h-4 rounded-md border-2 flex items-center justify-center transition-all",
-                          isSelected ? "bg-blue-600 border-blue-600" : "border-slate-300"
-                        )}
-                      >
-                        {isSelected && (
-                          <svg
-                            className="w-2.5 h-2.5 text-white"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={3}
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                      </div>
-                      <span className="truncate">{page.label}</span>
+                      {selectedPages.length === ALL_PAGES.length ? "Deselect All" : "Select All"}
                     </button>
-                  );
-                })}
-              </div>
-            </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {ALL_PAGES.map((page) => {
+                      const isSelected = selectedPages.includes(page.key);
+                      return (
+                        <button
+                          key={page.key}
+                          type="button"
+                          onClick={() => togglePage(page.key)}
+                          className={cn(
+                            "flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border text-xs font-semibold transition-all",
+                            isSelected
+                              ? "bg-blue-50 border-blue-200 text-blue-700 shadow-sm"
+                              : "bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50"
+                          )}
+                        >
+                          <div
+                            className={cn(
+                              "w-4 h-4 rounded-md border-2 flex items-center justify-center transition-all",
+                              isSelected ? "bg-blue-600 border-blue-600" : "border-slate-300"
+                            )}
+                          >
+                            {isSelected && (
+                              <svg
+                                className="w-2.5 h-2.5 text-white"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                strokeWidth={3}
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
+                          <span className="truncate">{page.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           <DialogFooter className="px-6 py-3.5 border-t border-slate-100 dark:border-white/10 bg-slate-50/80 dark:bg-white/5 shrink-0 flex items-center justify-between m-0 rounded-b-2xl">

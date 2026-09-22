@@ -6,6 +6,7 @@ export const PAGE_KEY_MAP: Record<string, string> = {
   posting: "Account Audit",
   makepayment: "Posting",
   freight: "Freight",
+  routerates: "Route Rates",
   users: "Users",
 };
 

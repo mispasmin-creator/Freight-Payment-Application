@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Zap,
   ChevronLeft,
+  Route,
 } from "lucide-react";
 import { LoginUser } from "@/api";
 import { cn } from "@/lib/utils";
@@ -65,8 +66,17 @@ const NAV_CONFIG = {
     gradient: "from-emerald-500 to-emerald-600",
     description: ""
   },
-  users: { 
-    icon: ShieldCheck, 
+  routerates: {
+    icon: Route,
+    label: "Route Rates",
+    iconBg: "#e0f2fe",
+    iconColor: "#0284c7",
+    activeBg: "#0284c7",
+    gradient: "from-sky-500 to-sky-600",
+    description: ""
+  },
+  users: {
+    icon: ShieldCheck,
     label: "User Management", 
     iconBg: "#f3e8ff", 
     iconColor: "#9333ea", 
@@ -231,6 +241,7 @@ export function AppSidebar({
 
   const hasOperations = allowedTabs.some((t) => ["checkkitting", "posting", "makepayment"].includes(t));
   const hasPayments = allowedTabs.some((t) => ["freight"].includes(t));
+  const hasRouteRates = allowedTabs.includes("routerates");
   const hasAdminSection = allowedTabs.includes("users");
 
   const activeColor = NAV_CONFIG[activeTab as TabKey]?.activeBg ?? "#4f46e5";
@@ -413,6 +424,19 @@ export function AppSidebar({
               onClick={() => onNavigate("freight")}
               collapsed={collapsed}
               badge={badgeMap.freight}
+              isNew={true}
+            />
+          </>
+        )}
+
+        {hasRouteRates && (
+          <>
+            <SectionLabel label="" collapsed={collapsed} />
+            <SidebarItem
+              tabKey="routerates"
+              active={activeTab === "routerates"}
+              onClick={() => onNavigate("routerates")}
+              collapsed={collapsed}
               isNew={true}
             />
           </>
