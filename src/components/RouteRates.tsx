@@ -31,13 +31,12 @@ function productName(p: FreightPayment): string {
   return v || "Unspecified";
 }
 
-// "verified"  = rate comes straight from Purchase/Order's own rate field,
-//               billed Per MT / Per Matric Ton — this is a real, accurate rate.
-// "unratable" = the bill is a Fixed/Ex-Factory lumpsum, or no Purchase/Order
-//               record could be matched at all — no honest ₹/MT exists for
-//               these, so they're kept out of every rate number, but their
-//               cost is still counted in the total-freight figures.
-type RateBasis = "verified" | "unratable";
+// "verified" = rate comes straight from Purchase/Order's own rate field,
+//              billed Per MT / Per Matric Ton — this is a real, accurate rate.
+// "derived"  = the bill is a Fixed lumpsum, or no Purchase/Order record could
+//              be matched — ₹/MT is worked out as total amount ÷ qty. Only
+//              used where a group has no verified trip at all (see aggregate).
+type RateBasis = "verified" | "derived";
 
 interface Trip {
   firm: string;
@@ -61,10 +60,16 @@ interface Agg {
   max: number;
   latestRate: number;
   latestTime: number;
+  derived: boolean;
 }
 
-function aggregate(rows: Trip[]): Agg {
-  const a: Agg = { trips: 0, qty: 0, amount: 0, min: Infinity, max: 0, latestRate: 0, latestTime: 0 };
+// Declared Per MT rates always win: derived (Fixed lumpsum ÷ qty) trips only
+// count when the group has no declared rate at all, so a mis-entered Fixed
+// bill can't drag a real ₹/MT up or down.
+function aggregate(all: Trip[]): Agg {
+  const verified = all.filter((r) => r.basis === "verified");
+  const rows = verified.length ? verified : all;
+  const a: Agg = { trips: 0, qty: 0, amount: 0, min: Infinity, max: 0, latestRate: 0, latestTime: 0, derived: !verified.length };
   for (const r of rows) {
     const rate = r.amount / r.qty;
     a.trips++;
@@ -87,6 +92,7 @@ interface MonthPoint {
   qty: number;
   amount: number;
   trips: number;
+  derived: boolean;
 }
 
 function RouteTrendChart({ points }: { points: MonthPoint[] }) {
@@ -280,10 +286,8 @@ export function RouteRates({ payments }: Props) {
   // Build the actual trip list: for every payment, work out its rate from
   // the source system it came from, and only mark it "verified" when that
   // source explicitly billed it Per MT / Per Matric Ton.
-  const { trips, unratable } = useMemo(() => {
+  const trips = useMemo(() => {
     const out: Trip[] = [];
-    let unratableCount = 0;
-    let unratableAmount = 0;
 
     for (const p of payments) {
       const month = monthKey(p);
@@ -294,7 +298,7 @@ export function RouteRates({ payments }: Props) {
 
       let amount = 0;
       let qty = 0;
-      let basis: RateBasis = "unratable";
+      let basis: RateBasis = "derived";
 
       if (fmsName === "Purchase FMS" && liftId && liftAccountMap.has(liftId)) {
         const la = liftAccountMap.get(liftId)!;
@@ -302,8 +306,10 @@ export function RouteRates({ payments }: Props) {
         const perMtRate = Number(la["Transporting Rate"]);
         const liftingQty = Number(la["Lifting Qty"]);
         if (rateType === "per mt" && perMtRate > 0 && liftingQty > 0) {
+          // Use the transporter's declared ₹/MT, not the stored total — the
+          // total is often out of sync with rate × qty and skews the rate.
           qty = liftingQty;
-          amount = Number(la["Transporter Rate"]) > 0 ? Number(la["Transporter Rate"]) : perMtRate * liftingQty;
+          amount = perMtRate * liftingQty;
           basis = "verified";
         } else {
           amount = Number(la["Transporter Rate"]) || Number(p.Amount) || 0;
@@ -316,7 +322,7 @@ export function RouteRates({ payments }: Props) {
         const dispatchQty = Number(dp["Qty To Be Dispatched"]) || Number(dp["Actual Truck Qty"]);
         if (rateType === "per matric ton rate" && perMtRate > 0 && dispatchQty > 0) {
           qty = dispatchQty;
-          amount = Number(dp["Total Transporter Amount"]) > 0 ? Number(dp["Total Transporter Amount"]) : perMtRate * dispatchQty;
+          amount = perMtRate * dispatchQty;
           basis = "verified";
         } else {
           amount = Number(dp["Total Transporter Amount"]) || Number(dp["Fixed Amount"]) || Number(p.Amount) || 0;
@@ -332,12 +338,6 @@ export function RouteRates({ payments }: Props) {
 
       if (!(amount > 0) || !(qty > 0)) continue;
 
-      if (basis === "unratable") {
-        unratableCount++;
-        unratableAmount += amount;
-        continue;
-      }
-
       out.push({
         firm: clean(p["Firm Name"]) || "-",
         party: norm(p["Party Name"]) || "-",
@@ -352,7 +352,7 @@ export function RouteRates({ payments }: Props) {
         basis,
       });
     }
-    return { trips: out, unratable: { count: unratableCount, amount: unratableAmount } };
+    return out;
   }, [payments, liftAccountMap, dispatchMap]);
 
   const firms = useMemo(() => [...new Set(trips.map((t) => t.firm))].sort(), [trips]);
@@ -366,25 +366,30 @@ export function RouteRates({ payments }: Props) {
       if (toMonth && t.month > toMonth) return false;
       if (firm && t.firm !== firm) return false;
       if (party && t.party !== party) return false;
-      if (q && !`${t.from} ${t.to} ${t.party} ${t.firm}`.includes(q)) return false;
+      if (q && !`${t.from} ${t.to} ${t.party} ${t.firm} ${t.transporter}`.includes(q)) return false;
       return true;
     });
   }, [trips, fromMonth, toMonth, firm, party, search]);
 
-  // Route = Firm Name (where it's dispatched from) → Transporter Name (who
-  // it's handed off to / where it's going). One row per Firm+Transporter
-  // pair — so a firm that used 5 different transporters gets 5 separate
-  // rows, never merged into one.
+  // Route = Firm Name (where it's dispatched from) → Party Name (where it's
+  // going). One row per Route+Transporter — so if 2 transporters ran the
+  // same Firm → Party route, each gets its own row with its own ₹/MT.
   const groups = useMemo(() => {
     const map = new Map<string, Trip[]>();
     for (const t of filtered) {
-      const key = `${t.firm} → ${t.transporter}`;
+      const key = `${t.firm}||${t.party}||${t.transporter}`;
       const list = map.get(key);
       if (list) list.push(t);
       else map.set(key, [t]);
     }
     return [...map.entries()]
-      .map(([key, rows]) => ({ key, rows, agg: aggregate(rows) }))
+      .map(([key, rows]) => ({
+        key,
+        route: `${rows[0].firm} → ${rows[0].party}`,
+        transporter: rows[0].transporter,
+        rows,
+        agg: aggregate(rows),
+      }))
       .sort((a, b) => b.agg.amount - a.agg.amount);
   }, [filtered]);
 
@@ -424,12 +429,12 @@ export function RouteRates({ payments }: Props) {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([month, rows]) => {
         const a = aggregate(rows);
-        return { month, rate: a.amount / a.qty, qty: a.qty, amount: a.amount, trips: a.trips };
+        return { month, rate: a.amount / a.qty, qty: a.qty, amount: a.amount, trips: a.trips, derived: a.derived };
       });
   }, [detailGroup]);
 
   const exportCsv = () => {
-    const lines = [["Route", "Month", "Product", "Trips", "MT", "Amount", "Rate per MT"].join(",")];
+    const lines = [["Route", "Transporter", "Month", "Product", "Trips", "MT", "Amount", "Rate per MT"].join(",")];
     for (const g of groups) {
       const map = new Map<string, Trip[]>();
       g.rows.forEach((r) => {
@@ -439,7 +444,7 @@ export function RouteRates({ payments }: Props) {
       [...map.entries()].sort().forEach(([k, rows]) => {
         const [m, product] = k.split("||");
         const a = aggregate(rows);
-        lines.push([`"${g.key}"`, m, `"${product}"`, a.trips, a.qty.toFixed(2), a.amount.toFixed(2), (a.amount / a.qty).toFixed(2)].join(","));
+        lines.push([`"${g.route}"`, `"${g.transporter}"`, m, `"${product}"`, a.trips, a.qty.toFixed(2), a.amount.toFixed(2), (a.amount / a.qty).toFixed(2)].join(","));
       });
     }
     const blob = new Blob([lines.join("\n")], { type: "text/csv" });
@@ -508,7 +513,8 @@ export function RouteRates({ payments }: Props) {
         <table className="w-full text-[12px]">
           <thead className="sticky top-0 z-10">
             <tr className="text-left text-[10px] uppercase tracking-wider text-slate-500 bg-white dark:bg-[oklch(0.16_0.006_247)] border-b border-slate-100 dark:border-white/6">
-              <th className="p-3">Route (Firm → Transporter)</th>
+              <th className="p-3">Route (Firm → Party)</th>
+              <th className="p-3">Transporter</th>
               <th className="p-3 text-right">Trips</th>
               <th className="p-3 text-right">MT</th>
               <th className="p-3 text-right">Freight</th>
@@ -521,17 +527,18 @@ export function RouteRates({ payments }: Props) {
           </thead>
           <tbody>
             {groups.length === 0 && (
-              <tr><td colSpan={9} className="p-8 text-center text-slate-400">
+              <tr><td colSpan={10}className="p-8 text-center text-slate-400">
                 Koi data nahi mila (Amount aur Billing Qty dono bhare hone chahiye)
               </td></tr>
             )}
             {groups.map((g) => (
               <tr key={g.key} className="border-b border-slate-50 dark:border-white/4 hover:bg-slate-50 dark:hover:bg-white/3">
-                <td className="p-3 font-semibold text-slate-800 dark:text-slate-100">{g.key}</td>
+                <td className="p-3 font-semibold text-slate-800 dark:text-slate-100">{g.route}</td>
+                <td className="p-3 text-slate-600 dark:text-slate-300">{g.transporter}</td>
                 <td className="p-3 text-right">{g.agg.trips}</td>
                 <td className="p-3 text-right">{num(g.agg.qty)}</td>
                 <td className="p-3 text-right">{inr(g.agg.amount)}</td>
-                <td className="p-3 text-right font-bold text-emerald-600">{inr(g.agg.amount / g.agg.qty)}</td>
+                <td className="p-3 text-right font-bold text-emerald-600">{g.agg.derived && "≈"}{inr(g.agg.amount / g.agg.qty)}</td>
                 <td className="p-3 text-right">{inr(g.agg.min)}</td>
                 <td className="p-3 text-right">{inr(g.agg.max)}</td>
                 <td className="p-3 text-right">{inr(g.agg.latestRate)}</td>
@@ -555,8 +562,11 @@ export function RouteRates({ payments }: Props) {
           <DialogHeader className="px-6 pt-6">
             <DialogTitle className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-brand-500" />
-              {detailGroup?.key}
+              {detailGroup?.route}
             </DialogTitle>
+            <p className="text-[12px] font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+              <Truck className="w-3.5 h-3.5" /> {detailGroup?.transporter}
+            </p>
             <p className="text-[12px] text-slate-500 dark:text-slate-400">
               Month-wise transportation rate (₹ per MT), product-wise breakup neeche
             </p>
@@ -586,7 +596,7 @@ export function RouteRates({ payments }: Props) {
                           <div>
                             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{monthLabel(mp.month)}</p>
                             <p className="text-2xl font-bold text-slate-800 dark:text-white mt-0.5">
-                              {inr(mp.rate)}
+                              {mp.derived && "≈"}{inr(mp.rate)}
                               <span className="text-[11px] font-semibold text-slate-400 ml-1">/ MT</span>
                             </p>
                           </div>
@@ -616,7 +626,7 @@ export function RouteRates({ payments }: Props) {
                                   {p.product}
                                 </span>
                                 <span className="font-semibold text-slate-700 dark:text-slate-200 shrink-0 ml-2">
-                                  {inr(p.amount / p.qty)}/MT
+                                  {p.derived && "≈"}{inr(p.amount / p.qty)}/MT
                                 </span>
                               </div>
                             ))}
