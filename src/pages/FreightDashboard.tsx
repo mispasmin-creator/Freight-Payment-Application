@@ -592,7 +592,7 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
   }
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-slate-50 dark:bg-[oklch(0.12_0.008_247)] relative">
+    <div className="flex h-screen w-screen overflow-hidden soft-app-bg relative">
       {mobileSidebarOpen && (
         <div
           className="fixed inset-0 bg-black/40 backdrop-blur-sm z-20 lg:hidden"
@@ -655,26 +655,26 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
                 <UserManagementLazy />
               </Suspense>
             ) : (
-              <div className="bg-white dark:bg-[oklch(0.16_0.006_247)] border border-slate-200/80 dark:border-white/6 rounded-xl shadow-sm overflow-hidden">
+              <div className="soft-card overflow-hidden">
                 <Tabs value={subTab} onValueChange={(val) => setSubTab(val as any)} className="w-full">
-                  <div className="px-4 py-2.5 border-b border-slate-100 dark:border-white/6 bg-white dark:bg-[oklch(0.16_0.006_247)] flex items-center justify-between flex-wrap gap-2">
-                    <TabsList className="h-8 bg-slate-100/80 dark:bg-white/6 rounded-lg">
+                  <div className="px-5 py-3.5 border-b border-slate-100/80 dark:border-white/6 flex items-center justify-between flex-wrap gap-2">
+                    <TabsList className="h-10 bg-slate-100/80 dark:bg-white/6 rounded-2xl p-1">
                       <TabsTrigger
                         value="pending"
-                        className="rounded-md px-3.5 py-1 text-[11px] font-bold data-[state=active]:bg-white dark:data-[state=active]:bg-white/10 data-[state=active]:text-brand-700 dark:data-[state=active]:text-brand-400 data-[state=active]:shadow-sm transition-all h-6"
+                        className="rounded-xl px-5 py-1 text-[12px] font-bold data-active:bg-white data-[state=active]:bg-white dark:data-[state=active]:bg-white/10 data-active:text-brand-700 data-[state=active]:text-brand-700 dark:data-[state=active]:text-brand-400 data-active:shadow-sm data-[state=active]:shadow-sm transition-all h-8"
                       >
                         Pending
                       </TabsTrigger>
                       <TabsTrigger
                         value="history"
-                        className="rounded-md px-3.5 py-1 text-[11px] font-bold data-[state=active]:bg-white dark:data-[state=active]:bg-white/10 data-[state=active]:text-brand-700 dark:data-[state=active]:text-brand-400 data-[state=active]:shadow-sm transition-all h-6"
+                        className="rounded-xl px-5 py-1 text-[12px] font-bold data-active:bg-white data-[state=active]:bg-white dark:data-[state=active]:bg-white/10 data-active:text-brand-700 data-[state=active]:text-brand-700 dark:data-[state=active]:text-brand-400 data-active:shadow-sm data-[state=active]:shadow-sm transition-all h-8"
                       >
                         History
                       </TabsTrigger>
                     </TabsList>
 
                     <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-2 text-[9.5px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-wider">
+                      <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 dark:bg-white/5 text-[9.5px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-wider">
                         {error ? (
                           <>
                             <WifiOff className="w-3 h-3 text-rose-500" />
@@ -709,7 +709,7 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
                             }
                           }}
                           disabled={isSoftRefreshing}
-                          className="flex items-center justify-center p-1 rounded-md text-slate-400 dark:text-slate-600 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 active:scale-95 transition-all disabled:opacity-50"
+                          className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-50 dark:bg-white/5 text-slate-400 dark:text-slate-600 hover:text-brand-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 active:scale-95 transition-all disabled:opacity-50"
                           title="Soft Refresh"
                         >
                           <RefreshCw
@@ -758,7 +758,7 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
       </div>
 
       {/* Mobile bottom nav */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-20 mobile-nav-bg border-t border-slate-200 dark:border-white/6 safe-pb">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-20 mobile-nav-bg border-t border-slate-200/60 dark:border-white/6 safe-pb rounded-t-3xl shadow-[0_-10px_30px_-15px_rgba(15,23,42,0.2)]">
         <div className="flex items-stretch justify-around px-1 py-1">
           {allowedTabs.slice(0, 5).map((tab: string) => {
             const tabConfig: Record<string, { icon: React.ElementType; label: string }> = {

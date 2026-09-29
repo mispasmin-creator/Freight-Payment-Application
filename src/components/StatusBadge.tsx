@@ -9,17 +9,17 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
   const s = status?.toLowerCase() || "unknown";
   
   const variants: Record<string, string> = {
-    pending: "bg-amber-50 text-amber-700 border-amber-200/50",
-    "not done": "bg-amber-50 text-amber-700 border-amber-200/50",
-    completed: "bg-emerald-50 text-emerald-700 border-emerald-200/50",
-    done: "bg-emerald-50 text-emerald-700 border-emerald-200/50",
-    delayed: "bg-rose-50 text-rose-700 border-rose-200/50",
-    processing: "bg-blue-50 text-blue-700 border-blue-200/50",
-    "in progress": "bg-blue-50 text-blue-700 border-blue-200/50",
-    "in transit": "bg-indigo-50 text-indigo-700 border-indigo-200/50",
-    requested: "bg-violet-50 text-violet-700 border-violet-200/50",
-    verified: "bg-teal-50 text-teal-700 border-teal-200/50",
-    default: "bg-slate-50 text-slate-600 border-slate-200/50",
+    pending: "bg-amber-50 text-amber-700",
+    "not done": "bg-amber-50 text-amber-700",
+    completed: "bg-emerald-50 text-emerald-700",
+    done: "bg-emerald-50 text-emerald-700",
+    delayed: "bg-rose-50 text-rose-700",
+    processing: "bg-blue-50 text-blue-700",
+    "in progress": "bg-blue-50 text-blue-700",
+    "in transit": "bg-indigo-50 text-indigo-700",
+    requested: "bg-violet-50 text-violet-700",
+    verified: "bg-teal-50 text-teal-700",
+    default: "bg-slate-100 text-slate-600",
   };
 
   const dotVariants: Record<string, string> = {
@@ -42,7 +42,7 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-1.5 font-bold text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-md border shadow-sm shadow-slate-900/[0.02]",
+        "inline-flex items-center gap-1.5 font-medium text-[12px] px-2 py-0.5 rounded-full whitespace-nowrap",
         currentVariant, 
         className
       )}

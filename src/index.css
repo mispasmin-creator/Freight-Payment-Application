@@ -368,6 +368,53 @@
   transform: translateY(-1px);
 }
 
+/* ===== Soft UI (pastel, floating cards) =====
+   Kept in the components layer so Tailwind utilities (bg-gradient, rounded…)
+   on the same element still win. */
+@layer components {
+.soft-app-bg {
+  background:
+    radial-gradient(1200px 600px at 0% 0%, rgba(118, 153, 48, 0.10), transparent 60%),
+    radial-gradient(900px 500px at 100% 100%, rgba(148, 163, 184, 0.14), transparent 60%),
+    #f4f6f1;
+}
+.dark .soft-app-bg {
+  background:
+    radial-gradient(1200px 600px at 0% 0%, rgba(118, 153, 48, 0.08), transparent 60%),
+    oklch(0.12 0.008 247);
+}
+.soft-card {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 20px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 30px -12px rgba(15, 23, 42, 0.12);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.dark .soft-card {
+  background: oklch(0.16 0.006 247);
+  border-color: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.5);
+}
+.soft-card-hover:hover {
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 18px 40px -16px rgba(15, 23, 42, 0.18);
+  transform: translateY(-2px);
+}
+.soft-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 6px 14px -6px var(--soft-icon-shadow, rgba(15, 23, 42, 0.25));
+}
+.soft-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+}
+
 /* ===== Chart container ===== */
 .chart-container {
   position: relative;

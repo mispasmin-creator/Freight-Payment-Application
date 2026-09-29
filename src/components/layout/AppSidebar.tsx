@@ -106,57 +106,40 @@ function SidebarItem({ tabKey, active, onClick, collapsed, badge, isNew }: Sideb
       onClick={onClick}
       title={collapsed ? cfg.label : undefined}
       className={cn(
-        "w-full flex items-center gap-4 transition-all duration-300 rounded-xl group relative",
-        collapsed ? "justify-center p-3" : "px-4 py-3.5",
+        "w-full flex items-center gap-3 transition-all duration-300 rounded-2xl group relative",
+        collapsed ? "justify-center p-2.5" : "px-3 py-2.5",
         active
-          ? "shadow-lg"
-          : "hover:bg-slate-50 dark:hover:bg-white/5"
+          ? "bg-brand-50 dark:bg-brand-900/30 shadow-[0_8px_20px_-10px_rgba(94,122,38,0.45)] ring-1 ring-brand-100 dark:ring-brand-800/40"
+          : "hover:bg-white/80 dark:hover:bg-white/5"
       )}
-      style={{
-        background: active ? `linear-gradient(135deg, ${cfg.activeBg}0c, ${cfg.activeBg}04)` : undefined,
-        border: active ? `1px solid ${cfg.activeBg}25` : "1px solid transparent",
-      }}
-      whileHover={{ x: collapsed ? 0 : 3 }}
+      whileHover={{ x: collapsed ? 0 : 2 }}
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
     >
-      {active && (
-        <motion.div
-          layoutId="sidebar-active-bar"
-          className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-[60%] rounded-r-full"
-          style={{ background: `linear-gradient(135deg, ${cfg.activeBg}, ${cfg.activeBg}cc)` }}
-          transition={{ type: "spring", stiffness: 500, damping: 38 }}
-        />
-      )}
-
-      <motion.div
+      <div
         className={cn(
-          "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300",
-          active ? "shadow-md" : "group-hover:scale-105"
+          "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300",
+          active
+            ? "bg-white dark:bg-white/10 shadow-sm"
+            : "bg-transparent group-hover:bg-brand-50/70 dark:group-hover:bg-white/5"
         )}
-        style={{
-          background: active 
-            ? `linear-gradient(135deg, ${cfg.activeBg}, ${cfg.activeBg}dd)` 
-            : collapsed ? cfg.iconBg : cfg.iconBg,
-          boxShadow: active ? `0 4px 12px ${cfg.activeBg}40` : undefined,
-        }}
-        whileHover={{ scale: 1.05 }}
-        transition={{ type: "spring", stiffness: 400, damping: 25 }}
       >
         <Icon
-          className="w-5 h-5"
-          style={{ color: active ? "white" : cfg.iconColor }}
+          className={cn(
+            "w-4.5 h-4.5 transition-colors",
+            active ? "text-brand-600 dark:text-brand-300" : "text-slate-500 dark:text-slate-400 group-hover:text-brand-600"
+          )}
         />
-      </motion.div>
+      </div>
 
       {!collapsed && (
         <>
           <div className="flex-1 text-left">
             <span
-              className="block text-sm font-semibold truncate"
-              style={{
-                color: active ? cfg.activeBg : "#334155",
-                fontFamily: "'Inter', system-ui, sans-serif",
-              }}
+              className={cn(
+                "block text-[13px] truncate",
+                active ? "font-bold text-brand-700 dark:text-brand-300" : "font-semibold text-slate-600 dark:text-slate-300"
+              )}
+              style={{ fontFamily: "'Inter', system-ui, sans-serif" }}
             >
               {cfg.label}
             </span>
@@ -167,23 +150,21 @@ function SidebarItem({ tabKey, active, onClick, collapsed, badge, isNew }: Sideb
               <motion.span
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                className="min-w-[24px] h-6 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center"
-                style={{
-                  background: active ? `${cfg.activeBg}20` : "#fef2f2",
-                  color: active ? cfg.activeBg : "#dc2626",
-                  border: active ? `1px solid ${cfg.activeBg}30` : "1px solid #fecaca",
-                }}
+                className={cn(
+                  "min-w-[24px] h-6 px-2 rounded-full text-[11px] font-bold flex items-center justify-center",
+                  active ? "bg-brand-600 text-white shadow-sm" : "bg-rose-50 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400"
+                )}
               >
                 {badge > 99 ? "99+" : badge}
               </motion.span>
             )}
             {isNew && !badge && (
-              <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase">
+              <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100 text-[10px] font-bold uppercase">
                 New
               </span>
             )}
             {active && !badge && (
-              <ChevronRight className="w-4 h-4 opacity-60" style={{ color: cfg.activeBg }} />
+              <ChevronRight className="w-4 h-4 text-brand-500 opacity-70" />
             )}
           </div>
         </>
@@ -256,18 +237,22 @@ export function AppSidebar({
   return (
     <motion.aside
       initial={false}
-      animate={{ width: collapsed ? 88 : 300 }}
-      className={cn(
-        "h-screen flex flex-col shrink-0 transition-all duration-300 ease-out z-30 relative",
-        "bg-white dark:bg-slate-950",
-        "border-r border-slate-200/70 dark:border-white/10"
-      )}
+      animate={{ width: collapsed ? 96 : 292 }}
+      className="h-screen shrink-0 transition-all duration-300 ease-out z-30 relative p-3 pr-1.5"
     >
+     <div
+      className={cn(
+        "h-full flex flex-col rounded-[26px] overflow-hidden",
+        "bg-white/85 dark:bg-slate-950/90 backdrop-blur-xl",
+        "border border-white dark:border-white/8",
+        "shadow-[0_1px_2px_rgba(15,23,42,0.04),0_20px_45px_-20px_rgba(15,23,42,0.18)]"
+      )}
+     >
       {/* Brand Header */}
       <div
         className={cn(
-          "shrink-0 flex items-center justify-between border-b border-slate-100 dark:border-white/10",
-          collapsed ? "px-3 h-16" : "px-5 h-16"
+          "shrink-0 flex items-center justify-between",
+          collapsed ? "px-3 h-[72px] flex-col justify-center gap-1.5" : "px-5 h-[72px]"
         )}
       >
         <AnimatePresence mode="wait">
@@ -280,10 +265,10 @@ export function AppSidebar({
               transition={{ duration: 0.2 }}
               className="flex items-center gap-3"
             >
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center shadow-[0_8px_18px_-6px_rgba(94,122,38,0.6)]">
                 <Zap className="w-5 h-5 text-white" />
               </div>
-              <span className="font-bold text-slate-900 dark:text-white text-base tracking-tight" style={jk}>
+              <span className="font-extrabold text-brand-700 dark:text-white text-lg tracking-tight" style={jk}>
                 Dashboard
               </span>
             </motion.div>
@@ -294,7 +279,7 @@ export function AppSidebar({
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ duration: 0.2 }}
-              className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg mx-auto"
+              className="w-10 h-10 rounded-2xl bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center shadow-[0_8px_18px_-6px_rgba(94,122,38,0.6)] mx-auto"
             >
               <Zap className="w-5 h-5 text-white" />
             </motion.div>
@@ -304,7 +289,7 @@ export function AppSidebar({
         {onToggleCollapse && (
           <motion.button
             onClick={onToggleCollapse}
-            className="rounded-lg p-1.5 hover:bg-slate-100 dark:hover:bg-white/10"
+            className="rounded-xl p-1.5 bg-slate-50 hover:bg-brand-50 dark:bg-white/5 dark:hover:bg-white/10"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
@@ -317,23 +302,18 @@ export function AppSidebar({
       </div>
 
       {/* User Profile */}
-      <div className="px-3 pt-6 pb-4 border-b border-slate-100 dark:border-white/10">
+      <div className="px-3 pt-1 pb-3">
         <motion.div
           className={cn(
-            "rounded-xl transition-all duration-300",
+            "rounded-2xl transition-all duration-300",
+            "bg-gradient-to-br from-brand-50 to-white dark:from-brand-900/20 dark:to-transparent",
+            "ring-1 ring-brand-100/80 dark:ring-white/6",
             collapsed ? "p-2" : "p-3"
           )}
-          style={{
-            background: `linear-gradient(135deg, ${activeColor}08, ${activeColor}02)`,
-            border: `1px solid ${activeColor}15`,
-          }}
         >
           <div className={cn("flex items-center", collapsed ? "flex-col gap-2" : "gap-3")}>
             <div className="relative shrink-0">
-              <div
-                className="w-11 h-11 rounded-xl flex items-center justify-center text-white text-base font-bold shadow-lg"
-                style={{ background: `linear-gradient(135deg, ${activeColor}, ${activeColor}cc)` }}
-              >
+              <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-white text-base font-bold bg-gradient-to-br from-brand-400 to-brand-600 shadow-[0_8px_18px_-8px_rgba(94,122,38,0.6)]">
                 {avatarLetter}
               </div>
               <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900" />
@@ -369,7 +349,7 @@ export function AppSidebar({
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+      <nav className="flex-1 overflow-y-auto custom-scrollbar py-2 px-3 space-y-1">
         {allowedTabs.includes("dashboard") && (
           <>
             <SectionLabel label="" collapsed={collapsed} />
@@ -456,12 +436,13 @@ export function AppSidebar({
       </nav>
 
       {/* Sign Out */}
-      <div className="shrink-0 px-3 pb-4 pt-3 border-t border-slate-100 dark:border-white/10">
+      <div className="shrink-0 px-3 pb-3 pt-2">
         <motion.button
           onClick={onLogout}
           className={cn(
-            "w-full flex items-center justify-center gap-2 transition-all duration-200 rounded-lg",
-            collapsed ? "p-2.5 hover:bg-rose-50 dark:hover:bg-rose-900/20" : "px-4 py-3 hover:bg-rose-50 dark:hover:bg-rose-900/20"
+            "w-full flex items-center justify-center gap-2 transition-all duration-200 rounded-2xl",
+            "bg-rose-50/60 ring-1 ring-rose-100 hover:bg-rose-50 dark:bg-rose-900/10 dark:ring-rose-900/30 dark:hover:bg-rose-900/20",
+            collapsed ? "p-2.5" : "px-4 py-2.5"
           )}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
@@ -484,6 +465,7 @@ export function AppSidebar({
           </AnimatePresence>
         </motion.button>
       </div>
+     </div>
     </motion.aside>
   );
 }

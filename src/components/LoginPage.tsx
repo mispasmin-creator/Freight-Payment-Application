@@ -61,12 +61,12 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
       {/* Card */}
       <div
-        className="relative w-full max-w-[400px] bg-white border border-slate-200/80 rounded-2xl shadow-sm px-8 py-10"
+        className="relative w-full max-w-[400px] bg-white/90 backdrop-blur-xl border border-white rounded-[28px] shadow-[0_30px_70px_-25px_rgba(15,23,42,0.25)] px-8 py-10"
         style={{ animation: "cardIn 0.45s cubic-bezier(0.22,1,0.36,1) both" }}
       >
         {/* Brand */}
         <div className="flex flex-col items-center mb-7 gap-1.5">
-          <div className="w-12 h-12 rounded-[14px] bg-[#4a7c1f] flex items-center justify-center mb-1">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-brand-400 to-brand-600 shadow-[0_10px_22px_-10px_rgba(94,122,38,0.8)] flex items-center justify-center mb-1">
             <Truck className="w-6 h-6 text-white" strokeWidth={1.6} />
           </div>
           <h1 className="text-xl font-medium text-slate-900 tracking-tight">
@@ -82,7 +82,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
         {/* Error */}
         {error && (
-          <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-rose-50 border border-rose-200/80 mb-4">
+          <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-rose-50 border border-rose-200/80 mb-4">
             <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
             <p className="text-[12px] text-rose-700 leading-snug">{error}</p>
           </div>
@@ -105,7 +105,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 placeholder="Enter your username"
                 autoFocus
                 autoComplete="username"
-                className="w-full h-[42px] pl-[38px] pr-3 rounded-lg text-[13px] text-slate-800 placeholder:text-slate-300 bg-slate-50 border border-slate-200 outline-none transition-all focus:bg-white focus:border-[#6b9a2e] focus:ring-2 focus:ring-[#6b9a2e]/10"
+                className="w-full h-11 pl-[38px] pr-3 rounded-xl text-[13px] text-slate-800 placeholder:text-slate-300 bg-slate-50 border border-slate-200 outline-none transition-all focus:bg-white focus:border-[#6b9a2e] focus:ring-2 focus:ring-[#6b9a2e]/10"
               />
             </div>
           </div>
@@ -123,7 +123,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
                 autoComplete="current-password"
-                className="w-full h-[42px] pl-[38px] pr-10 rounded-lg text-[13px] text-slate-800 placeholder:text-slate-300 bg-slate-50 border border-slate-200 outline-none transition-all focus:bg-white focus:border-[#6b9a2e] focus:ring-2 focus:ring-[#6b9a2e]/10"
+                className="w-full h-11 pl-[38px] pr-10 rounded-xl text-[13px] text-slate-800 placeholder:text-slate-300 bg-slate-50 border border-slate-200 outline-none transition-all focus:bg-white focus:border-[#6b9a2e] focus:ring-2 focus:ring-[#6b9a2e]/10"
               />
               <button
                 type="button"
@@ -168,8 +168,8 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             type="submit"
             disabled={isLoading}
             className={cn(
-              "w-full h-[44px] mt-1 rounded-lg text-white text-[13px] font-medium flex items-center justify-center gap-2 transition-all active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed",
-              isLoading ? "bg-[#6b9a2e]" : "bg-[#4a7c1f] hover:bg-[#3d6818]"
+              "w-full h-11 mt-1 rounded-xl text-white shadow-[0_10px_22px_-10px_rgba(94,122,38,0.8)] text-[13px] font-medium flex items-center justify-center gap-2 transition-all active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed",
+              isLoading ? "bg-[#6b9a2e]" : "bg-gradient-to-br from-brand-400 to-brand-600 hover:from-brand-500 hover:to-brand-700"
             )}
           >
             {isLoading ? (

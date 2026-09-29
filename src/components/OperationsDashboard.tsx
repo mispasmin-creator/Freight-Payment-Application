@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatDelayDuration } from "@/lib/delay";
 import React, { useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
 const jk: React.CSSProperties = { fontFamily: "'Inter', system-ui, -apple-system, sans-serif" };
@@ -185,79 +186,92 @@ export function OperationsDashboard({ payments, onNavigate, onRefresh }: Operati
     return periods;
   }, [selectedReportPeriod]);
 
+  // Pastel tile palette for the KPI stats row (UI only)
+  const statTones = [
+    { tile: "from-brand-50 to-white dark:from-brand-900/25", icon: "from-brand-400 to-brand-600", shadow: "rgba(94,122,38,0.45)" },
+    { tile: "from-emerald-50 to-white dark:from-emerald-900/20", icon: "from-emerald-400 to-emerald-600", shadow: "rgba(16,185,129,0.45)" },
+    { tile: "from-sky-50 to-white dark:from-sky-900/20", icon: "from-sky-400 to-sky-600", shadow: "rgba(14,165,233,0.45)" },
+    { tile: "from-rose-50 to-white dark:from-rose-900/20", icon: "from-rose-400 to-rose-500", shadow: "rgba(244,63,94,0.45)" },
+    { tile: "from-amber-50 to-white dark:from-amber-900/20", icon: "from-amber-300 to-amber-500", shadow: "rgba(245,158,11,0.45)" },
+    { tile: "from-violet-50 to-white dark:from-violet-900/20", icon: "from-violet-400 to-violet-600", shadow: "rgba(139,92,246,0.45)" },
+  ];
+
   return (
-    <div className="space-y-5 p-1 animate-fade-in bg-gradient-to-br from-slate-50 to-white dark:from-slate-950 dark:to-slate-900 min-h-screen">
+    <div className="space-y-5 p-1 animate-fade-in min-h-screen">
 
-      {/* HERO BANNER */}
-      <div
-        className="relative overflow-hidden rounded-2xl shadow-xl"
-        style={{ background: "linear-gradient(135deg, #1a3a0a 0%, #3d6e15 45%, #5a9220 75%, #6ea82a 100%)" }}
-      >
-        <div className="absolute top-0 right-0 w-96 h-full opacity-[0.08] pointer-events-none"
-          style={{ background: "radial-gradient(ellipse at top right, white, transparent 70%)" }} />
-
-        <div className="relative px-6 py-5">
-          <div className="flex items-center justify-between gap-4 mb-5">
-            <div className="flex items-center gap-3">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/15 border border-white/20 backdrop-blur-sm">
-                <span className="flex h-2 w-2 rounded-full bg-emerald-300 animate-pulse" />
-                <span className="text-[10px] font-bold tracking-wider uppercase text-white/90" style={jk}>Live Operations</span>
-              </div>
-              <h1 className="text-2xl font-extrabold tracking-tight text-white" style={jk}>Dashboard</h1>
-              <span className="text-[11px] text-white/40 font-medium">
-                · {lastUpdated.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-              </span>
+      {/* HERO */}
+      <div className="flex flex-wrap items-end justify-between gap-4 px-1 pt-1">
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/90 dark:bg-white/5 ring-1 ring-brand-100 dark:ring-white/10 shadow-sm">
+              <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-[10px] font-bold tracking-wider uppercase text-brand-700 dark:text-brand-300" style={jk}>Live Operations</span>
             </div>
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={() => setShowReportModal(true)}
-                variant="outline"
-                className="border-white/25 bg-white/10 hover:bg-white/20 text-white rounded-xl px-3 h-8 text-[11px] font-semibold gap-2 shadow-sm"
-              >
-                <Download className="w-3.5 h-3.5" />
-                Reports
-              </Button>
-              {onRefresh && (
-                <Button
-                  onClick={onRefresh}
-                  variant="outline"
-                  className="border-white/25 bg-white/10 hover:bg-white/20 text-white rounded-xl px-3 h-8 text-[11px] font-semibold gap-2 shadow-sm"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  Refresh
-                </Button>
-              )}
-            </div>
+            <span className="text-[11px] text-slate-400 font-medium">
+              · {lastUpdated.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+            </span>
           </div>
-
-          {/* KPI Stats Row */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            {[
-              { label: "Total Routes", value: totalShipments, icon: <Truck className="w-4 h-4" />, trend: null, change: "+12%" },
-              { label: "Completed", value: completedShipments, icon: <CheckCircle2 className="w-4 h-4 text-emerald-300" />, trend: "up", change: "+8%" },
-              { label: "In Progress", value: inProgress, icon: <Activity className="w-4 h-4 text-blue-300" />, trend: "down", change: "-3%" },
-              { label: "Delayed", value: delayedShipments, icon: <AlertTriangle className="w-4 h-4 text-amber-300" />, trend: delayedShipments > 0 ? "up" : "down", change: delayedShipments > 0 ? "+5%" : "-2%" },
-              { label: "Success Rate", value: `${Math.round(successRate)}%`, icon: <TrendingUp className="w-4 h-4 text-white/60" />, trend: "up", change: "+4%" },
-              { label: "Total Value", value: formatCurrency(totalAmount), icon: <DollarSign className="w-4 h-4 text-white/60" />, trend: null, change: "+18%" },
-            ].map((s, i) => (
-              <div key={i} className="bg-white/10 backdrop-blur-sm border border-white/15 rounded-xl px-3 py-2.5 flex items-center gap-3">
-                <div className="p-1.5 rounded-lg bg-white/10 shrink-0">{s.icon}</div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <div className="text-xl font-extrabold text-white leading-none" style={jk}>{s.value}</div>
-                    {s.change && (
-                      <span className={cn(
-                        "text-[9px] font-bold px-1.5 py-0.5 rounded-full",
-                        s.trend === "up" ? "bg-emerald-500/30 text-emerald-200" : s.trend === "down" ? "bg-rose-500/30 text-rose-200" : "bg-white/20 text-white/70"
-                      )}>{s.change}</span>
-                    )}
-                  </div>
-                  <div className="text-[9px] font-semibold text-white/50 uppercase tracking-wider mt-0.5">{s.label}</div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <h1 className="text-[28px] font-extrabold tracking-tight text-slate-800 dark:text-white leading-none" style={jk}>Dashboard</h1>
         </div>
+        <div className="flex items-center gap-2.5">
+          {onRefresh && (
+            <Button
+              onClick={onRefresh}
+              variant="outline"
+              className="soft-card border-white! rounded-2xl! px-4 h-10 text-[12px] font-semibold gap-2 text-slate-600 hover:text-brand-700 dark:text-slate-200"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Refresh
+            </Button>
+          )}
+          <Button
+            onClick={() => setShowReportModal(true)}
+            className="rounded-2xl px-5 h-10 text-[12px] font-bold gap-2 text-white bg-gradient-to-br from-brand-400 to-brand-600 hover:from-brand-500 hover:to-brand-700 shadow-[0_10px_22px_-10px_rgba(94,122,38,0.8)] border-0"
+          >
+            <Download className="w-4 h-4" />
+            Reports
+          </Button>
+        </div>
+      </div>
+
+      {/* KPI Stats Row */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        {[
+          { label: "Total Routes", value: totalShipments, icon: <Truck className="w-5 h-5" />, trend: null, change: "+12%" },
+          { label: "Completed", value: completedShipments, icon: <CheckCircle2 className="w-5 h-5" />, trend: "up", change: "+8%" },
+          { label: "In Progress", value: inProgress, icon: <Activity className="w-5 h-5" />, trend: "down", change: "-3%" },
+          { label: "Delayed", value: delayedShipments, icon: <AlertTriangle className="w-5 h-5" />, trend: delayedShipments > 0 ? "up" : "down", change: delayedShipments > 0 ? "+5%" : "-2%" },
+          { label: "Success Rate", value: `${Math.round(successRate)}%`, icon: <TrendingUp className="w-5 h-5" />, trend: "up", change: "+4%" },
+          { label: "Total Value", value: formatCurrency(totalAmount), icon: <DollarSign className="w-5 h-5" />, trend: null, change: "+18%" },
+        ].map((s, i) => {
+          const tone = statTones[i];
+          return (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: i * 0.04 }}
+              className={cn("soft-card soft-card-hover bg-gradient-to-br p-4 flex items-center gap-3", tone.tile)}
+            >
+              <div
+                className={cn("soft-icon w-12 h-12 shrink-0 text-white bg-gradient-to-br", tone.icon)}
+                style={{ ["--soft-icon-shadow" as string]: tone.shadow }}
+              >
+                {s.icon}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 truncate">{s.label}</div>
+                <div className="text-[22px] font-extrabold text-slate-800 dark:text-white leading-tight" style={jk}>{s.value}</div>
+                {s.change && (
+                  <span className={cn(
+                    "soft-pill text-[9.5px] px-1.5 py-0.5 mt-0.5",
+                    s.trend === "up" ? "bg-emerald-100/80 text-emerald-700" : s.trend === "down" ? "bg-rose-100/80 text-rose-600" : "bg-slate-100 text-slate-500"
+                  )}>{s.change}</span>
+                )}
+              </div>
+            </motion.div>
+          );
+        })}
       </div>
 
       {/* KPI CARDS ROW */}
@@ -311,37 +325,37 @@ export function OperationsDashboard({ payments, onNavigate, onRefresh }: Operati
       {/* Stage Pipeline & Top Firms */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Stage Pipeline */}
-        <div className="ent-card p-5">
+        <div className="soft-card p-5">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 bg-brand-50 dark:bg-brand-900/30 rounded-xl">
-                <BarChart2 className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+            <div className="flex items-center gap-3">
+              <div className="soft-icon w-10 h-10 bg-gradient-to-br from-brand-400 to-brand-600 text-white" style={{ ["--soft-icon-shadow" as string]: "rgba(94,122,38,0.45)" }}>
+                <BarChart2 className="w-4.5 h-4.5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100" style={jk}>Stage Pipeline</h3>
+                <h3 className="text-[15px] font-bold text-slate-800 dark:text-slate-100" style={jk}>Stage Pipeline</h3>
                 <p className="text-[11px] text-slate-400 dark:text-slate-500">Shipments progression</p>
               </div>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {stageData.map((s, i) => {
               const pct = Math.round((s.value / maxStage) * 100);
               return (
-                <div key={i} className="relative">
+                <div key={i} className="relative rounded-2xl p-3.5" style={{ background: `linear-gradient(135deg, ${s.bg}, #ffffff00)` }}>
                   <div className="flex items-center gap-2 mb-2">
-                    <div className="p-1.5 rounded-lg" style={{ backgroundColor: s.bg }}>
+                    <div className="p-1.5 rounded-lg bg-white shadow-sm">
                       <span style={{ color: s.color }}>{s.icon}</span>
                     </div>
-                    <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">{s.label}</span>
+                    <span className="text-[11.5px] font-semibold text-slate-600 dark:text-slate-300">{s.label}</span>
                   </div>
-                  <div className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 mb-1" style={jk}>{s.value.toLocaleString()}</div>
-                  <div className="h-1.5 bg-slate-100 dark:bg-white/10 rounded-full overflow-hidden">
+                  <div className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 mb-2" style={jk}>{s.value.toLocaleString()}</div>
+                  <div className="h-2 bg-white/80 dark:bg-white/10 rounded-full overflow-hidden">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${pct}%` }}
                       transition={{ duration: 0.6, delay: i * 0.1, ease: "easeOut" }}
                       className="h-full rounded-full"
-                      style={{ backgroundColor: s.color }}
+                      style={{ background: `linear-gradient(90deg, ${s.color}aa, ${s.color})` }}
                     />
                   </div>
                 </div>
@@ -351,46 +365,48 @@ export function OperationsDashboard({ payments, onNavigate, onRefresh }: Operati
         </div>
 
         {/* Top Performing Firms */}
-        <div className="ent-card p-5">
+        <div className="soft-card p-5">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 bg-amber-50 dark:bg-amber-900/30 rounded-xl">
-                <Award className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+            <div className="flex items-center gap-3">
+              <div className="soft-icon w-10 h-10 bg-gradient-to-br from-amber-300 to-amber-500 text-white" style={{ ["--soft-icon-shadow" as string]: "rgba(245,158,11,0.45)" }}>
+                <Award className="w-4.5 h-4.5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100" style={jk}>Top Performing Firms</h3>
+                <h3 className="text-[15px] font-bold text-slate-800 dark:text-slate-100" style={jk}>Top Performing Firms</h3>
                 <p className="text-[11px] text-slate-400 dark:text-slate-500">Based on completion rate</p>
               </div>
             </div>
-            <Target className="w-4 h-4 text-slate-300" />
+            <div className="w-8 h-8 rounded-full bg-slate-50 dark:bg-white/5 flex items-center justify-center">
+              <Target className="w-4 h-4 text-slate-400" />
+            </div>
           </div>
           {topFirms.length === 0 ? (
             <div className="text-center py-8 text-xs text-slate-400">No firm data available</div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3.5">
               {topFirms.map((f, i) => (
                 <div key={i}>
                   <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2.5">
                       <div className={cn(
-                        "w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold",
-                        i === 0 ? "bg-amber-100 text-amber-700" : i === 1 ? "bg-gray-100 text-gray-600" : i === 2 ? "bg-orange-100 text-orange-700" : "bg-slate-100 text-slate-500"
+                        "w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold",
+                        i === 0 ? "bg-amber-100 text-amber-700" : i === 1 ? "bg-slate-100 text-slate-600" : i === 2 ? "bg-orange-100 text-orange-700" : "bg-slate-50 text-slate-500"
                       )}>
                         {i + 1}
                       </div>
-                      <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 truncate max-w-[120px]">{f.firm}</span>
+                      <span className="text-[12px] font-semibold text-slate-700 dark:text-slate-300 truncate max-w-[160px]">{f.firm}</span>
                     </div>
-                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 shrink-0 ml-2">
+                    <span className="soft-pill text-[10px] px-2 py-0.5 bg-slate-50 dark:bg-white/5 text-slate-500 dark:text-slate-400 shrink-0 ml-2">
                       {f.done}/{f.total} · {f.pct}%
                     </span>
                   </div>
-                  <div className="h-2 bg-slate-100 dark:bg-white/10 rounded-full overflow-hidden">
+                  <div className="h-2.5 bg-slate-100 dark:bg-white/10 rounded-full overflow-hidden">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${f.pct}%` }}
                       transition={{ duration: 0.6, delay: i * 0.08, ease: "easeOut" }}
                       className="h-full rounded-full"
-                      style={{ background: f.pct >= 75 ? "#22c55e" : f.pct >= 40 ? "#f59e0b" : "#ef4444" }}
+                      style={{ background: f.pct >= 75 ? "linear-gradient(90deg,#4ade80,#16a34a)" : f.pct >= 40 ? "linear-gradient(90deg,#fcd34d,#f59e0b)" : "linear-gradient(90deg,#fda4af,#ef4444)" }}
                     />
                   </div>
                 </div>
@@ -401,22 +417,22 @@ export function OperationsDashboard({ payments, onNavigate, onRefresh }: Operati
       </div>
 
       {/* Priority Shipments Table */}
-      <div className="ent-card overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-white/10">
+      <div className="soft-card overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-amber-50 dark:bg-amber-900/30 rounded-xl">
-              <AlertTriangle className="text-amber-500 w-4 h-4" />
+            <div className="soft-icon w-10 h-10 bg-gradient-to-br from-rose-400 to-rose-500 text-white" style={{ ["--soft-icon-shadow" as string]: "rgba(244,63,94,0.45)" }}>
+              <AlertTriangle className="w-4.5 h-4.5" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100" style={jk}>
+              <h3 className="text-[15px] font-bold text-slate-800 dark:text-slate-100" style={jk}>
                 Priority Shipments
-                <span className="ml-2 text-xs font-semibold text-slate-400 dark:text-slate-500">({delayedShipments} delayed)</span>
+                <span className="ml-2 soft-pill text-[10px] px-2 py-0.5 bg-rose-50 text-rose-600 dark:bg-rose-900/20 align-middle">({delayedShipments} delayed)</span>
               </h3>
             </div>
           </div>
           <button
             onClick={() => onNavigate("freight")}
-            className="text-[11px] font-bold text-brand-600 dark:text-brand-400 hover:text-brand-700 transition-colors flex items-center gap-1.5"
+            className="soft-pill text-[11.5px] px-3.5 py-2 bg-brand-50 text-brand-700 hover:bg-brand-100 dark:bg-brand-900/30 dark:text-brand-300 transition-colors"
           >
             View All <ArrowRight className="w-3.5 h-3.5" />
           </button>
@@ -424,15 +440,15 @@ export function OperationsDashboard({ payments, onNavigate, onRefresh }: Operati
 
         {delayedList.length === 0 ? (
           <div className="text-center py-12">
-            <div className="w-14 h-14 rounded-full bg-brand-50 dark:bg-brand-900/30 flex items-center justify-center mx-auto mb-3">
-              <CheckCircle2 className="w-7 h-7 text-brand-500" />
+            <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-brand-50 to-brand-100 dark:from-brand-900/30 flex items-center justify-center mx-auto mb-3 shadow-sm">
+              <CheckCircle2 className="w-8 h-8 text-brand-500" />
             </div>
             <h4 className="text-base font-bold text-brand-700 dark:text-brand-400">All Clear!</h4>
             <p className="text-xs text-slate-400 mt-1">No delayed shipments require attention</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <div className="grid grid-cols-[1.5fr_1fr_1fr_0.8fr_1fr_0.5fr] gap-0 px-5 py-3 bg-slate-50 dark:bg-white/5 border-b border-slate-100 dark:border-white/10 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+          <div className="overflow-x-auto px-3 pb-3">
+            <div className="grid grid-cols-[1.5fr_1fr_1fr_0.8fr_1fr_0.5fr] gap-0 px-3 py-2.5 rounded-xl bg-slate-50/80 dark:bg-white/5 text-[11.5px] font-semibold text-slate-500">
               <span>Shipment Details</span>
               <span>Firm Name</span>
               <span>Current Stage</span>
@@ -440,17 +456,14 @@ export function OperationsDashboard({ payments, onNavigate, onRefresh }: Operati
               <span>Amount</span>
               <span>Action</span>
             </div>
-            {delayedList.map((p, idx) => (
+            {delayedList.map((p) => (
               <div
                 key={p.id}
-                className={cn(
-                  "grid grid-cols-[1.5fr_1fr_1fr_0.8fr_1fr_0.5fr] gap-0 px-5 py-3 hover:bg-brand-50/40 dark:hover:bg-brand-900/10 transition-all",
-                  idx % 2 === 1 && "bg-slate-50/40 dark:bg-white/2"
-                )}
+                className="grid grid-cols-[1.5fr_1fr_1fr_0.8fr_1fr_0.5fr] gap-0 px-3 py-3 rounded-xl border-b border-slate-100/80 dark:border-white/5 last:border-b-0 hover:bg-brand-50/50 dark:hover:bg-brand-900/10 transition-all"
               >
                 <div className="flex items-center gap-3">
                   <div className={cn(
-                    "w-8 h-8 rounded-xl flex items-center justify-center shrink-0",
+                    "w-9 h-9 rounded-xl flex items-center justify-center shrink-0",
                     p.step === "Account Audit" ? "bg-blue-50 text-blue-600" :
                       p.step === "Posting" ? "bg-amber-50 text-amber-600" : "bg-brand-50 text-brand-600"
                   )}>
@@ -458,33 +471,33 @@ export function OperationsDashboard({ payments, onNavigate, onRefresh }: Operati
                       p.step === "Posting" ? <Banknote className="w-4 h-4" /> : <Truck className="w-4 h-4" />}
                   </div>
                   <div>
-                    <div className="font-mono font-bold text-xs text-slate-800 truncate">{p["Unique Number"] || `#${p.id}`}</div>
+                    <div className="font-mono font-bold text-xs text-slate-800 dark:text-slate-100 truncate">{p["Unique Number"] || `#${p.id}`}</div>
                     <div className="text-[10px] text-slate-400 truncate">{p["Vehicle Number"] || "—"}</div>
                   </div>
                 </div>
                 <div className="flex items-center">
-                  <span className="text-[11px] text-slate-600 font-medium truncate">{p["Firm Name"] || "—"}</span>
+                  <span className="text-[11.5px] text-slate-600 dark:text-slate-300 font-medium truncate">{p["Firm Name"] || "—"}</span>
                 </div>
                 <div className="flex items-center">
                   <span className={cn(
-                    "text-[10px] font-bold px-2 py-1 rounded-lg",
+                    "soft-pill text-[10px] px-2.5 py-1",
                     p.step === "Account Audit" ? "bg-blue-50 text-blue-700" :
                       p.step === "Posting" ? "bg-amber-50 text-amber-700" : "bg-brand-50 text-brand-700"
                   )}>{p.step}</span>
                 </div>
                 <div className="flex items-center">
-                  <span className="text-xs font-bold text-rose-600 flex items-center gap-1">
+                  <span className="soft-pill text-[10.5px] px-2 py-1 bg-rose-50 text-rose-600 dark:bg-rose-900/20">
                     <Clock className="w-3 h-3" />
                     {formatDelayDuration(p.maxDelay)}
                   </span>
                 </div>
                 <div className="flex items-center">
-                  <span className="text-[11px] font-semibold text-slate-700">{formatCurrency(p.Amount)}</span>
+                  <span className="text-[12px] font-bold text-slate-700 dark:text-slate-200">{formatCurrency(p.Amount)}</span>
                 </div>
                 <div className="flex items-center">
                   <button
                     onClick={() => onNavigate(p.step === "Account Audit" ? "posting" : p.step === "Posting" ? "makepayment" : "freight")}
-                    className="px-2 py-1 text-[9px] font-bold rounded-lg bg-brand-600 text-white hover:bg-brand-700"
+                    className="soft-pill px-3 py-1.5 text-[10px] text-white bg-gradient-to-br from-brand-400 to-brand-600 hover:from-brand-500 hover:to-brand-700 shadow-[0_6px_14px_-8px_rgba(94,122,38,0.8)]"
                   >
                     Resolve
                   </button>
@@ -495,27 +508,27 @@ export function OperationsDashboard({ payments, onNavigate, onRefresh }: Operati
         )}
       </div>
 
-      {/* REPORT MODAL */}
-      <AnimatePresence>
+      {/* REPORT MODAL — portalled to body so its backdrop covers the sidebar/header too */}
+      {createPortal(<AnimatePresence>
         {showReportModal && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-slate-900/30 backdrop-blur-md z-50 flex items-center justify-center p-4"
             onClick={() => setShowReportModal(false)}
           >
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="landscape-popup bg-white dark:bg-slate-900 rounded-2xl max-w-4xl w-full max-h-[88vh] overflow-hidden shadow-2xl flex flex-col"
+              initial={{ scale: 0.95, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              className="landscape-popup bg-white dark:bg-slate-900 rounded-[28px] max-w-4xl w-full max-h-[88vh] overflow-hidden shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)] ring-1 ring-white/60 dark:ring-white/10 flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-white/10 shrink-0">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl">
-                    <BarChart2 className="w-5 h-5 text-indigo-600" />
+              <div className="flex items-center justify-between px-6 py-5 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="soft-icon w-11 h-11 bg-gradient-to-br from-brand-400 to-brand-600 text-white" style={{ ["--soft-icon-shadow" as string]: "rgba(94,122,38,0.45)" }}>
+                    <BarChart2 className="w-5 h-5" />
                   </div>
                   <div>
                     <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">Operations Report</h2>
@@ -525,24 +538,24 @@ export function OperationsDashboard({ payments, onNavigate, onRefresh }: Operati
                 <button
                   type="button"
                   onClick={() => setShowReportModal(false)}
-                  className="inline-flex size-8 items-center justify-center rounded-full border border-slate-200/80 bg-white/90 text-slate-500 shadow-xs hover:bg-slate-100 hover:text-slate-900 hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50 dark:border-white/10 dark:bg-slate-800/90 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white transition-all cursor-pointer"
+                  className="inline-flex size-9 items-center justify-center rounded-full bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-900 hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white transition-all cursor-pointer"
                   aria-label="Close"
                 >
                   <X className="size-4" />
                 </button>
               </div>
-              
-              <div className="landscape-popup-body p-5 overflow-y-auto flex-1 min-h-0 custom-scrollbar">
-                <div className="flex gap-2 mb-6">
+
+              <div className="landscape-popup-body px-6 pb-6 overflow-y-auto flex-1 min-h-0 custom-scrollbar">
+                <div className="inline-flex gap-1 p-1 mb-6 rounded-2xl bg-slate-100/80 dark:bg-white/5">
                   {(["daily", "weekly", "monthly"] as const).map((period) => (
                     <button
                       key={period}
                       onClick={() => setSelectedReportPeriod(period)}
                       className={cn(
-                        "px-4 py-2 text-[11px] font-semibold rounded-lg",
+                        "px-4 py-2 text-[11.5px] font-semibold rounded-xl transition-all",
                         selectedReportPeriod === period
-                          ? "bg-brand-600 text-white shadow-md"
-                          : "bg-slate-100 dark:bg-white/10 text-slate-600 hover:bg-slate-200"
+                          ? "bg-white dark:bg-white/10 text-brand-700 dark:text-brand-300 shadow-sm"
+                          : "text-slate-500 hover:text-slate-700"
                       )}
                     >
                       {period.charAt(0).toUpperCase() + period.slice(1)}
@@ -551,30 +564,30 @@ export function OperationsDashboard({ payments, onNavigate, onRefresh }: Operati
                 </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                  <div className="p-3 rounded-xl bg-emerald-50">
-                    <p className="text-[10px] text-emerald-600">Total Processed</p>
-                    <p className="text-xl font-bold text-emerald-700">{reportData.reduce((sum, d) => sum + d.totalShipments, 0)}</p>
+                  <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-50 to-white ring-1 ring-emerald-100/70">
+                    <p className="text-[10.5px] font-semibold text-emerald-600">Total Processed</p>
+                    <p className="text-2xl font-extrabold text-emerald-700 mt-1">{reportData.reduce((sum, d) => sum + d.totalShipments, 0)}</p>
                   </div>
-                  <div className="p-3 rounded-xl bg-blue-50">
-                    <p className="text-[10px] text-blue-600">On-Time Rate</p>
-                    <p className="text-xl font-bold text-blue-700">{Math.round(reportData.reduce((sum, d) => sum + d.onTimeDelivery, 0) / reportData.reduce((sum, d) => sum + d.totalShipments, 0) * 100)}%</p>
+                  <div className="p-4 rounded-2xl bg-gradient-to-br from-sky-50 to-white ring-1 ring-sky-100/70">
+                    <p className="text-[10.5px] font-semibold text-blue-600">On-Time Rate</p>
+                    <p className="text-2xl font-extrabold text-blue-700 mt-1">{Math.round(reportData.reduce((sum, d) => sum + d.onTimeDelivery, 0) / reportData.reduce((sum, d) => sum + d.totalShipments, 0) * 100)}%</p>
                   </div>
-                  <div className="p-3 rounded-xl bg-amber-50">
-                    <p className="text-[10px] text-amber-600">Avg Delay</p>
-                    <p className="text-xl font-bold text-amber-700">{(reportData.reduce((sum, d) => sum + d.avgDelay, 0) / reportData.length).toFixed(1)}d</p>
+                  <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-50 to-white ring-1 ring-amber-100/70">
+                    <p className="text-[10.5px] font-semibold text-amber-600">Avg Delay</p>
+                    <p className="text-2xl font-extrabold text-amber-700 mt-1">{(reportData.reduce((sum, d) => sum + d.avgDelay, 0) / reportData.length).toFixed(1)}d</p>
                   </div>
-                  <div className="p-3 rounded-xl bg-purple-50">
-                    <p className="text-[10px] text-purple-600">Total Value</p>
-                    <p className="text-xl font-bold text-purple-700">{formatCurrency(reportData.reduce((sum, d) => sum + d.totalAmount, 0))}</p>
+                  <div className="p-4 rounded-2xl bg-gradient-to-br from-violet-50 to-white ring-1 ring-violet-100/70">
+                    <p className="text-[10.5px] font-semibold text-purple-600">Total Value</p>
+                    <p className="text-2xl font-extrabold text-purple-700 mt-1">{formatCurrency(reportData.reduce((sum, d) => sum + d.totalAmount, 0))}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="px-5 py-3 border-t border-slate-100 dark:border-white/10 bg-slate-50/80 dark:bg-white/5 shrink-0 flex items-center justify-end">
+              <div className="px-6 py-4 border-t border-slate-100 dark:border-white/10 shrink-0 flex items-center justify-end">
                 <Button
                   variant="outline"
                   onClick={() => setShowReportModal(false)}
-                  className="rounded-xl text-xs h-9 px-5 border-slate-200"
+                  className="rounded-2xl text-xs h-10 px-6 border-slate-200 hover:bg-slate-50"
                 >
                   Close
                 </Button>
@@ -582,7 +595,7 @@ export function OperationsDashboard({ payments, onNavigate, onRefresh }: Operati
             </motion.div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>, document.body)}
     </div>
   );
 }
@@ -595,11 +608,11 @@ interface KpiCardProps {
 }
 
 function KpiCard({ title, pending, total, color, icon, onClick, metric, description }: KpiCardProps) {
-  const colorMap: Record<KpiColor, { bg: string; text: string; bar: string; fill: string; badge: string; hover: string }> = {
-    brand: { bg: "bg-brand-50 dark:bg-brand-900/30", text: "text-brand-600", bar: "bg-brand-100", fill: "bg-gradient-to-r from-brand-500 to-brand-600", badge: "bg-brand-100 text-brand-700", hover: "hover:border-brand-200" },
-    blue:  { bg: "bg-blue-50",  text: "text-blue-600",  bar: "bg-blue-100",  fill: "bg-gradient-to-r from-blue-500 to-blue-600",  badge: "bg-blue-100 text-blue-700",  hover: "hover:border-blue-200" },
-    amber: { bg: "bg-amber-50", text: "text-amber-600", bar: "bg-amber-100", fill: "bg-gradient-to-r from-amber-500 to-amber-600", badge: "bg-amber-100 text-amber-700", hover: "hover:border-amber-200" },
-    sky:   { bg: "bg-sky-50",   text: "text-sky-600",   bar: "bg-sky-100",   fill: "bg-gradient-to-r from-sky-500 to-sky-600",   badge: "bg-sky-100 text-sky-700",   hover: "hover:border-sky-200" },
+  const colorMap: Record<KpiColor, { icon: string; shadow: string; bar: string; fill: string; badge: string; glow: string }> = {
+    brand: { icon: "from-brand-400 to-brand-600", shadow: "rgba(94,122,38,0.45)", bar: "bg-brand-50", fill: "bg-gradient-to-r from-brand-300 to-brand-600", badge: "bg-brand-50 text-brand-700", glow: "from-brand-50/80" },
+    blue:  { icon: "from-blue-400 to-blue-600", shadow: "rgba(59,130,246,0.45)", bar: "bg-blue-50", fill: "bg-gradient-to-r from-blue-300 to-blue-600", badge: "bg-blue-50 text-blue-700", glow: "from-blue-50/80" },
+    amber: { icon: "from-amber-300 to-amber-500", shadow: "rgba(245,158,11,0.45)", bar: "bg-amber-50", fill: "bg-gradient-to-r from-amber-300 to-amber-500", badge: "bg-amber-50 text-amber-700", glow: "from-amber-50/80" },
+    sky:   { icon: "from-sky-400 to-sky-600", shadow: "rgba(14,165,233,0.45)", bar: "bg-sky-50", fill: "bg-gradient-to-r from-sky-300 to-sky-600", badge: "bg-sky-50 text-sky-700", glow: "from-sky-50/80" },
   };
   const c = colorMap[color];
   const pct = total === 0 ? 0 : Math.round((pending / total) * 100);
@@ -608,27 +621,27 @@ function KpiCard({ title, pending, total, color, icon, onClick, metric, descript
   return (
     <motion.div
       onClick={onClick}
-      whileHover={{ y: -3, scale: 1.01 }}
-      className={cn("ent-card p-4 cursor-pointer transition-all border", c.hover)}
+      whileHover={{ y: -3 }}
+      className={cn("soft-card soft-card-hover p-5 cursor-pointer bg-gradient-to-b to-white dark:to-transparent", c.glow)}
     >
-      <div className="flex justify-between items-start mb-2">
-        <div className={cn("p-2 rounded-xl", c.bg)}>
-          <div className={c.text}>{icon}</div>
+      <div className="flex justify-between items-start mb-3">
+        <div className={cn("soft-icon w-11 h-11 text-white bg-gradient-to-br", c.icon)} style={{ ["--soft-icon-shadow" as string]: c.shadow }}>
+          {icon}
         </div>
-        <span className={cn("text-[9px] font-bold px-2 py-0.5 rounded-full", c.badge)}>
+        <span className={cn("soft-pill text-[10px] px-2.5 py-1", c.badge)}>
           {pending} pending
         </span>
       </div>
 
-      <h4 className="text-[13px] font-bold text-slate-800">{title}</h4>
-      {description && <p className="text-[9px] text-slate-400 mt-0.5 mb-1">{description}</p>}
-      <p className="text-[15px] font-extrabold text-slate-800 mt-1 mb-2">{metric}</p>
+      <h4 className="text-[14px] font-bold text-slate-800 dark:text-slate-100">{title}</h4>
+      {description && <p className="text-[10.5px] text-slate-400 mt-0.5 mb-1">{description}</p>}
+      <p className="text-[20px] font-extrabold text-slate-800 dark:text-white mt-1 mb-3">{metric}</p>
 
-      <div className="space-y-1">
-        <div className={cn("h-1 rounded-full overflow-hidden", c.bar)}>
+      <div className="space-y-1.5">
+        <div className={cn("h-2 rounded-full overflow-hidden", c.bar)}>
           <div className={cn("h-full rounded-full", c.fill)} style={{ width: barWidth }} />
         </div>
-        <div className="flex justify-between text-[9px] text-slate-500">
+        <div className="flex justify-between text-[10px] text-slate-500">
           <span>Progress</span>
           <span className="font-bold">{pct}%</span>
         </div>

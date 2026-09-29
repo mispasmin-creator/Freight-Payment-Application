@@ -72,6 +72,40 @@ export interface DispatchRateRow {
   "Total Transporter Amount"?: number | null;
   "Qty To Be Dispatched"?: number | null;
   "Actual Truck Qty"?: number | null;
+  "Truck No."?: string | null;
+  "Transporter Name"?: string | null;
+  "Product Name"?: string | null;
+}
+
+// "D-Sr Number" is not unique in DISPATCH (one number can cover several
+// trucks), so pick the row that belongs to this payment: same truck first,
+// then transporter, then product. Returns undefined when it can't be told
+// apart, so callers keep the payment's own saved values instead of guessing.
+const normKey = (v: unknown) => String(v ?? "").replace(/\s+/g, "").toLowerCase();
+
+export function pickDispatchRow<
+  T extends { "Truck No."?: string | null; "Transporter Name"?: string | null; "Product Name"?: string | null },
+>(candidates: T[] | undefined, payment: Partial<FreightPayment>): T | undefined {
+  if (!candidates || candidates.length === 0) return undefined;
+  if (candidates.length === 1) return candidates[0];
+
+  const truck = normKey(payment["Vehicle Number"]);
+  const transporter = normKey(payment["Transporter Name"]);
+  const product = normKey(payment["Material Load Details"]);
+
+  const byTruck = truck ? candidates.filter((d) => normKey(d["Truck No."]) === truck) : [];
+  if (byTruck.length === 1) return byTruck[0];
+  const pool = byTruck.length > 1 ? byTruck : candidates;
+
+  const byTransporter = transporter ? pool.filter((d) => normKey(d["Transporter Name"]) === transporter) : [];
+  if (byTransporter.length === 1) return byTransporter[0];
+
+  const byProduct = product
+    ? (byTransporter.length > 1 ? byTransporter : pool).filter((d) => normKey(d["Product Name"]) === product)
+    : [];
+  if (byProduct.length === 1) return byProduct[0];
+
+  return undefined;
 }
 
 const formatToTimestamptz = (dateStr?: string) => {
@@ -133,21 +167,23 @@ export const api = {
       supabase.from(ACCOUNT_CHECKING_TABLE_NAME).select("*").order("id", { ascending: false }).range(from, to)
     );
     
-    let dispatchMap = new Map();
+    const dispatchMap = new Map<string, any[]>();
     try {
       if (orderSupabaseUrl !== "https://placeholder.supabase.co") {
         const dispatchData = await fetchAll<any>((from, to) =>
           orderSupabase
             .from("DISPATCH")
-            .select('"D-Sr Number", "Total Transporter Amount"')
+            .select('"D-Sr Number", "Total Transporter Amount", "Truck No.", "Transporter Name", "Product Name"')
             .range(from, to)
         );
-        
+
         if (dispatchData) {
           dispatchData.forEach((d) => {
             const dSr = String(d["D-Sr Number"] || "").trim().toLowerCase();
             if (dSr) {
-              dispatchMap.set(dSr, d["Total Transporter Amount"]);
+              const list = dispatchMap.get(dSr);
+              if (list) list.push(d);
+              else dispatchMap.set(dSr, [d]);
             }
           });
         }
@@ -160,11 +196,10 @@ export const api = {
       const fmsName = String(item["Fms Name"] || "").trim();
       const liftId = String(item["Lift ID"] || "").trim().toLowerCase();
       if (fmsName === "Order Management System" && liftId) {
-        if (dispatchMap.has(liftId)) {
-          const totalAmount = dispatchMap.get(liftId);
-          if (totalAmount !== undefined && totalAmount !== null) {
-            item.Amount = Number(totalAmount);
-          }
+        const dispatch = pickDispatchRow(dispatchMap.get(liftId), item);
+        const totalAmount = dispatch?.["Total Transporter Amount"];
+        if (totalAmount !== undefined && totalAmount !== null) {
+          item.Amount = Number(totalAmount);
         }
       }
       return item;
@@ -201,7 +236,7 @@ export const api = {
       return await fetchAll<DispatchRateRow>((from, to) =>
         orderSupabase
           .from("DISPATCH")
-          .select('"D-Sr Number","Bilty No.","Type Of Rate","Transport Rate @Per Matric Ton","Fixed Amount","Total Transporter Amount","Qty To Be Dispatched","Actual Truck Qty"')
+          .select('"D-Sr Number","Bilty No.","Type Of Rate","Transport Rate @Per Matric Ton","Fixed Amount","Total Transporter Amount","Qty To Be Dispatched","Actual Truck Qty","Truck No.","Transporter Name","Product Name"')
           .range(from, to)
       );
     } catch (e) {

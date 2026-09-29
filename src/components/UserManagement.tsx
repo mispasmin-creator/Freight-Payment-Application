@@ -141,8 +141,8 @@ export function UserManagement() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-violet-50 rounded-xl">
-            <Users className="w-5 h-5 text-violet-600" />
+          <div className="p-2 bg-brand-50 rounded-xl">
+            <Users className="w-5 h-5 text-brand-600" />
           </div>
           <div>
             <h2 className="text-lg font-bold text-slate-900 tracking-tight">User Management</h2>
@@ -153,7 +153,7 @@ export function UserManagement() {
         </div>
         <Button
           onClick={handleCreate}
-          className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-xl shadow-lg shadow-violet-600/20 h-9 px-5 font-bold text-xs transition-all active:scale-[0.97]"
+          className="bg-gradient-to-br from-brand-400 to-brand-600 hover:from-brand-500 hover:to-brand-700 text-white rounded-xl shadow-[0_8px_18px_-10px_rgba(94,122,38,0.8)] h-9 px-5 font-bold text-xs transition-all active:scale-[0.97]"
         >
           <UserPlus className="w-4 h-4 mr-1.5" />
           Add User
@@ -195,7 +195,7 @@ export function UserManagement() {
               placeholder="Search by username or firm..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 h-10 bg-white border-slate-200 rounded-xl text-sm"
+              className="pl-9 h-10 bg-white border-slate-200/80 rounded-full text-sm"
             />
             {searchTerm && (
               <button
@@ -230,13 +230,13 @@ export function UserManagement() {
         </div>
 
         {showFilters && (
-          <div className="flex flex-wrap gap-3 p-4 bg-white border border-slate-200/60 rounded-xl animate-fade-in">
+          <div className="flex flex-wrap gap-3 p-4 soft-card animate-fade-in">
             <div className="flex-1 min-w-[150px]">
               <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">
                 Role
               </Label>
               <Select value={roleFilter} onValueChange={(value) => setRoleFilter(value || "all")}>
-                <SelectTrigger className="h-9 bg-slate-50 border-slate-200 rounded-lg text-sm">
+                <SelectTrigger className="h-10 bg-slate-50/70 border-slate-200/80 rounded-xl focus-visible:bg-white text-sm">
                   <SelectValue placeholder="All roles" />
                 </SelectTrigger>
                 <SelectContent>
@@ -254,7 +254,7 @@ export function UserManagement() {
                 Firm
               </Label>
               <Select value={firmFilter} onValueChange={(value) => setFirmFilter(value || "all")}>
-                <SelectTrigger className="h-9 bg-slate-50 border-slate-200 rounded-lg text-sm">
+                <SelectTrigger className="h-10 bg-slate-50/70 border-slate-200/80 rounded-xl focus-visible:bg-white text-sm">
                   <SelectValue placeholder="All firms" />
                 </SelectTrigger>
                 <SelectContent>
@@ -272,10 +272,10 @@ export function UserManagement() {
       </div>
 
       {/* Users Table */}
-      <div className="bg-white border border-slate-200/60 rounded-2xl shadow-sm overflow-hidden">
+      <div className="soft-card overflow-hidden">
         {isLoading ? (
           <div className="flex justify-center py-12">
-            <Loader2 className="w-8 h-8 text-violet-500 animate-spin" />
+            <Loader2 className="w-8 h-8 text-brand-500 animate-spin" />
           </div>
         ) : error ? (
           <div className="flex flex-col items-center py-12 gap-3">
@@ -326,7 +326,7 @@ export function UserManagement() {
                   <TableRow key={u.id} className="border-b border-slate-50 table-row-hover group">
                     <TableCell className="py-3.5 pl-6">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
                           {u.Username?.charAt(0)?.toUpperCase() || "?"}
                         </div>
                         <div>
@@ -412,8 +412,8 @@ export function UserManagement() {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteConfirm !== null} onOpenChange={() => setDeleteConfirm(null)}>
-        <DialogContent className="max-w-sm rounded-2xl p-0 overflow-hidden border border-slate-200/80 dark:border-white/10 shadow-2xl shadow-slate-950/20 flex flex-col max-h-[90vh]">
-          <DialogHeader className="px-6 py-5 border-b border-slate-100 dark:border-white/10 bg-slate-50/50 dark:bg-white/5 shrink-0">
+        <DialogContent className="max-w-sm rounded-[28px] p-0 overflow-hidden border border-white/70 dark:border-white/10 shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)] flex flex-col max-h-[90vh]">
+          <DialogHeader className="px-6 py-5 border-b border-slate-100 dark:border-white/10 bg-white dark:bg-slate-900 shrink-0">
             <DialogTitle className="text-base font-bold text-slate-900 dark:text-slate-100">Delete User</DialogTitle>
             <DialogDescription className="text-xs text-slate-500 mt-0.5">
               Are you sure you want to delete <span className="font-bold text-slate-700 dark:text-slate-300">{deleteConfirm?.Username}</span>?
@@ -428,16 +428,16 @@ export function UserManagement() {
               </span>
             </div>
           </div>
-          <DialogFooter className="px-6 py-3.5 border-t border-slate-100 dark:border-white/10 bg-slate-50/80 dark:bg-white/5 flex gap-2 shrink-0 m-0 rounded-b-2xl">
+          <DialogFooter className="px-6 py-3.5 border-t border-slate-100 dark:border-white/10 bg-white dark:bg-slate-900 flex gap-2 shrink-0 m-0 rounded-b-[28px]">
             <Button
               variant="outline"
-              className="rounded-lg text-xs h-9 flex-1 border-slate-200"
+              className="rounded-xl text-xs h-9 flex-1 border-slate-200"
               onClick={() => setDeleteConfirm(null)}
             >
               Cancel
             </Button>
             <Button
-              className="rounded-lg text-xs h-9 flex-1 bg-rose-600 hover:bg-rose-700 text-white"
+              className="rounded-xl text-xs h-9 flex-1 bg-rose-600 hover:bg-rose-700 text-white"
               disabled={deleteMutation.isPending}
               onClick={() => deleteConfirm !== null && deleteMutation.mutate(deleteConfirm.id!)}
             >
@@ -567,8 +567,8 @@ function UserFormDialog({ open, onOpenChange, user, onSuccess }: UserFormDialogP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg sm:max-w-lg w-[92vw] max-h-[90vh] h-auto flex flex-col p-0 overflow-hidden rounded-2xl bg-white text-slate-900 border border-slate-200/80 shadow-2xl shadow-slate-950/20 dark:bg-slate-900 dark:text-slate-100 dark:border-white/10">
-        <DialogHeader className="px-6 py-5 border-b border-slate-100 dark:border-white/10 bg-slate-50/50 dark:bg-white/5 shrink-0">
+      <DialogContent className="max-w-lg sm:max-w-lg w-[92vw] max-h-[90vh] h-auto flex flex-col p-0 overflow-hidden rounded-[28px] bg-white text-slate-900 border border-white/70 shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)] dark:bg-slate-900 dark:text-slate-100 dark:border-white/10">
+        <DialogHeader className="px-6 py-5 border-b border-slate-100 dark:border-white/10 bg-white dark:bg-slate-900 shrink-0">
           <DialogTitle className="text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight">
             {user ? "Edit User" : "Add New User"}
           </DialogTitle>
@@ -595,7 +595,7 @@ function UserFormDialog({ open, onOpenChange, user, onSuccess }: UserFormDialogP
               </Label>
               <Input
                 className={cn(
-                  "h-10 bg-white border-slate-200 rounded-lg text-sm",
+                  "h-10 bg-slate-50/70 border-slate-200/80 rounded-xl focus-visible:bg-white text-sm",
                   touched.username && errors.username && "border-rose-300 focus:ring-rose-500"
                 )}
                 value={formData.Username || ""}
@@ -617,7 +617,7 @@ function UserFormDialog({ open, onOpenChange, user, onSuccess }: UserFormDialogP
                 <Input
                   type={showPassword ? "text" : "password"}
                   className={cn(
-                    "h-10 bg-white border-slate-200 rounded-lg text-sm pr-10",
+                    "h-10 bg-slate-50/70 border-slate-200/80 rounded-xl focus-visible:bg-white text-sm pr-10",
                     touched.password && errors.password && "border-rose-300 focus:ring-rose-500"
                   )}
                   value={formData.Password || ""}
@@ -655,7 +655,7 @@ function UserFormDialog({ open, onOpenChange, user, onSuccess }: UserFormDialogP
               >
                 <SelectTrigger
                   className={cn(
-                    "h-10 bg-white border-slate-200 rounded-lg text-sm",
+                    "h-10 bg-slate-50/70 border-slate-200/80 rounded-xl focus-visible:bg-white text-sm",
                     errors.role && "border-rose-300"
                   )}
                 >
@@ -689,7 +689,7 @@ function UserFormDialog({ open, onOpenChange, user, onSuccess }: UserFormDialogP
                       setFormData({ ...formData, "Firm Name": firm === "none" ? "" : firm });
                     }}
                   >
-                    <SelectTrigger className="h-10 bg-white border-slate-200 rounded-lg text-sm">
+                    <SelectTrigger className="h-10 bg-slate-50/70 border-slate-200/80 rounded-xl focus-visible:bg-white text-sm">
                       <SelectValue placeholder="Select firm (optional)" />
                     </SelectTrigger>
                     <SelectContent>
@@ -760,19 +760,19 @@ function UserFormDialog({ open, onOpenChange, user, onSuccess }: UserFormDialogP
             )}
           </div>
 
-          <DialogFooter className="px-6 py-3.5 border-t border-slate-100 dark:border-white/10 bg-slate-50/80 dark:bg-white/5 shrink-0 flex items-center justify-between m-0 rounded-b-2xl">
+          <DialogFooter className="px-6 py-3.5 border-t border-slate-100 dark:border-white/10 bg-white dark:bg-slate-900 shrink-0 flex items-center justify-between m-0 rounded-b-[28px]">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              className="rounded-lg px-6 h-10 border-slate-200 text-slate-500 font-semibold text-xs"
+              className="rounded-xl px-6 h-10 border-slate-200 text-slate-500 font-semibold text-xs"
             >
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={isPending}
-              className="rounded-lg px-8 h-10 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold text-xs shadow-lg shadow-violet-600/20 transition-all active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="rounded-lg px-8 h-10 bg-gradient-to-br from-brand-400 to-brand-600 hover:from-brand-500 hover:to-brand-700 text-white font-bold text-xs shadow-[0_8px_18px_-10px_rgba(94,122,38,0.8)] transition-all active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isPending ? (
                 <>

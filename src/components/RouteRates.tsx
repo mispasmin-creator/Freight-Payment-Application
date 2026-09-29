@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BarChart3, ArrowUpRight, ArrowDownRight, Download, TrendingUp, Package, Truck } from "lucide-react";
 import { FreightPayment } from "@/types";
-import { api, DispatchRateRow, LiftAccountRateRow } from "@/api";
+import { api, DispatchRateRow, LiftAccountRateRow, pickDispatchRow } from "@/api";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from "@/components/ui/dialog";
 
@@ -240,7 +240,7 @@ function RouteTrendChart({ points }: { points: MonthPoint[] }) {
 }
 
 const selectCls =
-  "h-8 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-2 text-[12px] font-medium text-slate-700 dark:text-slate-200";
+  "h-9 rounded-xl border border-slate-200/80 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 px-3 text-[12px] font-medium text-slate-700 dark:text-slate-200";
 
 interface Props {
   payments: FreightPayment[];
@@ -280,11 +280,16 @@ export function RouteRates({ payments }: Props) {
     return m;
   }, [liftAccountRates]);
 
+  // One D-Sr Number can cover several trucks, so keep every row per number
+  // and let pickDispatchRow find the one that belongs to each payment.
   const dispatchMap = useMemo(() => {
-    const m = new Map<string, DispatchRateRow>();
+    const m = new Map<string, DispatchRateRow[]>();
     dispatchRates.forEach((r) => {
       const key = String(r["D-Sr Number"] || "").trim().toLowerCase();
-      if (key) m.set(key, r);
+      if (!key) return;
+      const list = m.get(key);
+      if (list) list.push(r);
+      else m.set(key, [r]);
     });
     return m;
   }, [dispatchRates]);
@@ -303,10 +308,14 @@ export function RouteRates({ payments }: Props) {
       const fmsName = String(p["Fms Name"] || "").trim();
       const liftId = String(p["Lift ID"] || "").trim().toLowerCase();
       // The same lift can appear in more than one payment row — count it once.
+      // Keyed with the truck too, since one D-Sr Number can cover several trucks.
       if (liftId) {
-        if (seenLifts.has(liftId)) continue;
-        seenLifts.add(liftId);
+        const tripKey = `${liftId}||${String(p["Vehicle Number"] || "").replace(/\s+/g, "").toLowerCase()}`;
+        if (seenLifts.has(tripKey)) continue;
+        seenLifts.add(tripKey);
       }
+      const matchedDispatch =
+        fmsName === "Order Management System" && liftId ? pickDispatchRow(dispatchMap.get(liftId), p) : undefined;
 
       const billingQty = Number(p["Billing Qty"]) || 0;
       let amount = 0;
@@ -330,8 +339,8 @@ export function RouteRates({ payments }: Props) {
           amount = Number(la["Transporter Rate"]) || 0;
           qty = billingQty || (liftingQty > 0 ? liftingQty : 0);
         }
-      } else if (fmsName === "Order Management System" && liftId && dispatchMap.has(liftId)) {
-        const dp = dispatchMap.get(liftId)!;
+      } else if (matchedDispatch) {
+        const dp = matchedDispatch;
         const rateType = String(dp["Type Of Rate"] || "").trim().toLowerCase();
         const perMtRate = Number(dp["Transport Rate @Per Matric Ton"]);
         const dispatchQty = Number(dp["Qty To Be Dispatched"]) || Number(dp["Actual Truck Qty"]);
@@ -513,7 +522,7 @@ export function RouteRates({ payments }: Props) {
     URL.revokeObjectURL(url);
   };
 
-  const card = "bg-white dark:bg-[oklch(0.16_0.006_247)] border border-slate-200/80 dark:border-white/6 rounded-xl shadow-sm";
+  const card = "soft-card";
 
   return (
     <div className="space-y-3">
@@ -544,7 +553,7 @@ export function RouteRates({ payments }: Props) {
         <button
           onClick={exportCsv}
           disabled={!groups.length}
-          className="ml-auto flex items-center gap-1.5 h-8 px-3 rounded-lg bg-slate-900 text-white text-[12px] font-semibold disabled:opacity-40"
+          className="ml-auto flex items-center gap-1.5 h-9 px-4 rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 hover:from-brand-500 hover:to-brand-700 text-white text-[12px] font-semibold shadow-[0_8px_18px_-10px_rgba(94,122,38,0.8)] disabled:opacity-40"
         >
           <Download className="w-3.5 h-3.5" /> CSV
         </button>
@@ -569,7 +578,7 @@ export function RouteRates({ payments }: Props) {
       <div className={cn(card, "overflow-auto max-h-[70vh]")}>
         <table className="w-full text-[12px]">
           <thead className="sticky top-0 z-10">
-            <tr className="text-left text-[10px] uppercase tracking-wider text-slate-500 bg-white dark:bg-[oklch(0.16_0.006_247)] border-b border-slate-100 dark:border-white/6">
+            <tr className="text-left text-[11.5px] font-semibold text-slate-500 bg-slate-50 dark:bg-[oklch(0.16_0.006_247)] border-b border-slate-100 dark:border-white/6">
               <th className="p-3">Route (Firm → Party)</th>
               <th className="p-3">Transporter</th>
               <th className="p-3 text-right">Trips</th>
@@ -589,7 +598,7 @@ export function RouteRates({ payments }: Props) {
               </td></tr>
             )}
             {groups.map((g) => (
-              <tr key={g.key} className="border-b border-slate-50 dark:border-white/4 hover:bg-slate-50 dark:hover:bg-white/3">
+              <tr key={g.key} className="border-b border-slate-50 dark:border-white/4 hover:bg-slate-50/70 dark:hover:bg-white/3">
                 <td className="p-3 font-semibold text-slate-800 dark:text-slate-100">{g.route}</td>
                 <td className="p-3 text-slate-600 dark:text-slate-300">{g.transporter}</td>
                 <td className="p-3 text-right">{g.agg.trips}</td>
@@ -602,7 +611,7 @@ export function RouteRates({ payments }: Props) {
                 <td className="p-3 text-center">
                   <button
                     onClick={() => setDetailKey(g.key)}
-                    className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-400 text-[11px] font-bold hover:bg-brand-100 dark:hover:bg-brand-900/50 transition-colors"
+                    className="inline-flex items-center gap-1.5 h-7 px-3 rounded-lg border border-slate-200 bg-white dark:bg-transparent dark:border-white/10 text-slate-700 dark:text-slate-200 text-[12px] font-semibold hover:text-brand-700 hover:border-brand-300 hover:bg-brand-50/60 dark:hover:bg-brand-900/50 transition-colors"
                   >
                     <BarChart3 className="w-3.5 h-3.5" /> View
                   </button>
@@ -634,7 +643,7 @@ export function RouteRates({ payments }: Props) {
             ) : (
               <div className="space-y-5">
                 {/* Trend line: every month this route ran, connected in order */}
-                <div className="rounded-xl border border-slate-100 dark:border-white/6 bg-slate-50/60 dark:bg-white/2 p-3">
+                <div className="rounded-2xl ring-1 ring-slate-100 dark:ring-white/6 bg-gradient-to-br from-brand-50/50 to-white dark:from-white/2 dark:to-transparent p-3">
                   <RouteTrendChart points={monthPoints} />
                 </div>
 
@@ -647,7 +656,7 @@ export function RouteRates({ payments }: Props) {
                     return (
                       <div
                         key={mp.month}
-                        className="rounded-xl border border-slate-200/80 dark:border-white/8 bg-white dark:bg-white/3 p-4 shadow-sm"
+                        className="rounded-2xl ring-1 ring-slate-100 dark:ring-white/8 bg-white dark:bg-white/3 p-4 shadow-[0_10px_30px_-14px_rgba(15,23,42,0.15)]"
                       >
                         <div className="flex items-start justify-between">
                           <div>

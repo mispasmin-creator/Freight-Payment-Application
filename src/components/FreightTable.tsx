@@ -420,12 +420,12 @@ export function FreightTable({
     const showPaidAmount = activeTab === "posting" || activeTab === "makepayment" || activeTab === "freight";
 
     const cols: ColumnDef[] = [
-      { key: "uniqueNumber", label: "ID", width: "100px", render: (p) => <span className="font-mono text-xs text-slate-500">{p["Unique Number"] || "—"}</span> },
-      { key: "firmName", label: "Firm", width: "120px", render: (p) => <span className="px-2 py-0.5 rounded-md bg-slate-100 text-xs font-semibold">{p["Firm Name"] || "—"}</span> },
-      { key: "transporterName", label: "Transporter", width: "150px", render: (p) => <span className="text-xs text-slate-600 truncate block" title={p["Transporter Name"]}>{p["Transporter Name"] || "—"}</span> },
-      { key: "partyName", label: "Party Name", width: "150px", render: (p) => <span className="text-xs text-slate-600 truncate block" title={p["Party Name"]}>{p["Party Name"] || "—"}</span> },
-      { key: "biltyNumber", label: "Bilty No.", width: "120px", render: (p) => <span className="font-mono text-xs truncate block" title={p["Bilty Number"] || undefined}>{p["Bilty Number"] || "—"}</span> },
-      { key: "vehicleNumber", label: "Vehicle", width: "110px", render: (p) => <span className="font-mono text-xs">{p["Vehicle Number"] || "—"}</span> }
+      { key: "uniqueNumber", label: "ID", width: "100px", render: (p) => <span className="font-mono text-[12px] font-medium text-slate-800 dark:text-slate-200">{p["Unique Number"] || "—"}</span> },
+      { key: "firmName", label: "Firm", width: "120px", render: (p) => <span className="text-[13px] font-medium text-slate-700 dark:text-slate-200">{p["Firm Name"] || "—"}</span> },
+      { key: "transporterName", label: "Transporter", width: "150px", render: (p) => <span className="text-[13px] text-slate-600 truncate block" title={p["Transporter Name"]}>{p["Transporter Name"] || "—"}</span> },
+      { key: "partyName", label: "Party Name", width: "150px", render: (p) => <span className="text-[13px] text-slate-600 truncate block" title={p["Party Name"]}>{p["Party Name"] || "—"}</span> },
+      { key: "biltyNumber", label: "Bilty No.", width: "120px", render: (p) => <span className="font-mono text-[12px] text-slate-500 truncate block" title={p["Bilty Number"] || undefined}>{p["Bilty Number"] || "—"}</span> },
+      { key: "vehicleNumber", label: "Vehicle", width: "110px", render: (p) => <span className="font-mono text-[12px] text-slate-500">{p["Vehicle Number"] || "—"}</span> }
     ];
 
     if (activeTab !== "posting") {
@@ -441,10 +441,10 @@ export function FreightTable({
           else dateVal = p.Timestamp || p.created_at;
 
           return (
-            <div className="flex items-center gap-1.5 text-xs">
+            <div className="flex items-center gap-1.5 text-[13px] text-slate-600">
               <span>{formatDate(dateVal)}</span>
               {g?.isGrouped && (
-                <span className="px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 text-[10px] font-bold shrink-0">
+                <span className="px-1.5 py-px rounded-md bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 text-[11px] font-medium tabular-nums shrink-0">
                   {g.children.length}
                 </span>
               )}
@@ -459,7 +459,7 @@ export function FreightTable({
       label: "Amount",
       width: "110px",
       align: "right",
-      render: (p) => <span className="font-bold text-sm">{formatCurrency(p.Amount)}</span>
+      render: (p) => <span className="font-semibold text-[13px] text-slate-900 dark:text-slate-100 tabular-nums">{formatCurrency(p.Amount)}</span>
     });
 
     if (showPaidAmount) {
@@ -469,7 +469,7 @@ export function FreightTable({
         width: "130px",
         align: "right",
         render: (p) => (
-          <span className="font-bold text-sm text-emerald-700">
+          <span className="font-semibold text-[13px] text-emerald-700 tabular-nums">
             {p.PostingAmount !== undefined && p.PostingAmount !== null ? formatCurrency(p.PostingAmount) : "—"}
           </span>
         )
@@ -490,7 +490,7 @@ export function FreightTable({
               href={imageUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition-colors"
+              className="inline-flex items-center gap-1 text-[12.5px] font-medium text-brand-700 hover:text-brand-800 hover:underline underline-offset-2 dark:text-brand-400 transition-colors"
             >
               <Image className="w-3.5 h-3.5 text-slate-400" />
               <span>View</span>
@@ -524,7 +524,7 @@ export function FreightTable({
               href={imageUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition-colors"
+              className="inline-flex items-center gap-1 text-[12.5px] font-medium text-brand-700 hover:text-brand-800 hover:underline underline-offset-2 dark:text-brand-400 transition-colors"
             >
               <Image className="w-3.5 h-3.5 text-slate-400" />
               <span>View</span>
@@ -544,7 +544,7 @@ export function FreightTable({
 
   if (isLoading) {
     return (
-      <div className="rounded-xl border border-border bg-card overflow-hidden">
+      <div className="overflow-hidden">
         <div className="p-6 space-y-4">
           {[...Array(5)].map((_, i) => (
             <div key={i} className="flex gap-4 animate-pulse">
@@ -560,9 +560,9 @@ export function FreightTable({
   }
 
   return (
-    <div className="w-full rounded-xl border border-border bg-card overflow-hidden shadow-sm">
+    <div className="w-full overflow-hidden">
       {/* Header Toolbar */}
-      <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-border bg-slate-50/50 dark:bg-white/5">
+      <div className="flex flex-wrap items-center gap-3 px-5 py-3.5 border-b border-slate-100/80 dark:border-white/6">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
@@ -570,7 +570,7 @@ export function FreightTable({
             placeholder="Search shipments..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-8 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-card text-foreground placeholder:text-slate-400 dark:placeholder:text-slate-500"
+            className="w-full pl-9 pr-8 py-2 text-sm border border-slate-200/80 rounded-full focus:outline-none focus:ring-3 focus:ring-brand-500/15 focus:border-brand-400 bg-slate-50/70 focus:bg-white text-foreground placeholder:text-slate-400 dark:placeholder:text-slate-500"
           />
           {searchTerm && (
             <button onClick={() => setSearchTerm("")} className="absolute right-2 top-1/2 -translate-y-1/2">
@@ -601,7 +601,7 @@ export function FreightTable({
             </span>
             <ChevronRight className="w-4 h-4 ml-2 text-slate-400 shrink-0 rotate-90" />
           </PopoverTrigger>
-          <PopoverContent className="w-[200px] p-2 bg-card border border-border text-foreground rounded-lg shadow-md" align="start">
+          <PopoverContent className="w-[200px] p-2 bg-card border border-border text-foreground rounded-2xl shadow-xl" align="start">
             <div className="space-y-1">
               <div
                 className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-100 dark:hover:bg-white/5 rounded-md cursor-pointer select-none"
@@ -730,7 +730,7 @@ export function FreightTable({
               </div>
 
               <div className="flex gap-2">
-                <Button onClick={() => openDetailModal(group)} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white">
+                <Button onClick={() => openDetailModal(group)} className="flex-1 bg-gradient-to-br from-brand-400 to-brand-600 hover:from-brand-500 hover:to-brand-700 rounded-xl shadow-[0_6px_14px_-8px_rgba(94,122,38,0.8)] text-white">
                   <Eye className="w-4 h-4 mr-2" />
                   {subTab === "history" ? "View Details" : "Update Status"}
                 </Button>
@@ -769,8 +769,8 @@ export function FreightTable({
       <div className="hidden md:block overflow-x-auto">
         <Table>
           <TableHeader className="bg-slate-50 dark:bg-white/5 sticky top-0">
-            <TableRow className="border-b border-border bg-[#F1F5F9] dark:bg-slate-900 hover:bg-[#F1F5F9] dark:hover:bg-slate-900">
-              <TableHead className="sticky left-0 bg-slate-50 dark:bg-slate-900 z-10 w-[90px]">Action</TableHead>
+            <TableRow className="border-b border-border bg-slate-50 dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-900">
+              <TableHead className="sticky left-0 bg-slate-50 dark:bg-slate-900 z-10 w-[90px] border-r border-slate-200/70 dark:border-white/10">Action</TableHead>
               {columnDefs.map((col) => (
                 <TableHead key={col.key} style={{ width: col.width }} className={cn(col.align === "right" && "text-right", col.align === "center" && "text-center")}>
                   {col.label}
@@ -779,11 +779,11 @@ export function FreightTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {groupedPayments.map((group, idx) => (
-              <TableRow key={group.key} className={cn("hover:bg-slate-50/80 dark:hover:bg-white/5", idx % 2 === 0 ? "bg-card" : "bg-slate-50/30 dark:bg-white/2")}>
-                <TableCell className="sticky left-0 bg-inherit border-r border-border">
+            {groupedPayments.map((group) => (
+              <TableRow key={group.key} className="group bg-white dark:bg-transparent hover:bg-slate-50/70 dark:hover:bg-white/5">
+                <TableCell className="sticky left-0 z-10 bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800 border-r border-slate-200/70 dark:border-white/10 transition-colors">
                   <div className="flex gap-2">
-                    <Button onClick={() => openDetailModal(group)} size="sm" className="h-8 px-3 bg-blue-600 hover:bg-blue-700 text-white text-xs">
+                    <Button onClick={() => openDetailModal(group)} size="sm" variant="outline" className="h-8 px-3 rounded-lg text-[12px] font-semibold text-slate-700 hover:text-brand-700 hover:border-brand-300 hover:bg-brand-50/60 dark:text-slate-200">
                       {subTab === "history" ? <Eye className="w-3.5 h-3.5 mr-1" /> : <Check className="w-3.5 h-3.5 mr-1" />}
                       {subTab === "history" ? "View" : "Update"}
                     </Button>
@@ -791,7 +791,7 @@ export function FreightTable({
                       <Button
                         size="sm"
                         variant="outline"
-                        className="h-8 px-2 border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                        className="h-8 px-2 rounded-lg text-amber-700 hover:bg-amber-50 hover:border-amber-300"
                         title="Fill Google Form"
                         onClick={(e) => {
                            e.stopPropagation();
@@ -819,11 +819,11 @@ export function FreightTable({
                   <TableCell key={col.key} className={cn("py-3", col.align === "right" && "text-right", col.align === "center" && "text-center")}>
                     {col.key === "transporterName" ? (
                       <div className="flex items-center gap-1.5">
-                        <span className="text-xs text-slate-600 dark:text-slate-300 truncate block" title={group.parent["Transporter Name"]}>
+                        <span className="text-[13px] text-slate-600 dark:text-slate-300 truncate block" title={group.parent["Transporter Name"]}>
                           {group.parent["Transporter Name"] || "—"}
                         </span>
                         {group.isGrouped && (
-                          <span className="px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 text-[10px] font-bold shrink-0">
+                          <span className="px-1.5 py-px rounded-md bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 text-[11px] font-medium tabular-nums shrink-0">
                             {group.children.length}
                           </span>
                         )}
@@ -838,15 +838,15 @@ export function FreightTable({
       </div>
 
       {/* Footer */}
-      <div className="px-4 py-3 border-t border-border bg-slate-50/50 dark:bg-white/5 flex justify-between items-center text-sm">
+      <div className="px-5 py-3.5 border-t border-slate-100/80 dark:border-white/6 flex justify-between items-center text-sm">
         <span className="text-muted-foreground">Total Amount: <strong className="text-foreground">{formatCurrency(filteredPayments.reduce((sum, p) => sum + (p.Amount || 0), 0))}</strong></span>
         <span className="text-slate-400 dark:text-slate-500 text-xs">Updated: {new Date().toLocaleDateString("en-IN")}</span>
       </div>
 
       {/* Detail Modal */}
       <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
-        <DialogContent className="w-[94vw] sm:max-w-[920px] max-h-[90vh] h-[88vh] flex flex-col p-0 overflow-hidden bg-card border border-border rounded-2xl shadow-2xl">
-          <DialogHeader className="px-6 py-4 border-b border-border shrink-0 bg-card">
+        <DialogContent className="w-[94vw] sm:max-w-[920px] max-h-[90vh] h-[88vh] flex flex-col p-0 overflow-hidden bg-white dark:bg-slate-900 border border-white/70 dark:border-white/10 rounded-[28px] shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)]">
+          <DialogHeader className="px-6 py-5 border-b border-slate-100 dark:border-white/10 shrink-0 bg-white dark:bg-slate-900">
             <DialogTitle className="flex items-center gap-2">
               <FileText className="w-5 h-5 text-blue-600" />
               Shipment Details {selectedGroup?.isGrouped && "• Grouped"}
@@ -856,7 +856,7 @@ export function FreightTable({
           {selectedPayment && (
             <div className="flex-1 overflow-y-auto min-h-0 px-6 py-5 space-y-5 custom-scrollbar">
               {/* Header Card */}
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/15 dark:to-indigo-950/15 border border-blue-100/50 dark:border-blue-900/30 rounded-xl p-4">
+              <div className="bg-gradient-to-br from-brand-50 to-white dark:from-brand-900/15 dark:to-transparent ring-1 ring-brand-100/70 dark:ring-white/10 rounded-2xl p-4">
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="text-xs text-slate-500 uppercase tracking-wide">
@@ -915,7 +915,7 @@ export function FreightTable({
 
               {/* Audit Image Display */}
               {selectedPayment["Audit Image"] && (
-                <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl p-3 flex items-center justify-between">
+                <div className="bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-900 ring-1 ring-slate-100 dark:ring-white/10 rounded-2xl p-3.5 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Image className="w-4 h-4 text-slate-400" />
                     <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Audit Image</span>
@@ -933,7 +933,7 @@ export function FreightTable({
 
               {/* Transporter Bill Image Display */}
               {selectedPayment["Transporter Bill Image"] && (
-                <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl p-3 flex items-center justify-between">
+                <div className="bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-900 ring-1 ring-slate-100 dark:ring-white/10 rounded-2xl p-3.5 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Image className="w-4 h-4 text-slate-400" />
                     <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Transporter Bill Image</span>
@@ -956,7 +956,7 @@ export function FreightTable({
                     <FileText className="w-4 h-4 text-blue-600" />
                     Merged Shipments ({selectedGroup.children.length})
                   </h4>
-                  <div className="rounded-xl border border-border bg-card overflow-hidden max-h-[300px] overflow-y-auto">
+                  <div className="rounded-2xl ring-1 ring-slate-100 dark:ring-white/10 bg-card overflow-hidden max-h-[300px] overflow-y-auto">
                     <Table>
                       <TableHeader className="bg-slate-50 dark:bg-white/5 sticky top-0">
                         <TableRow className="border-b border-border">
@@ -1003,7 +1003,7 @@ export function FreightTable({
                               {child["Unique Number"] || "—"}
                             </TableCell>
                             <TableCell className="py-2.5">
-                              <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-white/5 border border-border text-[11px] font-semibold text-foreground">
+                              <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/5 border border-border text-[11px] font-semibold text-foreground">
                                 {child["Firm Name"] || "—"}
                               </span>
                             </TableCell>
@@ -1190,10 +1190,10 @@ export function FreightTable({
             </div>
           )}
 
-          <DialogFooter className="px-6 py-3.5 border-t border-border bg-slate-50/80 dark:bg-white/5 shrink-0 flex items-center justify-end gap-2.5 m-0 rounded-b-2xl">
+          <DialogFooter className="px-6 py-3.5 border-t border-slate-100 dark:border-white/10 bg-white dark:bg-slate-900 shrink-0 flex items-center justify-end gap-2.5 m-0 rounded-b-[28px]">
             <Button variant="outline" onClick={() => setShowDetailModal(false)}>Cancel</Button>
             {subTab !== "history" && onQuickUpdate && (
-              <Button onClick={handleUpdate} disabled={!updateStatus} className="bg-blue-600 hover:bg-blue-700 font-semibold shadow-xs">
+              <Button onClick={handleUpdate} disabled={!updateStatus} className="bg-gradient-to-br from-brand-400 to-brand-600 hover:from-brand-500 hover:to-brand-700 rounded-xl shadow-[0_6px_14px_-8px_rgba(94,122,38,0.8)] font-semibold shadow-xs">
                 <Check className="w-4 h-4 mr-2" />
                 Update Status
               </Button>

@@ -176,13 +176,13 @@ export function FreightForm({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-4xl sm:max-w-4xl w-[94vw] max-h-[90vh] h-[88vh] flex flex-col p-0 overflow-hidden rounded-2xl border border-slate-200/90 shadow-2xl shadow-slate-950/25 ring-1 ring-slate-900/5 dark:border-white/10"
+        className="max-w-4xl sm:max-w-4xl w-[94vw] max-h-[90vh] h-[88vh] flex flex-col p-0 overflow-hidden rounded-[28px] border border-white/70 shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)] ring-1 ring-slate-900/5 dark:border-white/10"
         style={{ background: "rgba(255,255,255,0.97)", backdropFilter: "blur(20px)" }}
       >
         {/* ─── Header ─── */}
         <DialogHeader className="px-6 pt-5 pb-4 border-b border-slate-100 shrink-0 relative">
           {/* Brand accent top bar */}
-          <div className="absolute top-0 left-0 right-0 h-[3px] rounded-t-2xl bg-linear-to-r from-brand-600 via-brand-400 to-brand-200" />
+          <div className="absolute top-0 left-0 right-0 h-[3px] rounded-t-[28px] bg-linear-to-r from-brand-600 via-brand-400 to-brand-200" />
 
           <div className="flex items-center justify-between mt-1">
             <div className="flex items-center gap-3">
@@ -234,12 +234,12 @@ export function FreightForm({
             <div className="space-y-3">
               <SectionHeader icon={<Truck className="w-3.5 h-3.5 text-brand-600" />} label="Freight Details" />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 bg-brand-50/30 p-5 rounded-xl border border-brand-100/60">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 bg-gradient-to-br from-brand-50/70 to-white p-5 rounded-2xl ring-1 ring-brand-100/60">
 
                 {/* Unique Number */}
                 <FieldWrap label="Unique Number" icon={<Hash className="w-3 h-3" />} required error={touched["Unique Number"] && errors["Unique Number"]}>
                   <Input
-                    className={cn("h-9 bg-white border-slate-200 rounded-lg text-[13px] font-mono", touched["Unique Number"] && errors["Unique Number"] && "border-rose-300 focus-visible:border-rose-400")}
+                    className={cn("h-10 bg-slate-50/70 border-slate-200/80 rounded-xl focus-visible:bg-white text-[13px] font-mono", touched["Unique Number"] && errors["Unique Number"] && "border-rose-300 focus-visible:border-rose-400")}
                     value={formData["Unique Number"] || ""}
                     onChange={(e) => updateField("Unique Number", e.target.value)}
                     onBlur={() => handleBlur("Unique Number")}
@@ -254,7 +254,7 @@ export function FreightForm({
                     onValueChange={(v) => updateField("Firm Name", v)}
                     disabled={!!userFirm}
                   >
-                    <SelectTrigger className={cn("h-9 bg-white border-slate-200 rounded-lg text-[13px]", userFirm && "opacity-70 cursor-not-allowed", touched["Firm Name"] && errors["Firm Name"] && "border-rose-300")}>
+                    <SelectTrigger className={cn("h-10 bg-slate-50/70 border-slate-200/80 rounded-xl focus-visible:bg-white text-[13px]", userFirm && "opacity-70 cursor-not-allowed", touched["Firm Name"] && errors["Firm Name"] && "border-rose-300")}>
                       <SelectValue placeholder="Select firm" />
                     </SelectTrigger>
                     <SelectContent>
@@ -267,13 +267,13 @@ export function FreightForm({
 
                 {/* FMS Name */}
                 <FieldWrap label="FMS Name">
-                  <Input className="h-9 bg-white border-slate-200 rounded-lg text-[13px]" value={formData["Fms Name"] || ""} onChange={(e) => updateField("Fms Name", e.target.value)} placeholder="e.g., FMS-A" />
+                  <Input className="h-10 bg-slate-50/70 border-slate-200/80 rounded-xl focus-visible:bg-white text-[13px]" value={formData["Fms Name"] || ""} onChange={(e) => updateField("Fms Name", e.target.value)} placeholder="e.g., FMS-A" />
                 </FieldWrap>
 
                 {/* Transporter Name */}
                 <FieldWrap label="Transporter" icon={<Truck className="w-3 h-3" />} required error={touched["Transporter Name"] && errors["Transporter Name"]}>
                   <Input
-                    className={cn("h-9 bg-white border-slate-200 rounded-lg text-[13px]", touched["Transporter Name"] && errors["Transporter Name"] && "border-rose-300")}
+                    className={cn("h-10 bg-slate-50/70 border-slate-200/80 rounded-xl focus-visible:bg-white text-[13px]", touched["Transporter Name"] && errors["Transporter Name"] && "border-rose-300")}
                     value={formData["Transporter Name"] || ""}
                     onChange={(e) => updateField("Transporter Name", e.target.value)}
                     onBlur={() => handleBlur("Transporter Name")}
@@ -284,7 +284,7 @@ export function FreightForm({
                 {/* Vehicle Number */}
                 <FieldWrap label="Vehicle No." icon={<Truck className="w-3 h-3" />} required error={touched["Vehicle Number"] && errors["Vehicle Number"]}>
                   <Input
-                    className={cn("h-9 bg-white border-slate-200 rounded-lg text-[13px] font-mono", touched["Vehicle Number"] && errors["Vehicle Number"] && "border-rose-300")}
+                    className={cn("h-10 bg-slate-50/70 border-slate-200/80 rounded-xl focus-visible:bg-white text-[13px] font-mono", touched["Vehicle Number"] && errors["Vehicle Number"] && "border-rose-300")}
                     value={formData["Vehicle Number"] || ""}
                     onChange={(e) => updateField("Vehicle Number", e.target.value)}
                     onBlur={() => handleBlur("Vehicle Number")}
@@ -294,43 +294,43 @@ export function FreightForm({
 
                 {/* From */}
                 <FieldWrap label="From" icon={<MapPin className="w-3 h-3" />}>
-                  <Input className="h-9 bg-white border-slate-200 rounded-lg text-[13px]" value={formData.From || ""} onChange={(e) => updateField("From", e.target.value)} placeholder="Origin city" />
+                  <Input className="h-10 bg-slate-50/70 border-slate-200/80 rounded-xl focus-visible:bg-white text-[13px]" value={formData.From || ""} onChange={(e) => updateField("From", e.target.value)} placeholder="Origin city" />
                 </FieldWrap>
 
                 {/* To */}
                 <FieldWrap label="To" icon={<MapPin className="w-3 h-3" />}>
-                  <Input className="h-9 bg-white border-slate-200 rounded-lg text-[13px]" value={formData.To || ""} onChange={(e) => updateField("To", e.target.value)} placeholder="Destination city" />
+                  <Input className="h-10 bg-slate-50/70 border-slate-200/80 rounded-xl focus-visible:bg-white text-[13px]" value={formData.To || ""} onChange={(e) => updateField("To", e.target.value)} placeholder="Destination city" />
                 </FieldWrap>
 
                 {/* Material Details */}
                 <FieldWrap label="Material Details" className="lg:col-span-2">
-                  <Input className="h-9 bg-white border-slate-200 rounded-lg text-[13px]" value={formData["Material Load Details"] || ""} onChange={(e) => updateField("Material Load Details", e.target.value)} placeholder="e.g., Steel Coils, Electronics, Textiles..." />
+                  <Input className="h-10 bg-slate-50/70 border-slate-200/80 rounded-xl focus-visible:bg-white text-[13px]" value={formData["Material Load Details"] || ""} onChange={(e) => updateField("Material Load Details", e.target.value)} placeholder="e.g., Steel Coils, Electronics, Textiles..." />
                 </FieldWrap>
 
                 {/* Bilty Number */}
                 <FieldWrap label="Bilty Number">
-                  <Input className="h-9 bg-white border-slate-200 rounded-lg text-[13px] font-mono" value={formData["Bilty Number"] || ""} onChange={(e) => updateField("Bilty Number", e.target.value)} placeholder="e.g., BLT-8921" />
+                  <Input className="h-10 bg-slate-50/70 border-slate-200/80 rounded-xl focus-visible:bg-white text-[13px] font-mono" value={formData["Bilty Number"] || ""} onChange={(e) => updateField("Bilty Number", e.target.value)} placeholder="e.g., BLT-8921" />
                 </FieldWrap>
 
                 {/* Party Name */}
                 <FieldWrap label="Party Name">
-                  <Input className="h-9 bg-white border-slate-200 rounded-lg text-[13px]" value={formData["Party Name"] || ""} onChange={(e) => updateField("Party Name", e.target.value)} placeholder="e.g., Party Name" />
+                  <Input className="h-10 bg-slate-50/70 border-slate-200/80 rounded-xl focus-visible:bg-white text-[13px]" value={formData["Party Name"] || ""} onChange={(e) => updateField("Party Name", e.target.value)} placeholder="e.g., Party Name" />
                 </FieldWrap>
 
                 {/* Billing Qty */}
                 <FieldWrap label="Billing Qty">
-                  <Input type="number" className="h-9 bg-white border-slate-200 rounded-lg text-[13px]" value={formData["Billing Qty"] ?? ""} onChange={(e) => updateField("Billing Qty", e.target.value === "" ? null : Number(e.target.value))} placeholder="e.g., 25" />
+                  <Input type="number" className="h-10 bg-slate-50/70 border-slate-200/80 rounded-xl focus-visible:bg-white text-[13px]" value={formData["Billing Qty"] ?? ""} onChange={(e) => updateField("Billing Qty", e.target.value === "" ? null : Number(e.target.value))} placeholder="e.g., 25" />
                 </FieldWrap>
 
                 {/* Bill Number */}
                 <FieldWrap label="Bill Number">
-                  <Input className="h-9 bg-white border-slate-200 rounded-lg text-[13px] font-mono" value={formData["Bill Number"] || ""} onChange={(e) => updateField("Bill Number", e.target.value)} placeholder="e.g., BILL-1234" />
+                  <Input className="h-10 bg-slate-50/70 border-slate-200/80 rounded-xl focus-visible:bg-white text-[13px] font-mono" value={formData["Bill Number"] || ""} onChange={(e) => updateField("Bill Number", e.target.value)} placeholder="e.g., BILL-1234" />
                 </FieldWrap>
 
                 {/* Rate Type */}
                 <FieldWrap label="Rate Type">
                   <Select value={formData["Rate Type"] || "Per Ton"} onValueChange={(v) => updateField("Rate Type", v)}>
-                    <SelectTrigger className="h-9 bg-white border-slate-200 rounded-lg text-[13px]">
+                    <SelectTrigger className="h-10 bg-slate-50/70 border-slate-200/80 rounded-xl focus-visible:bg-white text-[13px]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -345,7 +345,7 @@ export function FreightForm({
                 <FieldWrap label="Amount (₹)" icon={<DollarSign className="w-3 h-3" />} error={touched.Amount && errors.Amount}>
                   <Input
                     type="number"
-                    className={cn("h-9 bg-white border-slate-200 rounded-lg text-[13px] font-semibold", touched.Amount && errors.Amount && "border-rose-300")}
+                    className={cn("h-10 bg-slate-50/70 border-slate-200/80 rounded-xl focus-visible:bg-white text-[13px] font-semibold", touched.Amount && errors.Amount && "border-rose-300")}
                     value={formData.Amount || 0}
                     onChange={(e) => updateField("Amount", parseFloat(e.target.value) || 0)}
                     onBlur={() => handleBlur("Amount")}
@@ -360,7 +360,7 @@ export function FreightForm({
                     <Image className="w-3 h-3" /> Bilty Image
                   </label>
                   {formData["Bilty Image"] ? (
-                    <div className="flex items-center gap-3 h-9 bg-white border border-slate-200 rounded-lg px-3">
+                    <div className="flex items-center gap-3 h-10 bg-slate-50/70 border border-slate-200/80 rounded-xl px-3">
                       <a href={formData["Bilty Image"]} target="_blank" rel="noopener noreferrer" className="text-[12px] text-brand-600 font-semibold hover:underline truncate flex-1">
                         View uploaded image
                       </a>
@@ -403,10 +403,10 @@ export function FreightForm({
                 <SectionHeader icon={<Layers className="w-3.5 h-3.5 text-brand-600" />} label="Workflow Steps" />
 
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                  <TabsList className="grid grid-cols-3 gap-1.5 bg-slate-100/80 p-1 rounded-xl mb-4 h-auto">
+                  <TabsList className="grid grid-cols-3 gap-1.5 bg-slate-100/80 p-1 rounded-2xl mb-4 h-auto">
                     <TabsTrigger
                       value="checkkitting"
-                      className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-brand-700 text-[11px] font-bold py-2 gap-1.5 transition-all"
+                      className="rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-brand-700 text-[11px] font-bold py-2 gap-1.5 transition-all"
                       style={jk}
                     >
                       <Package className="w-3.5 h-3.5 text-brand-500 shrink-0" />
@@ -414,7 +414,7 @@ export function FreightForm({
                     </TabsTrigger>
                     <TabsTrigger
                       value="posting"
-                      className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-blue-700 text-[11px] font-bold py-2 gap-1.5 transition-all"
+                      className="rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-blue-700 text-[11px] font-bold py-2 gap-1.5 transition-all"
                       style={jk}
                     >
                       <FileText className="w-3.5 h-3.5 text-blue-500 shrink-0" />
@@ -422,7 +422,7 @@ export function FreightForm({
                     </TabsTrigger>
                     <TabsTrigger
                       value="makepayment"
-                      className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-amber-700 text-[11px] font-bold py-2 gap-1.5 transition-all"
+                      className="rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-amber-700 text-[11px] font-bold py-2 gap-1.5 transition-all"
                       style={jk}
                     >
                       <Banknote className="w-3.5 h-3.5 text-amber-500 shrink-0" />
@@ -469,7 +469,7 @@ export function FreightForm({
                 </Tabs>
 
                 {/* Overall Status */}
-                <div className="bg-slate-50/60 rounded-xl border border-slate-200/60 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="bg-gradient-to-br from-slate-50 to-white rounded-2xl ring-1 ring-slate-100 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5">
                     <div className="p-2 bg-white rounded-lg border border-slate-100 shadow-sm">
                       <Layers className="w-4 h-4 text-brand-500" />
@@ -481,7 +481,7 @@ export function FreightForm({
                   </div>
                   <div className="w-full sm:w-56">
                     <Select value={formData.Status} onValueChange={(v) => updateField("Status", v)}>
-                      <SelectTrigger className="h-9 bg-white border-slate-200 rounded-lg text-[13px] font-medium">
+                      <SelectTrigger className="h-10 bg-slate-50/70 border-slate-200/80 rounded-xl focus-visible:bg-white text-[13px] font-medium">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -494,14 +494,14 @@ export function FreightForm({
 
                 {/* Overall Remark */}
                 <FieldWrap label="Overall Remark">
-                  <Input className="h-9 bg-white border-slate-200 rounded-lg text-[13px]" value={formData.Remark || ""} onChange={(e) => updateField("Remark", e.target.value)} placeholder="Enter overall remark…" />
+                  <Input className="h-10 bg-slate-50/70 border-slate-200/80 rounded-xl focus-visible:bg-white text-[13px]" value={formData.Remark || ""} onChange={(e) => updateField("Remark", e.target.value)} placeholder="Enter overall remark…" />
                 </FieldWrap>
               </div>
             )}
           </div>
 
           {/* ─── Footer ─── */}
-          <DialogFooter className="px-6 py-3.5 border-t border-slate-100 dark:border-white/10 bg-slate-50/80 dark:bg-white/5 flex flex-col-reverse sm:flex-row gap-2 sm:items-center sm:justify-between shrink-0 m-0 rounded-b-2xl">
+          <DialogFooter className="px-6 py-3.5 border-t border-slate-100 dark:border-white/10 bg-white dark:bg-slate-900 flex flex-col-reverse sm:flex-row gap-2 sm:items-center sm:justify-between shrink-0 m-0 rounded-b-[28px]">
             <Button
               type="button"
               variant="outline"
@@ -514,7 +514,7 @@ export function FreightForm({
             <Button
               type="submit"
               disabled={isPending}
-              className="rounded-xl w-full sm:w-auto px-7 h-10 bg-brand-600 hover:bg-brand-700 text-white font-bold text-[12px] shadow-md shadow-brand-600/25 disabled:opacity-50 transition-all"
+              className="rounded-xl w-full sm:w-auto px-7 h-10 bg-gradient-to-br from-brand-400 to-brand-600 hover:from-brand-500 hover:to-brand-700 text-white font-bold text-[12px] shadow-[0_8px_18px_-10px_rgba(94,122,38,0.8)] disabled:opacity-50 transition-all"
               style={jk}
             >
               {isPending ? (
@@ -610,7 +610,7 @@ function StepCard({ title, status, onStatusChange, statusOptions, color, remark,
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <FieldWrap label="Status">
           <Select value={status} onValueChange={onStatusChange}>
-            <SelectTrigger className="h-9 bg-white border-slate-200 rounded-lg text-[13px] font-medium">
+            <SelectTrigger className="h-10 bg-slate-50/70 border-slate-200/80 rounded-xl focus-visible:bg-white text-[13px] font-medium">
               <SelectValue placeholder="Update status" />
             </SelectTrigger>
             <SelectContent>
@@ -622,7 +622,7 @@ function StepCard({ title, status, onStatusChange, statusOptions, color, remark,
         </FieldWrap>
 
         <FieldWrap label="Remark">
-          <Input className="h-9 bg-white border-slate-200 rounded-lg text-[13px]" value={remark || ""} onChange={(e) => onRemarkChange?.(e.target.value)} placeholder="Enter remark…" />
+          <Input className="h-10 bg-slate-50/70 border-slate-200/80 rounded-xl focus-visible:bg-white text-[13px]" value={remark || ""} onChange={(e) => onRemarkChange?.(e.target.value)} placeholder="Enter remark…" />
         </FieldWrap>
       </div>
     </div>
