@@ -60,6 +60,7 @@ export interface LiftAccountRateRow {
   "Transporting Rate"?: number | null;
   "Transporter Rate"?: number | null;
   "Lifting Qty"?: number | null;
+  "Transporter Name"?: string | null;
 }
 
 // Real per-trip transportation rate data — Order Management side (see getDispatchRates).
@@ -75,6 +76,7 @@ export interface DispatchRateRow {
   "Truck No."?: string | null;
   "Transporter Name"?: string | null;
   "Product Name"?: string | null;
+  "Type Of Transporting"?: string | null;
 }
 
 // "D-Sr Number" is not unique in DISPATCH (one number can cover several
@@ -224,7 +226,7 @@ export const api = {
       return await fetchAll<LiftAccountRateRow>((from, to) =>
         purchaseSupabase
           .from("LIFT-ACCOUNTS")
-          .select('"Lift No","Bilty No.","Type Of Transporting Rate","Transporting Rate","Transporter Rate","Lifting Qty"')
+          .select('"Lift No","Bilty No.","Type Of Transporting Rate","Transporting Rate","Transporter Rate","Lifting Qty","Transporter Name"')
           .range(from, to)
       );
     } catch (e) {
@@ -242,7 +244,7 @@ export const api = {
       return await fetchAll<DispatchRateRow>((from, to) =>
         orderSupabase
           .from("DISPATCH")
-          .select('"D-Sr Number","Bilty No.","Type Of Rate","Transport Rate @Per Matric Ton","Fixed Amount","Total Transporter Amount","Qty To Be Dispatched","Actual Truck Qty","Truck No.","Transporter Name","Product Name"')
+          .select('"D-Sr Number","Bilty No.","Type Of Rate","Transport Rate @Per Matric Ton","Fixed Amount","Total Transporter Amount","Qty To Be Dispatched","Actual Truck Qty","Truck No.","Transporter Name","Product Name","Type Of Transporting"')
           .range(from, to)
       );
     } catch (e) {

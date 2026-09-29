@@ -31,18 +31,35 @@ function productName(p: FreightPayment): string {
   return v || "Unspecified";
 }
 
+// Trips we never paid freight on: the supplier delivered it ("For"), the
+// party collected it ("Ex Factory" / "By Company"), or it went in our own
+// truck. They aren't transport costs, so Route Rates leaves them out
+// entirely — not even as an estimate. Checked on the transporter name (both
+// systems) and on Order's "Type Of Transporting", since either can carry it.
+const compact = (v?: string | null) => String(v ?? "").replace(/\s+/g, "").toLowerCase();
+const NO_FREIGHT_TRANSPORTERS = new Set([
+  "for",
+  "exfactory",
+  "exfactorytransporter",
+  "exfact.",
+  "bycompany",
+  "ownedtruck",
+  "owntruck",
+  "own.truck",
+]);
+const NO_FREIGHT_ORDER_TRANSPORTING = new Set(["exfactory", "ownedtruck"]);
+
 // "verified" = rate comes straight from Purchase/Order's own rate field,
 //              billed Per MT / Per Matric Ton — this is a real, accurate rate.
 // "derived"  = the bill is a Fixed lumpsum, or no Purchase/Order record could
 //              be matched — ₹/MT is worked out as total charge ÷ billing qty.
-// "estimated"= no transportation charge at all (FOR / Ex Factory) — the MT is
-//              real, the ₹/MT is guessed from real trips on the same route.
-// A group only falls back to a weaker basis when it has none of the stronger
-// one (see aggregate).
-type RateBasis = "verified" | "derived" | "estimated";
+// Trips with no charge entered are left out — no rate is ever guessed.
+// A group only falls back to "derived" when it has no "verified" trip
+// (see aggregate).
+type RateBasis = "verified" | "derived";
 
-const BASIS_ORDER: RateBasis[] = ["verified", "derived", "estimated"];
-const basisMark = (b: RateBasis) => (b === "derived" ? "≈" : b === "estimated" ? "~" : "");
+const BASIS_ORDER: RateBasis[] = ["verified", "derived"];
+const basisMark = (b: RateBasis) => (b === "derived" ? "≈" : "");
 
 interface Trip {
   firm: string;
@@ -70,8 +87,8 @@ interface Agg {
 }
 
 // Declared Per MT rates always win; Fixed (charge ÷ qty) trips only count
-// when the group has no declared rate, and estimated ones only when it has
-// neither — so a mis-entered bill or a guess can't drag a real ₹/MT around.
+// when the group has no declared rate — so a mis-entered bill can't drag a
+// real ₹/MT around.
 function aggregate(all: Trip[]): Agg {
   const basis = BASIS_ORDER.find((b) => all.some((r) => r.basis === b)) || "verified";
   const rows = all.filter((r) => r.basis === basis);
@@ -317,6 +334,14 @@ export function RouteRates({ payments }: Props) {
       const matchedDispatch =
         fmsName === "Order Management System" && liftId ? pickDispatchRow(dispatchMap.get(liftId), p) : undefined;
 
+      const transporterNames = [
+        p["Transporter Name"],
+        fmsName === "Purchase FMS" ? liftAccountMap.get(liftId)?.["Transporter Name"] : undefined,
+        matchedDispatch?.["Transporter Name"],
+      ].map(compact);
+      if (transporterNames.some((t) => NO_FREIGHT_TRANSPORTERS.has(t))) continue;
+      const orderTransporting = compact(matchedDispatch?.["Type Of Transporting"]);
+      if (NO_FREIGHT_ORDER_TRANSPORTING.has(orderTransporting)) continue;
       const billingQty = Number(p["Billing Qty"]) || 0;
       let amount = 0;
       let qty = 0;
@@ -361,11 +386,9 @@ export function RouteRates({ payments }: Props) {
         qty = billingQty;
       }
 
-      if (!(qty > 0)) continue;
-
-      // No transportation charge at all (FOR / Ex Factory / blank Fixed) —
-      // keep the MT and fill in an estimated rate once all real rates are known.
-      if (!(amount > 0)) basis = "estimated";
+      // Only real, entered charges are shown — a trip with no charge is never
+      // filled in with a guessed rate.
+      if (!(qty > 0) || !(amount > 0)) continue;
 
       out.push({
         firm: clean(p["Firm Name"]) || "-",
@@ -381,44 +404,7 @@ export function RouteRates({ payments }: Props) {
         basis,
       });
     }
-
-    // Estimate the ₹/MT for no-charge trips from real trips (declared rate
-    // first, then Fixed) on the same Firm → Party route — narrowest match
-    // first: same product & month, same product, same month, any. If the
-    // route has no real trip, fall back to any firm's trips to that party.
-    const rateSums = new Map<string, { amount: number; qty: number }>();
-    for (const t of out) {
-      if (t.basis === "estimated") continue;
-      for (const firm of [t.firm, "*"]) {
-        const route = `${t.basis}||${firm}||${t.party}`;
-        for (const k of [`${route}||${t.product}||${t.month}`, `${route}||${t.product}||`, `${route}||||${t.month}`, `${route}||||`]) {
-          const s = rateSums.get(k) || { amount: 0, qty: 0 };
-          s.amount += t.amount;
-          s.qty += t.qty;
-          rateSums.set(k, s);
-        }
-      }
-    }
-    const result: Trip[] = [];
-    for (const t of out) {
-      if (t.basis !== "estimated") {
-        result.push(t);
-        continue;
-      }
-      let rate = 0;
-      search: for (const firm of [t.firm, "*"]) {
-        for (const suffix of [`${t.product}||${t.month}`, `${t.product}||`, `||${t.month}`, `||`]) {
-          const s = rateSums.get(`verified||${firm}||${t.party}||${suffix}`) || rateSums.get(`derived||${firm}||${t.party}||${suffix}`);
-          if (s) {
-            rate = s.amount / s.qty;
-            break search;
-          }
-        }
-      }
-      // No real trip on this route to estimate from — nothing honest to show.
-      if (rate > 0) result.push({ ...t, amount: rate * t.qty });
-    }
-    return result;
+    return out;
   }, [payments, liftAccountMap, dispatchMap]);
 
   const firms = useMemo(() => [...new Set(trips.map((t) => t.firm))].sort(), [trips]);
