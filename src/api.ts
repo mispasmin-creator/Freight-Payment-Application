@@ -152,10 +152,12 @@ export const api = {
     }
   },
 
-  getNextKitNumber: async (): Promise<string> => {
-    const { data, error } = await supabase.rpc("increment_kit_counter");
+  // New submissions get FR-001, FR-002, ... from their own counter
+  // (sql/fr_counter.sql). Rows already saved keep their old KIT-... numbers.
+  getNextFreightNumber: async (): Promise<string> => {
+    const { data, error } = await supabase.rpc("increment_fr_counter");
     if (error) throw error;
-    return `KIT-${String(data).padStart(6, "0")}`;
+    return `FR-${String(data).padStart(3, "0")}`;
   },
 
   getCheckKittingPayments: async (): Promise<FreightPayment[]> => {
@@ -192,10 +194,14 @@ export const api = {
       console.error("Failed to fetch DISPATCH data from orderSupabase", e);
     }
 
+    // Rows here have already been submitted into the freight system, so the
+    // amount saved in Supabase at submit time is the one to show. The live
+    // Order (DISPATCH) amount is only a fallback when nothing was saved.
     const result = (data || []).map((item) => {
       const fmsName = String(item["Fms Name"] || "").trim();
       const liftId = String(item["Lift ID"] || "").trim().toLowerCase();
-      if (fmsName === "Order Management System" && liftId) {
+      const hasSavedAmount = item.Amount !== undefined && item.Amount !== null && String(item.Amount).trim() !== "";
+      if (fmsName === "Order Management System" && liftId && !hasSavedAmount) {
         const dispatch = pickDispatchRow(dispatchMap.get(liftId), item);
         const totalAmount = dispatch?.["Total Transporter Amount"];
         if (totalAmount !== undefined && totalAmount !== null) {

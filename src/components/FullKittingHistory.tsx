@@ -236,7 +236,7 @@ const formatCurrency = (amount?: number | null) => {
 
 // Purely a local tracking key (selection/dedup Sets in this component) — content-derived
 // from the source row, so it stays stable across renders without being saved anywhere.
-// The actual "Unique Number" saved to the database now comes from api.getNextKitNumber().
+// The actual "Unique Number" saved to the database now comes from api.getNextFreightNumber().
 const getRowUniqueId = (row: KittingHistoryItem): string => {
   return `KIT-${row.liftId}-${row.biltyNumber || ""}-${row.vehicleNumber || ""}`.replace(
     /\s+/g,
@@ -252,10 +252,10 @@ const isRowProcessed = (row: KittingHistoryItem, processedIds: Set<string>): boo
 };
 
 const toSystemPayment = async (row: KittingHistoryItem, batchId?: string): Promise<Partial<FreightPayment>> => {
-  const kitNumber = await api.getNextKitNumber();
+  const freightNumber = await api.getNextFreightNumber();
   return {
-    "Payment Number": kitNumber,
-    "Unique Number": kitNumber,
+    "Payment Number": freightNumber,
+    "Unique Number": freightNumber,
     "Lift ID": row.liftId,
     "Firm Name": row.firmName,
     "Fms Name": row.systemName || "Account Checking",
@@ -612,7 +612,7 @@ export function FullKittingHistory({
           }
           if (p["Lift ID"]) {
             // Reconstruct the content-based key (Lift+Bilty+Vehicle) so dedup still
-            // works now that "Unique Number" is a sequential KIT-000001 style value.
+            // works now that "Unique Number" is a sequential FR-001 style value.
             pIds.add(
               `KIT-${p["Lift ID"]}-${p["Bilty Number"] || ""}-${p["Vehicle Number"] || ""}`.replace(/\s+/g, ""),
             );
