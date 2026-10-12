@@ -506,7 +506,7 @@ export function FreightDashboard({ user, onLogout }: FreightDashboardProps) {
       const amounts = Array.isArray(amount) ? amount : Array(payments.length).fill(amount);
 
       const updateDataArray = payments.map((p, idx) => {
-        const updateData: Partial<FreightPayment> & { id: number } = { id: p.id! };
+        const updateData: Partial<FreightPayment> & { id: number } = { id: p.id!, "Unique Number": p["Unique Number"] };
         const amt = amounts[idx];
 
         if (step === "checkkitting") {
