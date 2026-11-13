@@ -420,17 +420,37 @@ function buildOrderRows(
     if (key) ordersById.set(key, order);
   }
 
-  const deliveryByDsr = new Map<string, DeliveryRow>();
+  // A D-Sr Number is not unique in DELIVERY (one D-Sr can have several DOs/trucks),
+  // so match on D-Sr + Delivery Order No. Matching on D-Sr alone picked an arbitrary
+  // row and saved another truck's bilty number.
+  const deliveryByDsrDo = new Map<string, DeliveryRow>();
+  const deliveriesByDsr = new Map<string, DeliveryRow[]>();
   for (const delivery of deliveryRows) {
-    const key = str(delivery["D-Sr Number"]);
-    if (key && !deliveryByDsr.has(key)) deliveryByDsr.set(key, delivery);
+    const dsr = str(delivery["D-Sr Number"]);
+    if (!dsr) continue;
+    const doNo = str(delivery["Delivery Order No."]);
+    if (doNo && !deliveryByDsrDo.has(`${dsr}|${doNo}`)) deliveryByDsrDo.set(`${dsr}|${doNo}`, delivery);
+    const list = deliveriesByDsr.get(dsr);
+    if (list) list.push(delivery);
+    else deliveriesByDsr.set(dsr, [delivery]);
   }
+  const findDelivery = (dispatch: DispatchRow): DeliveryRow | undefined => {
+    const dsr = str(dispatch["D-Sr Number"]);
+    const doNo = str(dispatch["Delivery Order No."]);
+    if (doNo) {
+      const exact = deliveryByDsrDo.get(`${dsr}|${doNo}`);
+      if (exact) return exact;
+    }
+    // No DO to match on: only trust the D-Sr when it maps to a single delivery.
+    const candidates = deliveriesByDsr.get(dsr);
+    return candidates && candidates.length === 1 ? candidates[0] : undefined;
+  };
 
   return dispatchRows
     .filter((dispatch) => isFilled(dispatch["Fullkitting Actual"]) && str(dispatch["Fullkitting Status"]).toLowerCase() !== "no")
     .map((dispatch) => {
       const order = ordersById.get(str(dispatch.po_id));
-      const delivery = deliveryByDsr.get(str(dispatch["D-Sr Number"]));
+      const delivery = findDelivery(dispatch);
       const ratePerMt = num(dispatch["Transport Rate @Per Matric Ton"]);
       const actualQty = num(dispatch["Actual Truck Qty"]);
       const freightAmount = firstNumber(
@@ -439,11 +459,15 @@ function buildOrderRows(
         order?.["Freight Amount"],
         ratePerMt !== null && actualQty !== null ? ratePerMt * actualQty : undefined,
       );
-      const biltyNumber = firstFilled(
+      const biltyCandidates = [
+        dispatch["Bilty No."],
         delivery?.["Bilty No."],
         delivery?.["Bilty Number."],
-        dispatch["Bilty No."],
-      );
+      ];
+      // Prefer a real bilty number; fall back to placeholders like "00" only if nothing else.
+      const biltyNumber =
+        biltyCandidates.map(str).find((b) => validBilty(b) && b !== "00") ||
+        firstFilled(...biltyCandidates);
       const hasBilty: "Yes" | "No" =
         validBilty(delivery?.["Bilty Copy"]) || validBilty(biltyNumber)
           ? "Yes"

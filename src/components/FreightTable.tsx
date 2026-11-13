@@ -182,9 +182,13 @@ export function FreightTable({
       const stepStatus = String(getStepField(payment, "status") || "").trim();
       const statusOk = statusFilter === "all" || stepStatus === statusFilter;
       const searchOk = !term || [
-        payment["Unique Number"], payment["Firm Name"], payment["Fms Name"],
-        payment["Transporter Name"], payment["Vehicle Number"], payment.From, payment.To
-      ].some(v => String(v || "").toLowerCase().includes(term));
+        payment["Unique Number"], payment["Payment Number"], payment["Firm Name"], payment["Fms Name"],
+        payment["Transporter Name"], payment["Vehicle Number"], payment.From, payment.To,
+        payment["Lift ID"], payment["Bilty Number"], payment["Party Name"],
+        payment["Bill Number"], payment["Batch Number"], payment["Material Load Details"],
+        payment.Amount, payment["Billing Qty"],
+        payment.Remark3, payment.Remark_1, payment.Remark2, payment.Remark,
+      ].some(v => String(v ?? "").toLowerCase().includes(term));
       
       return firmOk && statusOk && searchOk;
     });
